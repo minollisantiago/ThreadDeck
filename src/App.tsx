@@ -5,7 +5,7 @@ import { Badge } from './components/ui/badge'
 import { Input } from './components/ui/input'
 import { useSnapshot } from './hooks/use-snapshot'
 import { discordLinks, isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
-import { projectOrder, relativeTime, visibleProjects, workingCount, type Filter } from './lib/view'
+import { projectOrder, relativeTime, sessionOrder, visibleProjects, workingCount, type Filter } from './lib/view'
 
 const palettes = ['pink', 'lavender', 'blue', 'green', 'peach'] as const
 type Palette = typeof palettes[number]
@@ -50,7 +50,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now }: {
       </span>
     </button>
     <div id={`sessions-${project.id}`} hidden={collapsed} className="project-sessions">
-      {project.sessions.length ? project.sessions.map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} />)
+      {project.sessions.length ? sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} />)
         : <p className="project-empty">No recent Discord sessions.</p>}
     </div>
   </section>

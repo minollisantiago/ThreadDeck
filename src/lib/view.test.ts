@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { Project } from '../../shared/model'
-import { projectOrder, visibleProjects } from './view'
+import { projectOrder, sessionOrder, visibleProjects } from './view'
 
 const projects: Project[] = [
   { id: 'one', name: 'Alpha', directory: '/alpha', sessions: [{ id: 'a', title: 'Fix layout', projectId: 'one', guildId: null, threadId: '1', status: 'working', updatedAt: 100, agentCount: 1 }] },
@@ -23,4 +23,13 @@ it('orders active projects first without mutating the source', () => {
   const idle = { ...projects[0], sessions: projects[0].sessions.map(s => ({ ...s, agentCount: 0, status: 'idle' as const })) }
   expect(projectOrder([idle, projects[1]], true).map(p => p.id)).toEqual(['two', 'one'])
   expect(projects[0].name).toBe('Alpha')
+})
+it('puts working sessions first while preserving the order within each group', () => {
+  const idle = { ...projects[0].sessions[0], id: 'idle', status: 'idle' as const, agentCount: 0 }
+  const working = projects[0].sessions[0]
+  const attention = projects[1].sessions[0]
+  const sessions = [idle, working, attention, { ...working, id: 'other-working', agentCount: 2 }]
+  expect(sessionOrder(sessions, true).map(s => s.id)).toEqual(['a', 'other-working', 'idle', 'b'])
+  expect(sessions.map(s => s.id)).toEqual(['idle', 'a', 'b', 'other-working'])
+  expect(sessionOrder(sessions, false)).toEqual(sessions)
 })

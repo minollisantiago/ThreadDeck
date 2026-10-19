@@ -47,6 +47,19 @@ it('does not collapse an expanded project when its agent becomes idle', () => {
   rerender(<Dashboard snapshot={idle} now={now} />)
   expect(screen.getByRole('button', { name: /Alpha/ }).getAttribute('aria-expanded')).toBe('true')
 })
+it('keeps working sessions at the top of their project as live statuses change', () => {
+  const working = snapshot.projects[0].sessions[0]
+  const idle = { ...working, id: 'idle', title: 'Newer idle conversation', status: 'idle' as const, agentCount: 0, updatedAt: now + 1 }
+  const mixed: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[0], sessions: [idle, working] }] }
+  const { container, rerender } = render(<Dashboard snapshot={mixed} now={now} />)
+  const titles = () => [...container.querySelectorAll('.session-title')].map(node => node.textContent)
+  expect(titles()).toEqual(['Build a switchboard', 'Newer idle conversation'])
+  rerender(<Dashboard snapshot={{ ...mixed, projects: [{ ...mixed.projects[0], sessions: [
+    { ...idle, status: 'working', agentCount: 1 },
+    { ...working, status: 'idle', agentCount: 0 },
+  ] }] }} now={now} />)
+  expect(titles()).toEqual(['Newer idle conversation', 'Build a switchboard'])
+})
 it('shows unknown states and no verified counts after connection loss', () => {
   const { rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
   rerender(<Dashboard snapshot={snapshot} transportError now={now} />)

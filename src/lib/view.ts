@@ -18,6 +18,9 @@ export function projectOrder(projects: Project[], verified: boolean) {
     return active(b) - active(a) || a.name.localeCompare(b.name)
   })
 }
+export function sessionOrder(sessions: Session[], verified: boolean) {
+  return [...sessions].sort((a, b) => Number(verified && b.agentCount > 0) - Number(verified && a.agentCount > 0))
+}
 export function relativeTime(timestamp: number, now: number) {
   const seconds = Math.max(0, Math.floor((now - timestamp) / 1000))
   if (seconds < 5) return 'just now'
