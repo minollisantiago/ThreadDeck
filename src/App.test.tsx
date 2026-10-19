@@ -18,12 +18,15 @@ const snapshot: Snapshot = {
     ] },
   ],
 }
-it('links the branding to the public GitHub repository', () => {
+it('places the GitHub icon link beside the theme control instead of on the branding', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
   const link = screen.getByRole('link', { name: 'ThreadDeck on GitHub' })
   expect(link.getAttribute('href')).toBe('https://github.com/minollisantiago/ThreadDeck')
   expect(link.getAttribute('target')).toBe('_blank')
   expect(link.getAttribute('rel')).toContain('noopener')
+  expect(link.closest('.appearance-controls')).not.toBeNull()
+  expect(link.previousElementSibling?.getAttribute('aria-label')).toBe('Switch to light mode')
+  expect(screen.getByRole('heading', { name: /ThreadDeck/ }).closest('a')).toBeNull()
 })
 it('uses app-first title links and a separate browser fallback', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
