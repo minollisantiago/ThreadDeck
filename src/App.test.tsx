@@ -1,0 +1,58 @@
+// @vitest-environment jsdom
+import { afterEach, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { Dashboard } from './App'
+import type { Snapshot } from '../shared/model'
+
+afterEach(() => { cleanup(); localStorage.clear() })
+const now = 100_000
+const snapshot: Snapshot = {
+  health: 'connected', checkedAt: now, lastSuccessAt: now,
+  attentionAvailable: true, inventoryLimited: false, message: null,
+  projects: [
+    { id: 'alpha', name: 'Alpha', directory: '/alpha', sessions: [
+      { id: 'a', projectId: 'alpha', title: 'Build a switchboard', threadId: '1561737719133114458', guildId: '1526236793048141935', status: 'working', agentCount: 1, updatedAt: now },
+    ] },
+    { id: 'beta', name: 'Beta', directory: '/beta', sessions: [
+      { id: 'b', projectId: 'beta', title: 'Old conversation', threadId: '1561737719133114459', guildId: '1526236793048141935', status: 'idle', agentCount: 0, updatedAt: 50 },
+    ] },
+  ],
+}
+it('uses app-first title links and a separate browser fallback', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  expect(screen.getByRole('link', { name: 'Build a switchboard' }).getAttribute('href')).toBe('discord://-/channels/1526236793048141935/1561737719133114458')
+  expect(screen.getByRole('link', { name: 'Open Build a switchboard in browser' }).getAttribute('href')).toMatch(/^https:\/\/discord.com/)
+})
+it('preserves manual collapse and search while snapshots refresh', () => {
+  const { rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: /Alpha/ }))
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'switchboard' } })
+  rerender(<Dashboard snapshot={{ ...snapshot, checkedAt: now + 1000 }} now={now + 1000} />)
+  expect(screen.getByRole('button', { name: /Alpha/ }).getAttribute('aria-expanded')).toBe('false')
+  expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('switchboard')
+})
+it('does not collapse an expanded project when its agent becomes idle', () => {
+  const { rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
+  const idle: Snapshot = { ...snapshot, projects: snapshot.projects.map(p => ({ ...p, sessions: p.sessions.map(s => ({ ...s, status: 'idle', agentCount: 0 })) })) }
+  rerender(<Dashboard snapshot={idle} now={now} />)
+  expect(screen.getByRole('button', { name: /Alpha/ }).getAttribute('aria-expanded')).toBe('true')
+})
+it('shows unknown states and no verified counts after connection loss', () => {
+  const { rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
+  rerender(<Dashboard snapshot={snapshot} transportError now={now} />)
+  expect(screen.getByRole('alert').textContent).toContain('Live status unavailable')
+  expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0)
+  expect(screen.queryByText('1 working')).toBeNull()
+})
+it('searches within project groups and supports the working filter', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Working' }))
+  expect(screen.queryByRole('button', { name: /Beta/ })).toBeNull()
+  expect(screen.getByRole('button', { name: /Alpha/ })).toBeTruthy()
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'no match' } })
+  expect(screen.getByText('No matching sessions')).toBeTruthy()
+})
+it('marks aged successful snapshots stale even if the backend stops polling', () => {
+  render(<Dashboard snapshot={snapshot} now={now + 21_000} />)
+  expect(screen.getByRole('status').textContent).toContain('Connection stale')
+})

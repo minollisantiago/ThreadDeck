@@ -6,6 +6,14 @@
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#101014" />
     <title>ThreadDeck</title>
+    <script>
+      try {
+        const mode = JSON.parse(localStorage.getItem('threaddeck:appearance') || 'null');
+        document.documentElement.dataset.appearance = ['light', 'dark'].includes(mode) ? mode : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        const palette = JSON.parse(localStorage.getItem('threaddeck:palette') || 'null');
+        if (['pink', 'lavender', 'blue', 'green', 'peach'].includes(palette)) document.documentElement.dataset.palette = palette;
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

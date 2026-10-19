@@ -8,6 +8,17 @@ Discord remains the conversation interface. Sessions always stay grouped by proj
 Vite, React, TypeScript, Tailwind CSS and shadcn/ui-style source components,
 with a lightweight Node.js backend. Node 24+ is required.
 
+## Interface
+
+- One column of project panels, with active projects first and inactive groups
+  initially collapsed. Manual collapse, search, filters and scroll survive refresh.
+- Working, Attention and Recent activity (last 24 hours) filters keep project groups.
+- Session titles open `discord://` app links; the external-link icon opens Discord
+  in the browser instead. Windows may ask permission for the first app handoff.
+- Local light/dark, accent palette and collapse preferences; no account or cloud sync.
+- Shared charcoal/light surfaces and bundled OFL-licensed JetBrains Mono typography
+  follow the WeekTrace/NaturalGas references without sharing runtime code.
+
 ## Development
 
 ```sh
@@ -23,6 +34,11 @@ npm run check
 npm run build
 npm start
 ```
+
+Browser checks (after building): `npx playwright install chromium`, then
+`npm run test:browser`. Optional `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` uses an
+existing Chromium binary. These checks use synthetic sessions and save desktop,
+light, mobile, and disconnected-state screenshots under ignored `artifacts/`.
 
 The existing Kimaki CLI must be on PATH and the existing OpenCode V2 service
 must be running. ThreadDeck never starts, stops, or reconfigures either service.
