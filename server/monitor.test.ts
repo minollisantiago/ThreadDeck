@@ -52,11 +52,18 @@ function fixture() {
     get: vi.fn(async () => raw()),
     attention: vi.fn(async () => ({ input: [], permission: [] })),
   }
-  const source: Source = { projects: vi.fn(async () => [project]), connect: vi.fn(async () => connection) }
+  const source: Source = { projects: vi.fn(async () => [project]), connect: vi.fn(async () => connection), guild: vi.fn(async () => project.guildId) }
   return { monitor: new Monitor(source, () => now), source, connection, advance: () => { now += 5_000 } }
 }
 
 describe('monitor refresh', () => {
+  it('resolves missing guild IDs through the supported URL lookup and caches them', async () => {
+    const { monitor, source, advance } = fixture()
+    vi.mocked(source.projects).mockResolvedValue([{ ...project, guildId: null }])
+    expect((await monitor.refresh()).projects[0].sessions[0].guildId).toBe(project.guildId)
+    advance(); await monitor.refresh()
+    expect(source.guild).toHaveBeenCalledTimes(1)
+  })
   it('keeps the last snapshot stale rather than converting working threads to idle on failure', async () => {
     const { monitor, connection, advance } = fixture()
     const first = await monitor.refresh()

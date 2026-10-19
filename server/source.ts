@@ -23,6 +23,7 @@ export type RawSession = z.infer<typeof rawSessionSchema>
 export interface Source {
   projects(): Promise<Registration[]>
   connect(): Promise<Connection>
+  guild(sessionId: string): Promise<string | null>
 }
 export interface Connection {
   recent(): Promise<{ sessions: RawSession[]; limited: boolean }>
@@ -32,6 +33,12 @@ export interface Connection {
 }
 
 export const source: Source = {
+  async guild(sessionId) {
+    const { stdout } = await exec('kimaki', ['session', 'url', sessionId], {
+      timeout: 8_000, maxBuffer: 4096,
+    })
+    return stdout.trim().match(/^https:\/\/discord\.com\/channels\/(\d{17,20})\/\d{17,20}$/)?.[1] ?? null
+  },
   async projects() {
     const { stdout } = await exec('kimaki', ['project', 'list', '--json'], {
       timeout: 8_000, maxBuffer: 2 * 1024 * 1024,

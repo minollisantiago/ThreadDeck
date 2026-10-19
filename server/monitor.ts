@@ -81,6 +81,7 @@ export class Monitor {
   private recent: RawSession[] = []
   private recentTime = -Infinity
   private limited = false
+  private guilds = new Map<string, { guildId: string | null; checkedAt: number }>()
   private endpoint: Connection | undefined
   private pending: Promise<Snapshot> | undefined
   private snapshot: Snapshot = {
@@ -137,8 +138,21 @@ export class Monitor {
       })
       const inputs = new Set(attention.flatMap(a => a?.input ?? []))
       const permissions = new Set(attention.flatMap(a => a?.permission ?? []))
+      // Some Kimaki registrations omit guildId. Resolve through the supported CLI,
+      // once per project, rather than handing Discord credentials to the browser.
+      const registrations = await mapLimit(this.registrations, async project => {
+        if (project.guildId) return project
+        const cached = this.guilds.get(project.channelId)
+        if (cached?.guildId || cached && now - cached.checkedAt < 60_000) return { ...project, guildId: cached.guildId }
+        const example = [...sessions.values()].find(s => s.metadata?.kimaki?.threadId && projectFor(s, [project]))
+        if (!example) return project
+        let guildId: string | null = null
+        try { guildId = await this.source.guild(example.id) } catch { /* links can recover on the next discovery */ }
+        this.guilds.set(project.channelId, { guildId, checkedAt: now })
+        return { ...project, guildId }
+      })
       this.snapshot = {
-        projects: groupSessions(this.registrations, [...sessions.values()], new Set(activeIds), inputs, permissions),
+        projects: groupSessions(registrations, [...sessions.values()], new Set(activeIds), inputs, permissions),
         health: 'connected', checkedAt: this.clock(), lastSuccessAt: this.clock(),
         attentionAvailable: attention.every(Boolean), inventoryLimited: this.limited, message: null,
       }
