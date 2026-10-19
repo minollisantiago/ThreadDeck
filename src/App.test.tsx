@@ -18,6 +18,13 @@ const snapshot: Snapshot = {
     ] },
   ],
 }
+it('links the branding to the public GitHub repository', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  const link = screen.getByRole('link', { name: 'ThreadDeck on GitHub' })
+  expect(link.getAttribute('href')).toBe('https://github.com/minollisantiago/ThreadDeck')
+  expect(link.getAttribute('target')).toBe('_blank')
+  expect(link.getAttribute('rel')).toContain('noopener')
+})
 it('uses app-first title links and a separate browser fallback', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
   expect(screen.getByRole('link', { name: 'Build a switchboard' }).getAttribute('href')).toBe('discord://-/channels/1526236793048141935/1561737719133114458')
