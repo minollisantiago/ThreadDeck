@@ -71,12 +71,13 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   useEffect(() => {
     function keydown(event: KeyboardEvent) {
       const target = event.target
-      if (event.key === '/' && !(target instanceof HTMLElement && (target.matches('input,textarea,select') || target.isContentEditable))) {
+      if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.isComposing && !(target instanceof HTMLElement && (target.matches('input,textarea,select') || target.isContentEditable))) {
         event.preventDefault(); search.current?.focus()
       }
     }
-    window.addEventListener('keydown', keydown)
-    return () => window.removeEventListener('keydown', keydown)
+    // Capture the shortcut before focused controls or page handlers swallow it.
+    window.addEventListener('keydown', keydown, true)
+    return () => window.removeEventListener('keydown', keydown, true)
   }, [])
   const old = snapshot?.lastSuccessAt != null && now - snapshot.lastSuccessAt > 20_000
   const verified = !transportError && snapshot?.health === 'connected' && !old
@@ -112,12 +113,27 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
 
     <div className="overview">
       <div className="overview-counts"><span><strong>{verified ? working : '—'}</strong> working</span><span><strong>{verified ? attention : '—'}</strong> need attention</span><span><strong>{verified ? activeProjects : '—'}</strong> active projects</span></div>
-      <div className="connection" role="status"><span className={`connection-dot ${verified ? 'healthy' : loading ? '' : 'unhealthy'}`} /><span>{healthLabel}</span><span className="refresh-age">{snapshot?.lastSuccessAt != null ? `Updated ${relativeTime(snapshot.lastSuccessAt, now)}` : 'Waiting for first refresh'}</span></div>
+      <div className="connection">
+        <button className="connection-trigger" aria-label={healthLabel} aria-describedby="connection-details" type="button">
+          <span className={`connection-dot ${verified ? 'healthy' : loading ? '' : 'unhealthy'}`} aria-hidden="true" />
+          <span role="status">{healthLabel}</span>
+        </button>
+        <div className="connection-tooltip" id="connection-details" role="tooltip">
+          <strong>Automatic refresh enabled</strong>
+          <span>{snapshot?.lastSuccessAt != null ? `Last successful update: ${new Date(snapshot.lastSuccessAt).toLocaleString()}` : 'Waiting for first successful update'}</span>
+          {snapshot && snapshot.checkedAt > 0 && <span>Last source check: {new Date(snapshot.checkedAt).toLocaleString()}</span>}
+          <span>Refresh interval: 5s (15s in background)</span>
+          {transportError && <span>Cannot reach the dashboard server.</span>}
+          {snapshot?.message && <span>{snapshot.message}</span>}
+          {snapshot && !snapshot.attentionAvailable && <span>Attention status unavailable.</span>}
+          {snapshot?.inventoryLimited && <span>Recent session inventory is limited.</span>}
+        </div>
+      </div>
     </div>
 
     <main>
       <div className="toolbar">
-        <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <kbd>/</kbd>}</div>
+        <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <kbd>/</kbd>}</div>
         <div className="filter-group" role="group" aria-label="Filter sessions">{([
           ['all', 'All sessions'], ['working', 'Working'], ['attention', 'Attention'], ['recent', 'Recent activity'],
         ] as const).map(([value, label]) => <Button key={value} variant="ghost" className={filter === value ? 'filter-selected' : ''} aria-pressed={filter === value} title={value === 'recent' ? 'Updated in the last 24 hours' : undefined} onClick={() => setFilter(value)}>{value === 'recent' && <Clock3 />}{label}</Button>)}</div>

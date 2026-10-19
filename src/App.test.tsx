@@ -18,6 +18,31 @@ const snapshot: Snapshot = {
     ] },
   ],
 }
+it('focuses search when slash is pressed outside an editable field', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  fireEvent.keyDown(document.body, { key: '/', code: 'Slash' })
+  expect(document.activeElement).toBe(screen.getByRole('searchbox'))
+})
+it('handles the search shortcut before other page keyboard handlers can swallow it', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  const stop = (event: KeyboardEvent) => event.stopPropagation()
+  document.body.addEventListener('keydown', stop)
+  try {
+    fireEvent.keyDown(document.body, { key: '/', code: 'Slash' })
+    expect(document.activeElement).toBe(screen.getByRole('searchbox'))
+  } finally { document.body.removeEventListener('keydown', stop) }
+})
+it('does not steal slash from editable fields or modified browser shortcuts', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  const input = screen.getByRole('searchbox')
+  input.focus()
+  const event = new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true })
+  input.dispatchEvent(event)
+  expect(event.defaultPrevented).toBe(false)
+  input.blur()
+  fireEvent.keyDown(document.body, { key: '/', ctrlKey: true })
+  expect(document.activeElement).not.toBe(input)
+})
 it('places the GitHub icon link beside the theme control instead of on the branding', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
   const link = screen.getByRole('link', { name: 'ThreadDeck on GitHub' })
@@ -78,4 +103,16 @@ it('searches within project groups and supports the working filter', () => {
 it('marks aged successful snapshots stale even if the backend stops polling', () => {
   render(<Dashboard snapshot={snapshot} now={now + 21_000} />)
   expect(screen.getByRole('status').textContent).toContain('Connection stale')
+})
+it('moves update details into the connection tooltip', () => {
+  const details: Snapshot = { ...snapshot, message: 'Source connected', attentionAvailable: false, inventoryLimited: true }
+  const { container } = render(<Dashboard snapshot={details} now={now} />)
+  expect(screen.getByRole('status').textContent).toBe('Connected')
+  expect(container.querySelector('.refresh-age')).toBeNull()
+  const tooltip = screen.getByRole('tooltip', { hidden: true })
+  expect(tooltip.textContent).toContain(`Last successful update: ${new Date(now).toLocaleString()}`)
+  expect(tooltip.textContent).toContain('Source connected')
+  expect(tooltip.textContent).toContain('Attention status unavailable')
+  expect(tooltip.textContent).toContain('Recent session inventory is limited')
+  expect(screen.getByRole('button', { name: 'Connected' }).getAttribute('aria-describedby')).toBe(tooltip.id)
 })
