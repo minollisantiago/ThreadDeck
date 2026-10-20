@@ -131,3 +131,63 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
   .appearance-controls .palette-swatch { width: 28px; height: 36px; }
 }
 @media(max-width:600px) { .project-heading { column-gap: 7px; }.project-pills { flex-basis: 100%; margin-left: 21px; gap: 6px; }.project-total, .project-attention { font-size: 11px; }.project-summary { margin-left: 21px; max-width: none; }.project-sessions { margin-left: 43px; margin-right: 10px; }.session-row { padding: 5px 6px; gap: 6px; }.status { font-size: 10px; }.session-attention-marker { left: -26px; } }
+
+/* The original list remains untouched; graphical views share live state and actions. */
+.visual-projects { min-width: 0; }
+.visual-project { min-width: 0; border: 1px solid var(--rule); background: var(--surface); border-radius: 20px; padding: 20px; }
+.visual-project-heading { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border-radius: 10px; }
+.visual-project-heading:hover .project-name { color: var(--accent); }
+.project-emblem { position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 14px; color: color-mix(in srgb, var(--accent) 65%, var(--text)); background: color-mix(in srgb, var(--accent) 12%, var(--row)); font-size: 15px; border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent); }
+.emblem-signal { position: absolute; right: -3px; bottom: -3px; width: 11px; height: 11px; border: 3px solid var(--surface); border-radius: 50%; background: var(--subtle); }
+.signal-working { background: var(--working); }
+.visual-project-identity { min-width: 0; display: grid; gap: 2px; }
+.visual-project-total { font-size: 11px; color: var(--subtle); }
+.visual-chevron { width: 15px; height: 15px; margin-left: auto; flex-shrink: 0; color: var(--subtle); transition: transform 160ms ease; }
+.visual-chevron.is-closed { transform: rotate(-90deg); }
+.visual-project-stats { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 17px 0; color: var(--subtle); font-size: 11px; }
+.visual-project-stats>span { display: inline-flex; align-items: center; gap: 5px; }
+.visual-project-stats svg { width: 12px; height: 12px; }
+.visual-unread { color: var(--accent); }
+.visual-session-grid { display: grid; gap: 10px; min-width: 0; }
+.session-tile { display: grid; grid-template-columns: 30px minmax(0, 1fr) 26px; gap: 8px 10px; padding: 14px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--row) 48%, var(--surface)); border-radius: 13px; align-items: start; }
+.session-tile::before, .session-tile::after, .session-tile .session-attention-marker { display: none; }
+.session-tile .session-copy { grid-column: 2; grid-row: 1; }
+.session-tile .session-title { white-space: normal; overflow-wrap: anywhere; color: var(--text); font-size: 13px; line-height: 1.6; }
+.session-tile .session-title:hover { color: var(--accent); }
+.session-tile .session-flags { grid-column: 2 / -1; grid-row: 2; flex-wrap: wrap; }
+.session-tile .status { font-size: 10px; padding: 3px 6px; }
+.session-tile .browser-link { grid-column: 3; grid-row: 1; width: 26px; height: 26px; }
+.session-tile-meta { grid-column: 2 / -1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px 10px; color: var(--subtle); font-size: 10px; }
+.session-tile-meta>span { display: inline-flex; gap: 4px; align-items: center; }
+.session-tile-meta svg { width: 12px; height: 12px; }
+.session-glyph { grid-column: 1; grid-row: 1 / 3; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--row); color: var(--muted); }
+.session-glyph svg { width: 16px; height: 16px; }
+.glyph-working { color: var(--working); background: color-mix(in srgb, var(--working) 10%, var(--row)); }
+.glyph-working svg { animation: working-turn 4s linear infinite; }
+.glyph-input, .glyph-permission, .glyph-unknown { color: var(--warning); }
+.glyph-error { color: var(--danger); }
+.session-tile[data-state=input], .session-tile[data-state=permission] { border-color: color-mix(in srgb, var(--warning) 30%, var(--rule)); }
+.session-tile[data-state=error] { border-color: color-mix(in srgb, var(--danger) 35%, var(--rule)); }
+.session-tile.session-unread { box-shadow: inset 3px 0 var(--accent); }
+.projects-islands { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.projects-islands .visual-project { position: relative; background-color: var(--surface); background-image: radial-gradient(var(--rule) 1px, transparent 1px); background-size: 16px 16px; padding: 24px 18px; border-radius: 28px; }
+.projects-islands .visual-project-heading { flex-direction: column; text-align: center; gap: 9px; position: relative; }
+.projects-islands .project-emblem { width: 64px; height: 64px; border-radius: 50%; font-size: 20px; box-shadow: 0 0 0 7px var(--surface), 0 0 0 8px var(--rule); }
+.projects-islands .visual-project-identity { justify-items: center; }
+.projects-islands .visual-chevron { position: absolute; top: 0; right: 0; }
+.projects-islands .visual-project-stats { justify-content: center; padding-bottom: 25px; }
+.projects-islands .visual-session-grid { position: relative; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
+.projects-islands .visual-session-grid::before { content: ''; position: absolute; top: -15px; bottom: 30px; left: 50%; width: 1px; background: color-mix(in srgb, var(--accent) 35%, var(--rule)); }
+.projects-islands .session-tile { position: relative; grid-template-columns: minmax(0, 1fr) 24px; padding: 12px; background: var(--surface); }
+.projects-islands .session-tile::before { display: block; content: ''; position: absolute; left: auto; right: -13px; top: 30px; width: 13px; height: 1px; border: 0; background: var(--accent); opacity: .35; }
+.projects-islands .session-tile:nth-child(even)::before { right: auto; left: -13px; }
+.projects-islands .session-glyph { grid-column: 1; grid-row: 1; }
+.projects-islands .session-tile .browser-link { grid-column: 2; grid-row: 1; }
+.projects-islands .session-tile .session-copy { grid-column: 1 / -1; grid-row: 2; }
+.projects-islands .session-tile .session-flags { grid-column: 1 / -1; grid-row: 3; }
+.projects-islands .session-tile-meta { grid-column: 1 / -1; }
+@keyframes working-turn { to { transform: rotate(360deg); } }
+@media(max-width:1100px) { .page-header { flex-wrap: wrap; }.appearance-controls { margin-left: auto; }.projects-islands { grid-template-columns: 1fr; } }
+@media(max-width:760px) { .visual-project { padding: 16px; } }
+@media(max-width:600px) { .page-header { flex-wrap: nowrap; }.visual-project-stats { gap: 8px; font-size: 10px; }.projects-islands .visual-project { padding-inline: 12px; }.projects-islands .visual-session-grid { grid-template-columns: 1fr; padding-left: 16px; }.projects-islands .visual-session-grid::before { left: 0; bottom: 40px; }.projects-islands .session-tile::before, .projects-islands .session-tile:nth-child(even)::before { left: -17px; right: auto; width: 17px; }.session-tile .session-title { font-size: 13px; } }
+@media(prefers-reduced-motion:reduce) { .glyph-working svg { animation: none; } }

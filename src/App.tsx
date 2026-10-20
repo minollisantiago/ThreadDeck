@@ -1,38 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, CheckCheck, ChevronDown, ChevronRight, CircleAlert, Clock3, ExternalLink, Hash, Layers2, Search, X } from 'lucide-react'
 import { Button } from './components/ui/button'
-import { Badge } from './components/ui/badge'
 import { Input } from './components/ui/input'
 import { HeaderControls, palettes, type Palette } from './components/header-controls'
+import { SessionRow } from './components/session-row'
+import { ProjectIslands } from './components/project-islands'
+import { isDesign, type Design } from './lib/design'
 import { useSnapshot } from './hooks/use-snapshot'
 import { useUnread } from './hooks/use-unread'
-import { discordLinks, isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
-import { projectOrder, relativeTime, sessionOrder, visibleProjects, workingCount, type Filter } from './lib/view'
+import { isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
+import { projectOrder, sessionOrder, visibleProjects, workingCount, type Filter } from './lib/view'
 
 function saved<T>(key: string, fallback: T, validate: (value: unknown) => value is T): T {
   try { const value: unknown = JSON.parse(localStorage.getItem(key) ?? 'null'); return validate(value) ? value : fallback } catch { return fallback }
 }
 function persist(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* preferences are optional */ } }
-const labels = { working: 'Working', idle: 'Idle', error: 'Error', input: 'Input requested', permission: 'Permission needed' }
-
-function SessionRow({ session, verified, now, unread, markRead }: { session: Session; verified: boolean; now: number; unread: boolean; markRead: (session: Session) => void }) {
-  const links = discordLinks(session)
-  const status = verified ? session.status : 'unknown'
-  const attention = verified && isAttention(session.status)
-  return <div className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''}`} title={`Updated ${relativeTime(session.updatedAt, now)} · ${new Date(session.updatedAt).toLocaleString()}`}>
-    {(attention || unread) && <span className="session-attention-marker" aria-hidden="true" />}
-    <div className="session-copy">
-      {links ? <a className="session-title" href={links.app} title={session.title} onClick={() => markRead(session)} onAuxClick={event => { if (event.button === 1) markRead(session) }}>{session.title}</a>
-         : <span className="session-title">{session.title}</span>}
-    </div>
-    <div className="session-flags">
-      {unread && <button className="status status-unread" aria-label={`Mark ${session.title} as read`} title="Unread in ThreadDeck. Click to mark as read.
-Reading in Discord does not clear this flag." onClick={() => markRead(session)}>Unread</button>}
-      {(!unread || status !== 'idle') && <Badge className={`status status-${status}`} title={verified && session.agentCount > 1 ? `${session.agentCount} agents` : undefined}><span className="status-dot" />{status === 'unknown' ? 'Unknown' : labels[status]}</Badge>}
-    </div>
-    {links && <Button asChild variant="ghost" size="icon" className="browser-link"><a href={links.browser} target="_blank" rel="noreferrer" aria-label={`Open ${session.title} in browser`} title="Open in Discord browser" onClick={() => markRead(session)} onAuxClick={event => { if (event.button === 1) markRead(session) }}><ExternalLink /></a></Button>}
-  </div>
-}
 
 function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markRead }: {
   project: Project; collapsed: boolean; toggle: () => void; verified: boolean; now: number; unread: ReadonlySet<string>; markRead: (session: Session) => void
@@ -71,10 +53,13 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const [appearance, setAppearance] = useState<'dark' | 'light'>(() => saved('threaddeck:appearance',
     window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark', (v): v is 'light' | 'dark' => v === 'light' || v === 'dark'))
   const [palette, setPalette] = useState<Palette>(() => saved('threaddeck:palette', 'pink', (v): v is Palette => palettes.some(p => p === v)))
+  const [design, setDesign] = useState<Design>(() => saved('threaddeck:design', 'classic', isDesign))
+  const [visualCollapsed, setVisualCollapsed] = useState<Record<string, boolean>>({})
   const search = useRef<HTMLInputElement>(null)
   useEffect(() => { document.documentElement.dataset.appearance = appearance; persist('threaddeck:appearance', appearance) }, [appearance])
   useEffect(() => { document.documentElement.dataset.palette = palette; persist('threaddeck:palette', palette) }, [palette])
   useEffect(() => { persist('threaddeck:collapsed', collapsed) }, [collapsed])
+  useEffect(() => { persist('threaddeck:design', design) }, [design])
   useEffect(() => {
     function keydown(event: KeyboardEvent) {
       const target = event.target
@@ -109,10 +94,10 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const shown = projectOrder(visibleProjects(projects, query, filter, now, verified, unread), verified, unread)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
-  return <div className="app-shell">
+  return <div className="app-shell" data-design={design}>
     <header className="page-header">
       <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><div><p className="eyebrow">YOUR AGENT SWITCHBOARD</p><h1>ThreadDeck<span className="live-label">LIVE</span></h1></div></div>
-      <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} />
+      <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} design={design} setDesign={setDesign} />
     </header>
 
     <div className="overview">
@@ -147,7 +132,8 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       {!verified && !loading && <div className="connection-notice" role="alert"><CircleAlert /><div><strong>Live status unavailable</strong><p>{snapshot?.lastSuccessAt ? 'Showing your last snapshot. Retrying automatically.' : 'Check that Kimaki and OpenCode are running. Retrying automatically.'}</p></div></div>}
       <div className="section-caption"><span>PROJECTS <span className="caption-count">{shown.length.toString().padStart(2, '0')}</span></span><span>{narrowed ? `${shown.reduce((count, p) => count + p.sessions.length, 0)} matching sessions` : 'Active projects first'}</span></div>
       <div className="project-list">
-        {shown.map(project => {
+        {design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}
+        {design === 'classic' && shown.map(project => {
           const defaultCollapsed = !project.sessions.some(s => unread.has(s.id) || verified && isActive(s))
           const isCollapsed = collapsed[project.id] ?? (narrowed ? false : defaultCollapsed)
           return <ProjectPanel key={project.id} project={project} verified={verified} now={now} unread={unread} markRead={markRead} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />
