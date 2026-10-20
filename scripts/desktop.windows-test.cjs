@@ -29,6 +29,7 @@ async function main() {
     log(`Page loaded: ${await page.title()}`)
     await page.getByRole('link', { name: 'Native Windows desktop wrapper', exact: true }).waitFor()
     assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
+    assert.equal(await app.evaluate(({ app, nativeImage }) => nativeImage.createFromPath(`${app.getAppPath()}\\ThreadDeck.ico`).isEmpty()), false)
     const bounds = await app.evaluate(({ BrowserWindow, screen }) => ({ bounds: BrowserWindow.getAllWindows()[0].getBounds(), area: screen.getPrimaryDisplay().workArea }))
     assert.equal(bounds.bounds.width, 430)
     assert.equal(bounds.bounds.height, bounds.area.height)

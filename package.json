@@ -10,6 +10,7 @@
     "kimaki": "node scripts/kimaki.mjs",
     "kimaki:desktop": "node scripts/kimaki.mjs --desktop",
     "desktop": "node scripts/desktop.mjs",
+    "desktop:install": "node scripts/install-windows-launcher.mjs",
     "test:desktop": "node --test scripts/desktop.test.mjs",
     "dev": "tsx watch server/index.ts",
     "build": "tsc --noEmit && vite build",

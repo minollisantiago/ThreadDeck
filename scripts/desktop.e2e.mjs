@@ -14,7 +14,7 @@ const snapshot = { health: 'connected', checkedAt: now, lastSuccessAt: now, atte
     { id: 'naturalgas', name: 'naturalgas', directory: '/demo/naturalgas', sessions: [session('results', 'Compare saved backtesting results', 'working')] },
   ] }
 const server = createServer(async (req, res) => {
-  if (req.url === '/api/snapshot') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(snapshot)); return }
+  if (req.url === '/api/snapshot') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ...snapshot, checkedAt: Date.now(), lastSuccessAt: Date.now() })); return }
   try {
     const pathname = new URL(req.url, 'http://localhost').pathname
     const filename = pathname.startsWith('/assets/') || pathname.startsWith('/fonts/') ? pathname.slice(1) : 'index.html'

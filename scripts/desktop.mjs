@@ -26,7 +26,7 @@ export async function windowsRuntime() {
     await copyFile(zip, archive)
     run(powershell, ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath ${quote(`${windowsDir}\\electron.zip`)} -DestinationPath ${quote(windowsDir)} -Force; if (!$?) { exit 1 }; New-Item -ItemType File -Path ${quote(`${windowsDir}\\ready`)} -Force | Out-Null`])
   }
-  for (const file of ['main.cjs', 'preload.cjs', 'policy.cjs']) await copyFile(path.join(root, 'electron', file), path.join(directory, file))
+  for (const file of ['main.cjs', 'preload.cjs', 'policy.cjs', 'ThreadDeck.ico']) await copyFile(path.join(root, 'electron', file), path.join(directory, file))
   return { executable: path.join(directory, 'electron.exe'), args: [`${windowsDir}\\main.cjs`] }
 }
 

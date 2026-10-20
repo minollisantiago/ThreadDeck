@@ -57,6 +57,11 @@ Run `npm install` once before first use. This launcher requires Linux/macOS
 
 ## Windows desktop app (from WSL)
 
+For a **Windows desktop / Start menu shortcut** that starts Kimaki, the dashboard
+backend and Electron together without a terminal, run `npm run desktop:install`
+once from WSL. See [Windows all-in-one launcher](docs/windows-launcher.md) for
+setup, logs and safe switching from an already-running Kimaki.
+
 Keep `npm run kimaki` for the existing browser dashboard. For a **native Windows
 Electron window** alongside Discord, use this separate command from WSL:
 

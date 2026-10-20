@@ -38,6 +38,7 @@ app.whenReady().then(async () => {
   window = new BrowserWindow({
     ...mobileBounds(screen.getPrimaryDisplay().workArea), minWidth: 320, minHeight: 400,
     frame: false, show: false, backgroundColor: '#101014', title: 'ThreadDeck',
+    icon: path.join(__dirname, 'ThreadDeck.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },
   })
   window.setMenu(null)
