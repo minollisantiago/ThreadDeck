@@ -1,6 +1,25 @@
 import { isActive, isAttention, type Project, type Session } from '../../shared/model'
 
 export type Filter = 'active' | 'all' | 'working' | 'attention' | 'recent'
+export type Grouping = 'project' | 'state'
+export const isGrouping = (value: unknown): value is Grouping => value === 'project' || value === 'state'
+
+export function stateGroups(projects: Project[], verified: boolean, unread: ReadonlySet<string>) {
+  const groups = [
+    { id: 'attention', label: 'Needs attention' },
+    { id: 'working', label: 'Working' },
+    { id: 'idle', label: 'Idle' },
+    { id: 'unknown', label: 'Status unavailable' },
+  ].map(group => ({ ...group, threads: [] as { session: Session; project: Project }[] }))
+  for (const project of projects) for (const session of project.sessions) {
+    const state = unread.has(session.id) || verified && isAttention(session.status) ? 'attention'
+      : !verified ? 'unknown' : session.agentCount > 0 || session.status === 'working' ? 'working' : 'idle'
+    groups.find(group => group.id === state)!.threads.push({ session, project })
+  }
+  for (const group of groups) group.threads.sort((a, b) => b.session.updatedAt - a.session.updatedAt || a.session.id.localeCompare(b.session.id))
+  return groups.filter(group => group.threads.length > 0)
+}
+
 export function visibleProjects(projects: Project[], query: string, filter: Filter, now: number, verified: boolean, unread: ReadonlySet<string> = new Set()) {
   const search = query.trim().toLocaleLowerCase()
   return projects.map(project => ({ ...project, sessions: project.sessions.filter(session => {

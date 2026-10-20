@@ -6,8 +6,8 @@ import { Button } from './ui/button'
 
 const labels = { working: 'Working', idle: 'Idle', error: 'Error', input: 'Input requested', permission: 'Permission needed' }
 
-export function SessionRow({ session, verified, now, unread, markRead, graphical = false }: {
-  session: Session; verified: boolean; now: number; unread: boolean; markRead: (session: Session) => void; graphical?: boolean
+export function SessionRow({ session, verified, now, unread, markRead, graphical = false, projectName }: {
+  session: Session; verified: boolean; now: number; unread: boolean; markRead: (session: Session) => void; graphical?: boolean; projectName?: string
 }) {
   const links = discordLinks(session)
   const status = verified ? session.status : 'unknown'
@@ -19,6 +19,7 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
     <div className="session-copy">
       {links ? <a className="session-title" href={links.app} title={session.title} onClick={() => markRead(session)} onAuxClick={event => { if (event.button === 1) markRead(session) }}>{session.title}</a>
          : <span className="session-title">{session.title}</span>}
+      {projectName && <span className="session-project" title={`Project: ${projectName}`}>{projectName}</span>}
     </div>
     <div className="session-flags">
       {unread && <button className="status status-unread" aria-label={`Mark ${session.title} as read`} title="Unread in ThreadDeck. Click to mark as read.

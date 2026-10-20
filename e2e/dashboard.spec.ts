@@ -2,6 +2,30 @@ import { mkdir } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import type { Snapshot, Session } from '../shared/model'
 
+test('state grouping stacks attention first with project pills on narrow screens', async ({ page }) => {
+  const now = Date.now()
+  const snapshot: Snapshot = { health: 'connected', lastSuccessAt: now, checkedAt: now,
+    attentionAvailable: true, inventoryLimited: false, message: null,
+    projects: ['Alpha', 'Beta'].map(name => ({ id: name, name, directory: `/${name}`, sessions: [
+      { id: name, projectId: name, title: `${name} thread`, threadId: name, guildId: null,
+        status: name === 'Alpha' ? 'working' : 'permission', agentCount: name === 'Alpha' ? 1 : 0, updatedAt: now },
+    ] })) }
+  await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
+  await page.setViewportSize({ width: 430, height: 900 })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'By state', exact: true }).click()
+  await expect(page.locator('.state-panel').first()).toContainText('Needs attention')
+  await expect(page.locator('.session-project')).toHaveText(['Beta', 'Alpha'])
+  await expect(page.locator('.session-row')).toHaveCount(2)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'By state', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Working', exact: true }).click()
+  await expect(page.locator('.session-project')).toHaveText(['Alpha'])
+  await page.getByRole('button', { name: 'By project', exact: true }).click()
+  await expect(page.getByRole('button', { name: /Alpha/ })).toBeVisible()
+})
+
 test('mark all as read includes filtered-out threads and survives reload', async ({ page }) => {
   const now = Date.now()
   const snapshot: Snapshot = { health: 'connected', lastSuccessAt: now, checkedAt: now,

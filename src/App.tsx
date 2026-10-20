@@ -6,12 +6,13 @@ import { HeaderControls, palettes, type Palette } from './components/header-cont
 import { ConnectionIndicator } from './components/connection-indicator'
 import { SessionRow } from './components/session-row'
 import { ProjectIslands } from './components/project-islands'
+import { StatePanels } from './components/state-panels'
 import { isDesign, type Design } from './lib/design'
 import { useSnapshot } from './hooks/use-snapshot'
 import { useUnread } from './hooks/use-unread'
 import { DesktopTitlebar } from './components/desktop-titlebar'
 import { isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
-import { projectOrder, sessionOrder, visibleProjects, workingCount, type Filter } from './lib/view'
+import { isGrouping, projectOrder, sessionOrder, stateGroups, visibleProjects, workingCount, type Filter, type Grouping } from './lib/view'
 
 function saved<T>(key: string, fallback: T, validate: (value: unknown) => value is T): T {
   try { const value: unknown = JSON.parse(localStorage.getItem(key) ?? 'null'); return validate(value) ? value : fallback } catch { return fallback }
@@ -50,6 +51,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
 export function Dashboard({ snapshot, transportError = false, now = Date.now() }: { snapshot: Snapshot | null; transportError?: boolean; now?: number }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('active')
+  const [grouping, setGrouping] = useState<Grouping>(() => saved('threaddeck:grouping', 'project', isGrouping))
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => saved('threaddeck:collapsed', {},
     (v): v is Record<string, boolean> => v !== null && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every(x => typeof x === 'boolean')))
   const [appearance, setAppearance] = useState<'dark' | 'light'>(() => saved('threaddeck:appearance',
@@ -62,6 +64,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   useEffect(() => { document.documentElement.dataset.palette = palette; persist('threaddeck:palette', palette) }, [palette])
   useEffect(() => { persist('threaddeck:collapsed', collapsed) }, [collapsed])
   useEffect(() => { persist('threaddeck:design', design) }, [design])
+  useEffect(() => { persist('threaddeck:grouping', grouping) }, [grouping])
   useEffect(() => {
     function keydown(event: KeyboardEvent) {
       const target = event.target
@@ -94,6 +97,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const attention = verified ? sessions.filter(s => isAttention(s.status) || unread.has(s.id)).length : 0
   const activeProjects = verified ? projects.filter(p => p.sessions.some(s => isActive(s) || unread.has(s.id))).length : 0
   const shown = projectOrder(visibleProjects(projects, query, filter, now, verified, unread), verified, unread)
+  const groups = stateGroups(shown, verified, unread)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
   return <><DesktopTitlebar /><div className="app-shell" data-design={design}>
@@ -112,6 +116,9 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
 
     <main>
       <div className="toolbar">
+        <div className="filter-group grouping-control" role="group" aria-label="Group threads">{([
+          ['project', 'By project'], ['state', 'By state'],
+        ] as const).map(([value, label]) => <Button key={value} variant="ghost" className={grouping === value ? 'filter-selected' : ''} aria-pressed={grouping === value} onClick={() => setGrouping(value)}>{label}</Button>)}</div>
         <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <kbd>/</kbd>}</div>
         <div className="filter-group" role="group" aria-label="Filter sessions">{([
           ['active', 'Active sessions', 'Active'], ['all', 'All sessions', 'All'], ['working', 'Working', 'Working'], ['attention', 'Attention', 'Attention'], ['recent', 'Recent activity', 'Recent'],
@@ -120,10 +127,11 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       </div>
 
       {!verified && !loading && <div className="connection-notice" role="alert"><CircleAlert /><div><strong>Live status unavailable</strong><p>{snapshot?.lastSuccessAt ? 'Showing your last snapshot. Retrying automatically.' : 'Check that Kimaki and OpenCode are running. Retrying automatically.'}</p></div></div>}
-      <div className="section-caption"><span>PROJECTS <span className="caption-count">{shown.length.toString().padStart(2, '0')}</span></span><span>{narrowed ? `${shown.reduce((count, p) => count + p.sessions.length, 0)} matching sessions` : 'Active projects first'}</span></div>
+      <div className="section-caption"><span>{grouping === 'project' ? 'PROJECTS' : 'STATES'} <span className="caption-count">{(grouping === 'project' ? shown.length : groups.length).toString().padStart(2, '0')}</span></span><span>{narrowed ? `${shown.reduce((count, p) => count + p.sessions.length, 0)} matching sessions` : grouping === 'project' ? 'Active projects first' : 'Needs attention first'}</span></div>
       <div className="project-list">
-        {design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}
-        {design === 'classic' && shown.map(project => {
+        {grouping === 'state' && <StatePanels groups={groups} verified={verified} now={now} unread={unread} markRead={markRead} graphical={design === 'islands'} />}
+        {grouping === 'project' && design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}
+        {grouping === 'project' && design === 'classic' && shown.map(project => {
           const defaultCollapsed = !project.sessions.some(s => unread.has(s.id) || verified && isActive(s))
           const isCollapsed = collapsed[project.id] ?? (narrowed ? false : defaultCollapsed)
           return <ProjectPanel key={project.id} project={project} verified={verified} now={now} unread={unread} markRead={markRead} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />

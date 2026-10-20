@@ -100,6 +100,14 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 [data-appearance=light] .filter-group .filter-selected { color: color-mix(in srgb, var(--accent) 38%, #25212e); }
 .section-caption { display: flex; justify-content: space-between; gap: 16px; color: var(--subtle); font-size: 9px; margin: 0 2px 13px; }.section-caption>span:first-child { letter-spacing: 1.4px; }.caption-count { margin-left: 7px; color: var(--muted); }
 .project-list { display: grid; gap: 12px; }
+.grouping-control { padding: 3px; border: 1px solid var(--rule); border-radius: 10px; margin-left: 0; }
+.state-heading { display: flex; align-items: center; gap: 12px; margin: 0; padding: 18px; font-size: 14px; font-weight: 600; }
+.state-panel-attention .state-heading { color: var(--warning); }
+.state-panel-working .state-heading { color: var(--working); }
+.state-sessions { padding: 0 16px 16px; }
+.state-sessions .session-row::before, .state-sessions .session-row::after, .state-sessions .session-attention-marker { display: none; }
+.session-project { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; margin-top: 4px; padding: 1px 7px; border: 1px solid var(--rule); border-radius: 999px; color: var(--muted); background: var(--row); font-size: 10px; }
+.state-sessions .session-row { padding-block: 10px; }
 .project-panel { background: var(--surface); border-radius: 15px; min-width: 0; overflow: clip; }
 .project-heading { display: flex; flex-wrap: wrap; width: 100%; align-items: center; text-align: left; padding: 19px 23px; gap: 11px; border-radius: 15px; }
 .project-heading:focus-visible { outline-offset: -4px; }.project-heading:hover { background: color-mix(in srgb, var(--row) 35%, transparent); }

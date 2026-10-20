@@ -1,11 +1,28 @@
 import { expect, it } from 'vitest'
 import type { Project } from '../../shared/model'
-import { projectOrder, sessionOrder, visibleProjects } from './view'
+import { projectOrder, sessionOrder, stateGroups, visibleProjects } from './view'
 
 const projects: Project[] = [
   { id: 'one', name: 'Alpha', directory: '/alpha', sessions: [{ id: 'a', title: 'Fix layout', projectId: 'one', guildId: null, threadId: '1', status: 'working', updatedAt: 100, agentCount: 1 }] },
   { id: 'two', name: 'Beta', directory: '/beta', sessions: [{ id: 'b', title: 'Ask a question', projectId: 'two', guildId: null, threadId: '2', status: 'input', updatedAt: 10, agentCount: 0 }] },
 ]
+it('groups across projects with attention first, no duplicates and newest activity first', () => {
+  const mixed = projects.map(project => ({ ...project, sessions: [...project.sessions] }))
+  mixed[0].sessions.push({ ...projects[0].sessions[0], id: 'idle', status: 'idle', agentCount: 0 })
+  mixed[1].sessions.push({ ...projects[1].sessions[0], id: 'unread', status: 'working', agentCount: 1, updatedAt: 200 })
+  const groups = stateGroups(mixed, true, new Set(['unread']))
+  expect(groups.map(group => group.id)).toEqual(['attention', 'working', 'idle'])
+  expect(groups[0].threads.map(thread => thread.session.id)).toEqual(['unread', 'b'])
+  expect(groups.flatMap(group => group.threads)).toHaveLength(4)
+  expect(groups[0].threads[0].project.name).toBe('Beta')
+  expect(mixed[1].sessions.map(session => session.id)).toEqual(['b', 'unread'])
+})
+it('does not classify stale live statuses as working or attention but keeps local unread attention', () => {
+  const groups = stateGroups(projects, false, new Set(['a']))
+  expect(groups.map(group => group.id)).toEqual(['attention', 'unknown'])
+  expect(groups[1].threads[0].session.id).toBe('b')
+  expect(stateGroups([], true, new Set())).toEqual([])
+})
 it('preserves project grouping through every filter and search', () => {
   expect(visibleProjects(projects, '', 'active', 100, true).map(p => p.id)).toEqual(['one', 'two'])
   expect(visibleProjects(projects, '', 'working', 100, true).map(p => p.id)).toEqual(['one'])

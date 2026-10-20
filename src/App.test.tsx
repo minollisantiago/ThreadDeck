@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { Dashboard } from './App'
 import type { Snapshot } from '../shared/model'
 
@@ -227,4 +227,45 @@ it('marks all unread responses read across projects and filters without acknowle
 it('disables mark all as read when no responses are unread', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
   expect(screen.getByRole('button', { name: 'Mark all as read' }).hasAttribute('disabled')).toBe(true)
+})
+it('toggles state grouping, shows project pills, preserves filters and restores project collapse', () => {
+  const mixed: Snapshot = { ...snapshot, projects: snapshot.projects.map(project => ({ ...project, sessions: project.sessions.map(session => ({ ...session, responseAt: session.id === 'b' ? now : undefined })) })) }
+  render(<Dashboard snapshot={mixed} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: /Alpha/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'By state' }))
+  const attention = screen.getByRole('region', { name: 'Needs attention 1 thread' })
+  expect(within(attention).getByText('Beta')).toBeTruthy()
+  expect(within(attention).getByRole('link', { name: 'Old conversation' })).toBeTruthy()
+  expect(screen.getByRole('region', { name: 'Working 1 thread' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Attention' }))
+  expect(screen.queryByRole('region', { name: 'Working 1 thread' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Mark Old conversation as read' }))
+  expect(screen.getByText('No matching sessions')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Active sessions' }))
+  fireEvent.click(screen.getByRole('button', { name: 'By project' }))
+  expect(screen.getByRole('button', { name: /Alpha/ }).getAttribute('aria-expanded')).toBe('false')
+})
+it('persists grouping independently of appearance and supports state tiles and project search', () => {
+  const { unmount, container } = render(<Dashboard snapshot={snapshot} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: 'By state' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
+  expect(container.querySelector('.state-panel .session-tile')).not.toBeNull()
+  unmount()
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  expect(screen.getByRole('button', { name: 'By state' }).getAttribute('aria-pressed')).toBe('true')
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Alpha' } })
+  expect(screen.getByRole('link', { name: 'Build a switchboard' })).toBeTruthy()
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Beta' } })
+  expect(screen.getByText('No matching sessions')).toBeTruthy()
+})
+it('moves threads between state groups on refresh and treats stale status as unknown', () => {
+  const { rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: 'By state' }))
+  const changed: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[0], sessions: [{ ...snapshot.projects[0].sessions[0], status: 'permission', agentCount: 0 }] }] }
+  rerender(<Dashboard snapshot={changed} now={now} />)
+  expect(screen.getByRole('region', { name: 'Needs attention 1 thread' })).toBeTruthy()
+  expect(screen.queryByRole('region', { name: 'Working 1 thread' })).toBeNull()
+  rerender(<Dashboard snapshot={changed} transportError now={now} />)
+  expect(screen.queryByRole('region', { name: 'Needs attention 1 thread' })).toBeNull()
+  expect(screen.getByRole('region', { name: 'Status unavailable 1 thread' })).toBeTruthy()
 })

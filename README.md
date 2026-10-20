@@ -1,7 +1,7 @@
 # ThreadDeck
 
 A personal, local, read-only switchboard for Kimaki/OpenCode conversations.
-Discord remains the conversation interface. Sessions always stay grouped by project.
+Discord remains the conversation interface. Group threads by project or by state.
 
 ## Stack
 
@@ -12,7 +12,12 @@ with a lightweight Node.js backend. Node 24+ is required.
 
 - One column of project panels, with active projects first and inactive groups
   initially collapsed. Manual collapse, search, filters and scroll survive refresh.
-- Working, Attention and Recent activity (last 24 hours) filters keep project groups.
+- **By project / By state** switches grouping and remembers your choice locally.
+  State view stacks Needs attention (including unread responses), Working, then Idle,
+  with project pills on every thread and newest activity first within each group.
+  Threads appear once; attention takes priority over working. Stale live states
+  appear under Status unavailable, while local unread flags remain actionable.
+- Working, Attention and Recent activity (last 24 hours) filters work in both views.
 - Active sessions is the default: working threads, requests needing attention and
   locally unread responses stay visible; All sessions also reveals idle threads.
 - Completed assistant responses are marked **Unread** until opened from ThreadDeck
