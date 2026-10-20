@@ -1,19 +1,14 @@
-import path from 'node:path'
-
-const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`
 // CommandLineToArgvW-compatible quoting, followed by VBScript string quoting.
 export const windowsQuote = value => `"${value.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1')}"`
 const vbsString = value => `"${value.replaceAll('"', '""')}"`
 
-export function launcherScript({ distro, root, node, nodePath, log }) {
-  for (const value of [distro, root, node, nodePath, log]) {
+export function launcherScript({ executable, entry, config }) {
+  for (const value of [executable, entry, config]) {
     if (!value || /[\r\n\0]/.test(value)) throw new Error('Invalid Windows launcher configuration')
   }
-  const command = `export PATH=${shellQuote(nodePath)}; exec ${shellQuote(node)} ${shellQuote(path.posix.join(root, 'scripts/kimaki.mjs'))} --desktop --reuse-existing >>${shellQuote(log)} 2>&1`
-  const args = ['wsl.exe', '--distribution', distro, '--cd', root, '--exec', '/bin/sh', '-c', command]
-  // wsl.exe parses switches itself; quoting a switch such as "--distribution"
-  // can make it treat the remaining arguments as a Linux shell command.
-  const run = args.map(value => /^[\w./:\\-]+$/.test(value) ? value : windowsQuote(value)).join(' ')
+  // Compatibility entry for existing pinned shortcuts. Native Electron opens
+  // first; it starts WSL only after its local branded window has rendered.
+  const run = [executable, entry, `--launch-services=${config}`].map(windowsQuote).join(' ')
   return [
     "' ThreadDeck: starts the WSL backend, Kimaki and native Windows Electron.",
     'Option Explicit',

@@ -13,6 +13,13 @@ function openLink(event) {
 window.addEventListener('click', openLink, true)
 window.addEventListener('auxclick', openLink, true)
 contextBridge.exposeInMainWorld('threaddeckDesktop', {
+  startupState: () => ipcRenderer.invoke('startup-state'),
+  startupAction: action => { if (['retry', 'logs'].includes(action)) ipcRenderer.send('startup-action', action) },
+  onStartup: callback => {
+    const listener = (_event, state) => callback(state)
+    ipcRenderer.on('startup-progress', listener)
+    return () => ipcRenderer.removeListener('startup-progress', listener)
+  },
   control: action => { if (['minimize', 'maximize', 'close'].includes(action)) ipcRenderer.send('window-control', action) },
   onMaximized: callback => {
     const listener = (_event, maximized) => callback(maximized)

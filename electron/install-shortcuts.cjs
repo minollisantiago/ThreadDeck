@@ -6,8 +6,11 @@ const { appId } = require('./taskbar.cjs')
 app.whenReady().then(() => {
   const config = JSON.parse(readFileSync(process.argv[2], 'utf8'))
   for (const file of config.shortcuts) {
-    if (existsSync(file) && shell.readShortcutLink(file).args !== config.details.args) {
-      throw new Error(`Refusing to overwrite an unrelated shortcut: ${file}`)
+    if (existsSync(file)) {
+      const existing = shell.readShortcutLink(file)
+      if (existing.args !== config.details.args && existing.appUserModelId !== appId && existing.args !== config.legacyArgs) {
+        throw new Error(`Refusing to overwrite an unrelated shortcut: ${file}`)
+      }
     }
   }
   for (const file of config.shortcuts) {

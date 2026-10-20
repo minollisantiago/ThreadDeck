@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import { readFile, mkdir, copyFile } from 'node:fs/promises'
+import { readFile, mkdir, copyFile, mkdtemp, writeFile, rm, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { spawn, execFileSync } from 'node:child_process'
 import { windowsRuntime } from './desktop.mjs'
@@ -26,6 +26,8 @@ const server = createServer(async (req, res) => {
 })
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
 const runtime = await windowsRuntime()
+let startupRoot
+let startupConfig
 try {
   // Playwright's driver must run on Windows too: WSL cannot attach to a Windows
   // loopback inspector. Electron's Node mode avoids requiring Windows Node.js.
@@ -33,8 +35,29 @@ try {
   await copyFile('scripts/desktop.windows-test.cjs', path.join(directory, 'desktop.windows-test.cjs'))
   await copyFile('scripts/windows-taskbar-probe.ps1', path.join(directory, 'windows-taskbar-probe.ps1'))
   const windowsPath = value => execFileSync('wslpath', ['-w', path.resolve(value)], { encoding: 'utf8' }).trim()
+  if (process.argv.includes('--startup')) {
+    startupRoot = await mkdtemp("/tmp/opencode/ThreadDeck startup's test-")
+    await mkdir(path.join(startupRoot, 'scripts'))
+    await writeFile(path.join(startupRoot, 'scripts/services.mjs'), `
+import { existsSync, writeFileSync, statSync } from 'node:fs';
+import { setTimeout as sleep } from 'node:timers/promises';
+const attempted = new URL('../attempted', import.meta.url);
+const emit = (phase,state,detail) => console.log('THREADDECK_STARTUP '+JSON.stringify({phase,state,detail}));
+let ready=false;
+setInterval(()=>{try{if(Date.now()-statSync(process.env.THREADDECK_STARTUP_LEASE).mtimeMs<10000)return}catch{}writeFileSync(new URL(ready?'../stopped':'../cancelled',import.meta.url),'');process.exit(0)},250);
+emit('wsl','ready','Linux is ready');
+if (!existsSync(attempted)) { writeFileSync(attempted,''); await sleep(600); console.error('Synthetic startup failure'); process.exit(7); }
+emit('backend','working','Building your dashboard'); emit('kimaki','working','Starting Kimaki');
+await sleep(3500); emit('backend','ready','Dashboard backend is ready');
+await sleep(1500); ready=true; emit('kimaki','ready','Kimaki is ready');
+`)
+    startupConfig = path.join(directory, 'startup-test.json')
+    await writeFile(startupConfig, JSON.stringify({ distro: process.env.WSL_DISTRO_NAME, root: startupRoot, node: process.execPath,
+      nodePath: `${path.dirname(process.execPath)}:/usr/bin:/bin`, windowsDirectory: windowsPath(directory), wslDirectory: directory,
+      logPath: windowsPath(path.join(directory, 'startup-test.log')), port: server.address().port }))
+  }
   const code = await new Promise((resolve, reject) => {
-    const child = spawn(runtime.executable, [windowsPath(path.join(directory, 'desktop.windows-test.cjs')), windowsPath('node_modules/playwright-core'), String(server.address().port)], {
+    const child = spawn(runtime.executable, [windowsPath(path.join(directory, 'desktop.windows-test.cjs')), windowsPath('node_modules/playwright-core'), String(server.address().port), ...(startupConfig ? [windowsPath(startupConfig)] : [])], {
       stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', WSLENV: `${process.env.WSLENV ?? ''}:ELECTRON_RUN_AS_NODE` },
     })
     child.stdout.pipe(process.stdout)
@@ -45,7 +68,15 @@ try {
   if (code !== 0) throw new Error(`Windows desktop checks exited ${code}`)
   await mkdir('artifacts', { recursive: true })
   for (const name of ['narrow-dark', 'maximized', 'narrow-light']) await copyFile(path.join(directory, `electron-windows-${name}.png`), `artifacts/electron-windows-${name}.png`)
+  if (startupConfig) {
+    for (const name of ['startup', 'startup-error']) await copyFile(path.join(directory, `electron-windows-${name}.png`), `artifacts/electron-windows-${name}.png`)
+    await readFile(path.join(startupRoot, 'stopped'))
+    await readFile(path.join(startupRoot, 'cancelled'))
+    console.log('Client-first startup, scanner animation, retry, handoff and owned-service cleanup passed.')
+  }
   console.log('Native Windows screenshots saved in artifacts/.')
 } finally {
   await new Promise(resolve => server.close(resolve))
+  if (startupConfig) await unlink(startupConfig).catch(() => {})
+  if (startupRoot) await rm(startupRoot, { recursive: true, force: true })
 }

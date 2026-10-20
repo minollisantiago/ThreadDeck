@@ -67,6 +67,8 @@ backend and Electron together without a terminal, run `npm run desktop:install`
 once from WSL. See [Windows all-in-one launcher](docs/windows-launcher.md) for
 setup and logs. The Windows shortcut reuses already-running services and starts
 only missing ones; closing it leaves reused services untouched.
+The native client opens before WSL starts, with a branded scanner-logo loading
+screen, live startup stages, and retry/log controls if anything fails.
 
 Keep `npm run kimaki` for the existing browser dashboard. For a **native Windows
 Electron window** alongside Discord, use this separate command from WSL:

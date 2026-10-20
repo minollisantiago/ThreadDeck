@@ -2,15 +2,30 @@ const { app, BrowserWindow, ipcMain, screen, shell, dialog } = require('electron
 const path = require('node:path')
 const { externalLink, mobileBounds } = require('./policy.cjs')
 const { appId, taskbarDetails } = require('./taskbar.cjs')
+const { startupController } = require('./startup.cjs')
+const { readFileSync } = require('node:fs')
 
-const port = Number(process.argv.find(arg => arg.startsWith('--dashboard-port='))?.split('=')[1] ?? 43127)
-if (!Number.isInteger(port) || port < 1024 || port > 65535) app.exit(1)
+const configFile = process.argv.find(arg => arg.startsWith('--launch-services='))?.slice('--launch-services='.length)
+let config
+let configError
+try { if (configFile) config = JSON.parse(readFileSync(configFile, 'utf8')) } catch (error) { configError = error.message }
+let port = Number(process.argv.find(arg => arg.startsWith('--dashboard-port='))?.split('=')[1] ?? config?.port ?? 43127)
+if (!Number.isInteger(port) || port < 1024 || port > 65535) { configError = 'Invalid dashboard port. Reinstall the Windows launcher.'; port = 43127 }
 const origin = `http://127.0.0.1:${port}`
 let window
 let quitting = false
+let controller
+let attempt = 0
+let startupState
+const initialState = () => ({ stages: {
+  wsl: { state: 'working', detail: 'Starting Windows Subsystem for Linux', hidden: !configFile },
+  backend: { state: configFile ? 'pending' : 'working', detail: configFile ? 'Waiting for Linux' : 'Connecting to your dashboard' },
+  kimaki: { state: 'pending', detail: 'Waiting for Linux', hidden: !configFile },
+}, error: null, connecting: false })
+const notifyStartup = () => { if (window && !window.isDestroyed()) window.webContents.send('startup-progress', startupState) }
 app.setName('ThreadDeck')
 app.setAppUserModelId(appId)
-app.on('before-quit', () => { quitting = true })
+app.on('before-quit', () => { quitting = true; attempt++; void controller?.stop() })
 const lease = process.argv.find(arg => arg.startsWith('--supervisor-lease='))?.slice('--supervisor-lease='.length)
 if (lease) {
   const checkLease = () => {
@@ -21,21 +36,43 @@ if (lease) {
   app.on('before-quit', () => clearInterval(heartbeat))
 }
 
-async function waitForDashboard() {
-  const deadline = Date.now() + 30_000
-  while (Date.now() < deadline && !quitting) {
-    try {
-      const response = await fetch(`${origin}/api/snapshot`, { signal: AbortSignal.timeout(1500) })
-      if (response.ok) return
-    } catch { /* backend may still be starting */ }
+async function beginStartup() {
+  const id = ++attempt
+  startupState = initialState()
+  notifyStartup()
+  if (configError) { startupState.error = configError; notifyStartup(); return }
+  if (controller) await controller.start()
+  const deadline = Date.now() + (configFile ? 180_000 : 30_000)
+  while (Date.now() < deadline && !quitting && id === attempt && !startupState.error) {
+    if (!configFile || Object.values(startupState.stages).every(stage => stage.state === 'ready')) {
+      if (!startupState.connecting) { startupState.connecting = true; notifyStartup() }
+      try {
+        const response = await fetch(`${origin}/api/snapshot`, { signal: AbortSignal.timeout(1500) })
+        if (response.ok) {
+          await window.loadURL(origin)
+          controller?.ready()
+          return
+        }
+      } catch {
+        // A failed navigation must not leave Chromium's blank error document.
+        if (!quitting && id === attempt && !window.webContents.getURL().startsWith('file:')) {
+          await window.loadFile(path.join(__dirname, 'startup.html'))
+          notifyStartup()
+        }
+      }
+    }
     await new Promise(resolve => setTimeout(resolve, 250))
   }
-  throw new Error(`Cannot reach the WSL dashboard at ${origin}. Start the backend and check Windows-to-WSL localhost forwarding.`)
+  if (!quitting && id === attempt && !startupState.error) {
+    startupState.error = `Cannot connect to the dashboard at ${origin}. Check the startup log and Windows-to-WSL localhost forwarding.`
+    notifyStartup()
+    void controller?.stop()
+  }
 }
 
 app.whenReady().then(async () => {
-  await waitForDashboard()
   if (quitting) return
+  startupState = initialState()
   const initialBounds = mobileBounds(screen.getPrimaryDisplay().workArea)
   window = new BrowserWindow({
     ...initialBounds, minWidth: initialBounds.width, minHeight: 400,
@@ -44,6 +81,16 @@ app.whenReady().then(async () => {
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },
   })
   if (process.platform === 'win32') window.setAppDetails(taskbarDetails(__dirname, port))
+  if (config) controller = startupController({ ...config, port }, event => {
+    if (event.error) {
+      startupState.error = event.error
+      if (!quitting && !window.isDestroyed() && !window.webContents.getURL().startsWith('file:')) {
+        void window.loadFile(path.join(__dirname, 'startup.html')).then(notifyStartup).catch(() => {})
+      }
+    }
+    else startupState.stages[event.phase] = { state: event.state, detail: String(event.detail ?? '') }
+    notifyStartup()
+  })
   window.setMenu(null)
   const openExternal = url => { if (externalLink(url)) void shell.openExternal(url).catch(console.error) }
   ipcMain.on('open-discord', (event, url) => {
@@ -62,13 +109,23 @@ app.whenReady().then(async () => {
     if (action === 'maximize') window.isMaximized() ? window.unmaximize() : window.maximize()
     if (action === 'close') window.close()
   })
+  const isSplash = event => event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame && event.senderFrame.url.startsWith('file:')
+  ipcMain.handle('startup-state', event => isSplash(event) ? startupState : null)
+  ipcMain.on('startup-action', (event, action) => {
+    if (!isSplash(event)) return
+    if (action === 'retry' && startupState.error) void beginStartup()
+    if (action === 'logs') void shell.openPath(config?.logPath ?? path.resolve(__dirname, '..', 'launcher.log'))
+  })
   const notify = () => window.webContents.send('window-maximized', window.isMaximized())
   window.on('maximize', notify)
   window.on('unmaximize', () => {
     window.setBounds(mobileBounds(screen.getDisplayMatching(window.getBounds()).workArea))
     notify()
   })
+  window.webContents.on('did-finish-load', notify)
   window.once('ready-to-show', () => window.show())
-  await window.loadURL(origin)
+  window.on('closed', () => { quitting = true; attempt++; void controller?.stop() })
+  await window.loadFile(path.join(__dirname, 'startup.html'))
+  void beginStartup()
 }).catch(error => { if (!quitting) dialog.showErrorBox('ThreadDeck could not start', error.message); app.exit(1) })
 app.on('window-all-closed', () => app.quit())

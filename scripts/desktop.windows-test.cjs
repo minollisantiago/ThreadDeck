@@ -12,7 +12,7 @@ async function main() {
   // Keep synthetic fixtures and cleared preferences out of the real app profile.
   const entry = path.join(directory, 'test-main.cjs')
   await fs.writeFile(entry, `require('electron').app.setPath('userData', ${JSON.stringify(path.join(directory, 'test-profile'))}); require('./main.cjs')`)
-  const app = await electron.launch({ executablePath: path.join(directory, 'electron.exe'), args: [entry, `--dashboard-port=${process.argv[3]}`], env, timeout: 60_000 })
+  const app = await electron.launch({ executablePath: path.join(directory, 'electron.exe'), args: [entry, `--dashboard-port=${process.argv[3]}`, ...(process.argv[4] ? [`--launch-services=${process.argv[4]}`] : [])], env, timeout: 60_000 })
   log('Electron launched')
   try {
     const page = await app.firstWindow({ timeout: 20_000 })
@@ -21,6 +21,24 @@ async function main() {
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
     log(`URL: ${page.url()}`)
+    if (process.argv[4]) {
+      assert.ok(page.url().startsWith('file:'))
+      await page.getByRole('heading', { name: 'ThreadDeck', exact: true }).waitFor()
+      assert.equal(await page.locator('.scan-band').evaluate(element => getComputedStyle(element).animationName), 'scan')
+      await page.locator('#error').waitFor({ state: 'visible' })
+      await page.screenshot({ path: path.join(directory, 'electron-windows-startup-error.png') })
+      await app.evaluate(({ shell }) => { shell.openPath = async file => { globalThis.startupLog = file; return '' } })
+      await page.getByRole('button', { name: 'Open startup log' }).click()
+      assert.ok((await app.evaluate(() => globalThis.startupLog)).endsWith('startup-test.log'))
+      await page.getByRole('button', { name: 'Retry startup' }).click()
+      await page.waitForFunction(() => document.getElementById('error').hidden)
+      await page.waitForFunction(() => document.querySelector('[data-phase="backend"]').dataset.state === 'working')
+      await page.screenshot({ path: path.join(directory, 'electron-windows-startup.png') })
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      assert.equal(await page.locator('.scan-band').evaluate(element => getComputedStyle(element).animationName), 'none')
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+    }
+    await page.waitForURL(`http://127.0.0.1:${process.argv[3]}/`, { waitUntil: 'load', timeout: 30_000 })
     await page.waitForLoadState('domcontentloaded', { timeout: 20_000 })
     log('DOM ready')
     await page.evaluate(() => { localStorage.clear(); localStorage.setItem('threaddeck:appearance', '"dark"') })
@@ -82,6 +100,17 @@ async function main() {
     await page.getByRole('button', { name: 'Close window', exact: true }).click()
     console.log('Windows Electron sizing, maximize/restore, minimize, themes, isolation and close passed.')
   } finally { await app.close().catch(() => {}) }
+  if (process.argv[4]) {
+    const cancelEntry = path.join(directory, 'test-startup-cancel.cjs')
+    await fs.writeFile(cancelEntry, `require('electron').app.setPath('userData', ${JSON.stringify(path.join(directory, 'cancel-test-profile'))}); require('./main.cjs')`)
+    const cancelApp = await electron.launch({ executablePath: path.join(directory, 'electron.exe'), args: [cancelEntry, `--launch-services=${process.argv[4]}`], env, timeout: 60_000 })
+    try {
+      const splash = await cancelApp.firstWindow()
+      await splash.waitForFunction(() => document.querySelector('[data-phase="backend"]')?.dataset.state === 'working')
+      await splash.getByRole('button', { name: 'Close window', exact: true }).click()
+    } finally { await cancelApp.close().catch(() => {}) }
+    console.log('Closing the client during startup cancels its owned WSL attempt.')
+  }
   // Verify the cross-OS lease contract: removing the lease quits the native app.
   const supervisedEntry = path.join(directory, 'test-supervised.cjs')
   await fs.writeFile(supervisedEntry, `require('electron').app.setPath('userData', ${JSON.stringify(path.join(directory, 'supervised-test-profile'))}); require('./main.cjs')`)

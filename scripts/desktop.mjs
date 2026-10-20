@@ -26,7 +26,8 @@ export async function windowsRuntime() {
     await copyFile(zip, archive)
     run(powershell, ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath ${quote(`${windowsDir}\\electron.zip`)} -DestinationPath ${quote(windowsDir)} -Force; if (!$?) { exit 1 }; New-Item -ItemType File -Path ${quote(`${windowsDir}\\ready`)} -Force | Out-Null`])
   }
-  for (const file of ['main.cjs', 'preload.cjs', 'policy.cjs', 'taskbar.cjs', 'install-shortcuts.cjs', 'ThreadDeck.ico']) await copyFile(path.join(root, 'electron', file), path.join(directory, file))
+  for (const file of ['main.cjs', 'preload.cjs', 'policy.cjs', 'taskbar.cjs', 'install-shortcuts.cjs', 'startup.cjs', 'startup.html', 'startup.css', 'startup-ui.js', 'ThreadDeck.ico']) await copyFile(path.join(root, 'electron', file), path.join(directory, file))
+  await copyFile(path.join(root, 'public/fonts/JetBrainsMono-Regular.woff2'), path.join(directory, 'JetBrainsMono-Regular.woff2'))
   return { executable: path.join(directory, 'electron.exe'), args: [`${windowsDir}\\main.cjs`] }
 }
 
