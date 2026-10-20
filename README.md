@@ -19,6 +19,31 @@ with a lightweight Node.js backend. Node 24+ is required.
 - Shared charcoal/light surfaces and bundled OFL-licensed JetBrains Mono typography
   follow the WeekTrace/NaturalGas references without sharing runtime code.
 
+## Start alongside Kimaki
+
+Instead of `npx kimaki@latest --gateway`, run:
+
+```sh
+cd ~/projects/ThreadDeck
+npm run kimaki
+```
+
+This builds ThreadDeck, then starts the production dashboard and Kimaki together.
+Open `http://localhost:5173` in your Windows browser. Ctrl+C stops both; if either
+process exits, the launcher stops the other too. Build failures prevent startup.
+Kimaki's internal bot restarts keep the dashboard running with its parent launcher.
+
+Stop a previously launched Kimaki yourself before switching to this command.
+The launcher uses `--if-not-running` so it never replaces an already running bot;
+if one exists, Kimaki exits and the dashboard stops too. No existing bot is
+restarted or reconfigured by installing this launcher. It does not start OpenCode
+directly: Kimaki manages its own service as usual.
+
+Extra Kimaki options can be passed with `npm run kimaki -- --no-analytics`.
+The launcher adds `~/.kimaki/bin` to PATH for the dashboard's CLI access.
+Run `npm install` once before first use. This launcher requires Linux/macOS
+(including WSL) for process-group cleanup.
+
 ## Development
 
 ```sh
@@ -40,8 +65,10 @@ Browser checks (after building): `npx playwright install chromium`, then
 existing Chromium binary. These checks use synthetic sessions and save desktop,
 light, mobile, and disconnected-state screenshots under ignored `artifacts/`.
 
-The existing Kimaki CLI must be on PATH and the existing OpenCode V2 service
-must be running. ThreadDeck never starts, stops, or reconfigures either service.
+When starting the dashboard on its own, the existing Kimaki CLI must be on PATH
+and the existing OpenCode V2 service must be running. The dashboard itself never
+starts, stops, or reconfigures either service; the optional shared launcher above
+owns only the processes it starts.
 No Discord token or OpenCode credential is sent to the browser.
 
 ### Troubleshooting: disconnected with existing sessions

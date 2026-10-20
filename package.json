@@ -7,6 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "kimaki": "node scripts/kimaki.mjs",
     "dev": "tsx watch server/index.ts",
     "build": "tsc --noEmit && vite build",
     "start": "tsx server/index.ts --production",
