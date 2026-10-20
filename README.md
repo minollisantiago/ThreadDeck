@@ -55,6 +55,46 @@ The launcher adds `~/.kimaki/bin` to PATH for the dashboard's CLI access.
 Run `npm install` once before first use. This launcher requires Linux/macOS
 (including WSL) for process-group cleanup.
 
+## Windows desktop app (from WSL)
+
+Keep `npm run kimaki` for the existing browser dashboard. For a **native Windows
+Electron window** alongside Discord, use this separate command from WSL:
+
+```sh
+npm run kimaki:desktop
+# Extra Kimaki options still work:
+npm run kimaki:desktop -- --no-analytics
+```
+
+This builds the app and starts the WSL dashboard backend, Kimaki and the Windows
+window together. Closing the window, Ctrl+C, or any owned process exiting stops
+the others. Stop an earlier Kimaki launcher yourself first; this command never
+replaces an existing bot. No Kimaki or OpenCode services are restarted by setup.
+
+- Opens **430 pixels wide**, filling the primary display's usable height (taskbar
+  stays visible), ready to sit beside Discord. Resizing and dragging remain available.
+- A frameless, draggable title bar follows the app's light/dark theme and accent.
+  Maximize fills the desktop; **Restore** returns to narrow, full-height mode on
+  the current display. Minimize is the normal Windows taskbar action, not Restore.
+- Discord links open in the Windows Discord app or default browser, never inside
+  the dashboard window. Browser and desktop have separate local preferences and
+  unread receipts; these do not migrate or sync.
+- Requires WSL Windows interop and localhost forwarding (the WSL defaults), plus
+  Windows PowerShell. The first run downloads the matching Windows Electron
+  runtime, verifies its checksum, and caches it in `%LOCALAPPDATA%\ThreadDeck`.
+  Only the desktop shell is copied there; the backend and project data stay in WSL.
+  No Windows Node.js install is needed. This is a launcher, not an installer/MSI.
+- `PORT` is forwarded to the desktop app. The backend stays loopback-only; do not
+  expose it publicly. If Windows cannot reach it, check WSL localhost forwarding.
+
+To open just the desktop window against an **already running** production or dev
+dashboard, use `npm run desktop`. This command does not start or stop that backend
+or Kimaki. Run `npm run build && npm start` separately if needed.
+
+Desktop policy checks: `npm run test:desktop`. Shared launcher checks are included
+in `npm test`. To exercise the real Windows window with synthetic sessions and
+save screenshots under `artifacts/`, run `node scripts/desktop.e2e.mjs` after a build.
+
 ## Development
 
 ```sh

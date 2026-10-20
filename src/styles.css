@@ -31,6 +31,16 @@
 :root[data-palette=peach] { --accent: #f2be7e; }
 * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--row) transparent; }
 body { margin: 0; background: var(--ground); color: var(--text); font: 15px/1.55 var(--font); min-width: 320px; }
+.desktop-titlebar { position: sticky; top: 0; z-index: 50; height: 38px; display: flex; align-items: stretch; background: var(--ground); border-bottom: 1px solid var(--rule); user-select: none; }
+.desktop-drag { -webkit-app-region: drag; flex: 1; display: flex; align-items: center; gap: 8px; padding-left: 14px; font-size: 10px; color: var(--muted); }
+.desktop-drag svg { width: 14px; height: 14px; color: var(--accent); }
+.desktop-local { color: var(--subtle); font-size: 8px; letter-spacing: 1px; margin-left: 4px; }
+.desktop-window-controls { display: flex; -webkit-app-region: no-drag; }
+.desktop-window-controls button { display: grid; place-items: center; width: 42px; border: 0; background: transparent; color: var(--muted); }
+.desktop-window-controls button:hover { background: var(--hover); color: var(--text); }
+.desktop-window-controls button:last-child:hover { background: #c52b3b; color: white; }
+.desktop-window-controls svg { width: 13px; height: 13px; }
+.desktop-titlebar + .app-shell { padding-top: 26px; }
 button, input { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; }

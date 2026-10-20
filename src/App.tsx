@@ -9,6 +9,7 @@ import { ProjectIslands } from './components/project-islands'
 import { isDesign, type Design } from './lib/design'
 import { useSnapshot } from './hooks/use-snapshot'
 import { useUnread } from './hooks/use-unread'
+import { DesktopTitlebar } from './components/desktop-titlebar'
 import { isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
 import { projectOrder, sessionOrder, visibleProjects, workingCount, type Filter } from './lib/view'
 
@@ -95,7 +96,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const shown = projectOrder(visibleProjects(projects, query, filter, now, verified, unread), verified, unread)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
-  return <div className="app-shell" data-design={design}>
+  return <><DesktopTitlebar /><div className="app-shell" data-design={design}>
     <header className="page-header">
       <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><div><p className="eyebrow">YOUR AGENT SWITCHBOARD</p><h1>ThreadDeck<span className="live-label">LIVE</span></h1></div></div>
       <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
@@ -131,7 +132,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       </div>
     </main>
     <footer><span><span className="footer-dot" />LOCAL · READ ONLY</span><span>Titles open Discord app <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span><span title="Recent inventory is bounded to the latest 300 OpenCode sessions. Working threads are checked separately.">Refreshes every 5s</span></footer>
-  </div>
+  </div></>
 }
 
 export default function App() {

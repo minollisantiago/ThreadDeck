@@ -1,0 +1,22 @@
+const { contextBridge, ipcRenderer } = require('electron')
+// Custom schemes do not reliably emit will-navigate. Cancel their default
+// navigation in the isolated preload and let the main process validate handoffs.
+function openLink(event) {
+  if (event.button !== 0 && event.button !== 1) return
+  const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null
+  if (!anchor) return
+  const url = new URL(anchor.href)
+  if (url.origin === location.origin) return
+  event.preventDefault()
+  ipcRenderer.send('open-discord', url.href)
+}
+window.addEventListener('click', openLink, true)
+window.addEventListener('auxclick', openLink, true)
+contextBridge.exposeInMainWorld('threaddeckDesktop', {
+  control: action => { if (['minimize', 'maximize', 'close'].includes(action)) ipcRenderer.send('window-control', action) },
+  onMaximized: callback => {
+    const listener = (_event, maximized) => callback(maximized)
+    ipcRenderer.on('window-maximized', listener)
+    return () => ipcRenderer.removeListener('window-maximized', listener)
+  },
+})

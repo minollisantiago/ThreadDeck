@@ -42,6 +42,15 @@ export function supervise(commands, { cwd, env = process.env, graceMs = 5_000 } 
   return { done, stop }
 }
 
+export function launchCommands(args) {
+  const desktop = args[0] === '--desktop'
+  return [
+    [process.execPath, '--import', 'tsx', 'server/index.ts', '--production'],
+    ...(desktop ? [[process.execPath, 'scripts/desktop.mjs']] : []),
+    ['npx', '--yes', 'kimaki@latest', '--gateway', '--if-not-running', ...args.slice(desktop ? 1 : 0)],
+  ]
+}
+
 async function main() {
   const cwd = fileURLToPath(new URL('..', import.meta.url))
   const env = { ...process.env, PATH: `${path.join(homedir(), '.kimaki', 'bin')}${path.delimiter}${process.env.PATH ?? ''}` }
@@ -57,10 +66,7 @@ async function main() {
     const buildCode = await active.done
     if (buildCode !== 0 || interrupted) return buildCode || 130
     console.log('Starting ThreadDeck and Kimaki. Ctrl+C stops both.')
-    active = supervise([
-      [process.execPath, '--import', 'tsx', 'server/index.ts', '--production'],
-      ['npx', '--yes', 'kimaki@latest', '--gateway', '--if-not-running', ...process.argv.slice(2)],
-    ], { cwd, env })
+    active = supervise(launchCommands(process.argv.slice(2)), { cwd, env })
     return await active.done
   } finally {
     process.off('SIGINT', onInterrupt)
