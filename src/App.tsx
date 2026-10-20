@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, CheckCheck, ChevronDown, ChevronRight, CircleAlert, Clock3, ExternalLink, Github, Hash, Layers2, Moon, Search, Sun, X } from 'lucide-react'
+import { ArrowUpRight, CheckCheck, ChevronDown, ChevronRight, CircleAlert, Clock3, ExternalLink, Hash, Layers2, Search, X } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Badge } from './components/ui/badge'
 import { Input } from './components/ui/input'
+import { HeaderControls, palettes, type Palette } from './components/header-controls'
 import { useSnapshot } from './hooks/use-snapshot'
 import { useUnread } from './hooks/use-unread'
 import { discordLinks, isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
 import { projectOrder, relativeTime, sessionOrder, visibleProjects, workingCount, type Filter } from './lib/view'
 
-const palettes = ['pink', 'lavender', 'blue', 'green', 'peach'] as const
-type Palette = typeof palettes[number]
 function saved<T>(key: string, fallback: T, validate: (value: unknown) => value is T): T {
   try { const value: unknown = JSON.parse(localStorage.getItem(key) ?? 'null'); return validate(value) ? value : fallback } catch { return fallback }
 }
@@ -113,11 +112,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   return <div className="app-shell">
     <header className="page-header">
       <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><div><p className="eyebrow">YOUR AGENT SWITCHBOARD</p><h1>ThreadDeck<span className="live-label">LIVE</span></h1></div></div>
-      <div className="appearance-controls">
-        <div className="palette-picker" role="group" aria-label="Accent color">{palettes.map(p => <button key={p} className={`palette-swatch palette-${p}`} aria-label={`${p} accent`} title={`${p} accent`} aria-pressed={palette === p} onClick={() => setPalette(p)}>{palette === p ? '✓' : ''}</button>)}</div>
-        <Button variant="outline" size="icon" aria-label={`Switch to ${appearance === 'dark' ? 'light' : 'dark'} mode`} onClick={() => setAppearance(appearance === 'dark' ? 'light' : 'dark')}>{appearance === 'dark' ? <Sun /> : <Moon />}</Button>
-        <Button asChild variant="outline" size="icon"><a href="https://github.com/minollisantiago/ThreadDeck" target="_blank" rel="noopener noreferrer" aria-label="ThreadDeck on GitHub" title="View ThreadDeck on GitHub"><Github aria-hidden="true" /></a></Button>
-      </div>
+      <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} />
     </header>
 
     <div className="overview">
