@@ -40,7 +40,7 @@ npm run kimaki
 ```
 
 This builds ThreadDeck, then starts the production dashboard and Kimaki together.
-Open `http://localhost:5173` in your Windows browser. Ctrl+C stops both; if either
+Open `http://localhost:43127` in your Windows browser. Ctrl+C stops both; if either
 process exits, the launcher stops the other too. Build failures prevent startup.
 Kimaki's internal bot restarts keep the dashboard running with its parent launcher.
 
@@ -62,8 +62,9 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` in your Windows browser when running inside WSL.
-The backend and frontend share one loopback-only port.
+Open `http://localhost:43127` in your Windows browser when running inside WSL.
+The backend and frontend share one loopback-only port. Development hot reload
+uses port `43128`. These defaults avoid Vite's usual `5173` port range.
 
 ```sh
 npm run check
@@ -119,5 +120,6 @@ ThreadDeck needs restarting; do not restart Kimaki or OpenCode for this issue.
 
 The local backend is loopback-only and rejects foreign Host/Origin headers.
 Do not expose it through a public tunnel: session titles are personal data.
-`PORT` changes the default port. `KIMAKI_OPENCODE_SERVICE_FILE` optionally selects
+`PORT` changes the default port (`43127`); development hot reload uses `PORT + 1`,
+so both ports must be available. `KIMAKI_OPENCODE_SERVICE_FILE` optionally selects
 the existing OpenCode registration used by Kimaki.

@@ -7,7 +7,7 @@ import { source } from './source.ts'
 import { apiHandler } from './http.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const port = Number(process.env.PORT ?? 5173)
+const port = Number(process.env.PORT ?? 43127)
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid PORT')
 const production = process.argv.includes('--production')
 const monitor = new Monitor(source)
