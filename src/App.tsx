@@ -59,7 +59,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now }: {
 
 export function Dashboard({ snapshot, transportError = false, now = Date.now() }: { snapshot: Snapshot | null; transportError?: boolean; now?: number }) {
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<Filter>('all')
+  const [filter, setFilter] = useState<Filter>('active')
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => saved('threaddeck:collapsed', {},
     (v): v is Record<string, boolean> => v !== null && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every(x => typeof x === 'boolean')))
   const [appearance, setAppearance] = useState<'dark' | 'light'>(() => saved('threaddeck:appearance',
@@ -100,7 +100,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const attention = verified ? sessions.filter(s => isAttention(s.status)).length : 0
   const activeProjects = verified ? projects.filter(p => p.sessions.some(isActive)).length : 0
   const shown = projectOrder(visibleProjects(projects, query, filter, now, verified), verified)
-  const narrowed = query.trim().length > 0 || filter !== 'all'
+  const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
   return <div className="app-shell">
     <header className="page-header">
@@ -136,7 +136,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       <div className="toolbar">
         <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <kbd>/</kbd>}</div>
         <div className="filter-group" role="group" aria-label="Filter sessions">{([
-          ['all', 'All sessions'], ['working', 'Working'], ['attention', 'Attention'], ['recent', 'Recent activity'],
+          ['active', 'Active sessions'], ['all', 'All sessions'], ['working', 'Working'], ['attention', 'Attention'], ['recent', 'Recent activity'],
         ] as const).map(([value, label]) => <Button key={value} variant="ghost" className={filter === value ? 'filter-selected' : ''} aria-pressed={filter === value} title={value === 'recent' ? 'Updated in the last 24 hours' : undefined} onClick={() => setFilter(value)}>{value === 'recent' && <Clock3 />}{label}</Button>)}</div>
       </div>
 
@@ -148,7 +148,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
           const isCollapsed = collapsed[project.id] ?? (narrowed ? false : defaultCollapsed)
           return <ProjectPanel key={project.id} project={project} verified={verified} now={now} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />
         })}
-        {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : 'Your registered Kimaki projects will appear here.'}</p>{narrowed && <Button variant="outline" onClick={() => { setQuery(''); setFilter('all') }}>Clear filters</Button>}</div>}
+        {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button variant="outline" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
       </div>
     </main>
     <footer><span><span className="footer-dot" />LOCAL · READ ONLY</span><span>Titles open Discord app <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span><span title="Recent inventory is bounded to the latest 300 OpenCode sessions. Working threads are checked separately.">Refreshes every 5s</span></footer>

@@ -1,11 +1,12 @@
 import { isActive, isAttention, type Project, type Session } from '../../shared/model'
 
-export type Filter = 'all' | 'working' | 'attention' | 'recent'
+export type Filter = 'active' | 'all' | 'working' | 'attention' | 'recent'
 export function visibleProjects(projects: Project[], query: string, filter: Filter, now: number, verified: boolean) {
   const search = query.trim().toLocaleLowerCase()
   return projects.map(project => ({ ...project, sessions: project.sessions.filter(session => {
     const matches = !search || `${project.name} ${session.title}`.toLocaleLowerCase().includes(search)
     if (!matches) return false
+    if (filter === 'active') return !verified || isActive(session)
     if (filter === 'working') return verified && session.agentCount > 0
     if (filter === 'attention') return verified && isAttention(session.status)
     if (filter === 'recent') return session.updatedAt >= now - 24 * 60 * 60 * 1000

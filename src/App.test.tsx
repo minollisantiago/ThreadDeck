@@ -68,6 +68,7 @@ it('preserves manual collapse and search while snapshots refresh', () => {
 })
 it('does not collapse an expanded project when its agent becomes idle', () => {
   const { rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
   const idle: Snapshot = { ...snapshot, projects: snapshot.projects.map(p => ({ ...p, sessions: p.sessions.map(s => ({ ...s, status: 'idle', agentCount: 0 })) })) }
   rerender(<Dashboard snapshot={idle} now={now} />)
   expect(screen.getByRole('button', { name: /Alpha/ }).getAttribute('aria-expanded')).toBe('true')
@@ -77,6 +78,7 @@ it('keeps working sessions at the top of their project as live statuses change',
   const idle = { ...working, id: 'idle', title: 'Newer idle conversation', status: 'idle' as const, agentCount: 0, updatedAt: now + 1 }
   const mixed: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[0], sessions: [idle, working] }] }
   const { container, rerender } = render(<Dashboard snapshot={mixed} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
   const titles = () => [...container.querySelectorAll('.session-title')].map(node => node.textContent)
   expect(titles()).toEqual(['Build a switchboard', 'Newer idle conversation'])
   rerender(<Dashboard snapshot={{ ...mixed, projects: [{ ...mixed.projects[0], sessions: [
@@ -123,6 +125,7 @@ it('summarizes sessions and highlights only verified threads needing attention',
   }))
   const mixed: Snapshot = { ...snapshot, projects: [{ ...base, sessions }] }
   const { container, rerender } = render(<Dashboard snapshot={mixed} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
   const header = screen.getByRole('button', { name: /Alpha/ })
   expect(header.textContent).toContain('5 sessions')
   expect(header.textContent).toContain('3 need attention')
@@ -138,6 +141,23 @@ it('summarizes sessions and highlights only verified threads needing attention',
 })
 it('labels single-session pills and does not flag idle projects as needing attention', () => {
   const { container } = render(<Dashboard snapshot={snapshot} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
   expect(screen.getByRole('button', { name: /Beta/ }).textContent).toContain('1 session')
   expect(container.querySelector('.project-attention')).toBeNull()
+})
+it('hides idle sessions by default and reveals them only when all sessions is selected', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  expect(screen.getByRole('button', { name: 'Active sessions' }).getAttribute('aria-pressed')).toBe('true')
+  expect(screen.queryByRole('button', { name: /Beta/ })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
+  fireEvent.click(screen.getByRole('button', { name: /Beta/ }))
+  expect(screen.getByRole('link', { name: 'Old conversation' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Active sessions' }))
+  expect(screen.queryByRole('link', { name: 'Old conversation' })).toBeNull()
+})
+it('offers a way to reveal idle sessions when none are active', () => {
+  render(<Dashboard snapshot={{ ...snapshot, projects: [snapshot.projects[1]] }} now={now} />)
+  expect(screen.getByText('No active sessions')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Show all sessions' }))
+  expect(screen.getByRole('button', { name: /Beta/ })).toBeTruthy()
 })
