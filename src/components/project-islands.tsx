@@ -2,6 +2,7 @@ import { ChevronDown, CircleAlert, Radio } from 'lucide-react'
 import { isAttention, type Project, type Session } from '../../shared/model'
 import { sessionOrder, workingCount } from '../lib/view'
 import { SessionRow } from './session-row'
+import { Badge } from './ui/badge'
 
 export function ProjectIslands({ projects, verified, now, unread, markRead, collapsed, toggle }: {
   projects: Project[]; verified: boolean; now: number
@@ -22,8 +23,8 @@ export function ProjectIslands({ projects, verified, now, unread, markRead, coll
           <ChevronDown className={`visual-chevron ${closed ? 'is-closed' : ''}`} aria-hidden="true" />
         </button>
         <div className="visual-project-stats">
-          {verified ? <><span className={working ? 'working-summary' : ''}><Radio aria-hidden="true" />{working} working</span>{attention > 0 && <span className="attention-summary"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</span>}</> : <span>Status unavailable</span>}
-          {unreadCount > 0 && <span className="visual-unread">{unreadCount} unread</span>}
+          {verified ? <><Badge className={`status ${working ? 'status-working' : 'status-idle'}`}><Radio aria-hidden="true" />{working} working</Badge>{attention > 0 && <Badge className="status status-input"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</Badge>}</> : <span>Status unavailable</span>}
+          {unreadCount > 0 && <Badge className="status status-unread visual-unread">{unreadCount} unread</Badge>}
         </div>
         <div className="visual-session-grid" id={`visual-sessions-${project.id}`} hidden={closed}>
           {sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} graphical verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)}

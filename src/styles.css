@@ -138,7 +138,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .visual-project-heading { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border-radius: 10px; }
 .visual-project-heading:hover .project-name { color: var(--accent); }
 .project-emblem { position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 14px; color: color-mix(in srgb, var(--accent) 65%, var(--text)); background: color-mix(in srgb, var(--accent) 12%, var(--row)); font-size: 15px; border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent); }
-.emblem-signal { position: absolute; right: -3px; bottom: -3px; width: 11px; height: 11px; border: 3px solid var(--surface); border-radius: 50%; background: var(--subtle); }
+.emblem-signal { position: absolute; right: -4px; bottom: -4px; width: 18px; height: 18px; border: 3px solid var(--surface); border-radius: 50%; background: var(--subtle); }
 .signal-working { background: var(--working); }
 .visual-project-identity { min-width: 0; display: grid; gap: 2px; }
 .visual-project-total { font-size: 11px; color: var(--subtle); }
@@ -147,7 +147,8 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .visual-project-stats { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 17px 0; color: var(--subtle); font-size: 11px; }
 .visual-project-stats>span { display: inline-flex; align-items: center; gap: 5px; }
 .visual-project-stats svg { width: 12px; height: 12px; }
-.visual-unread { color: var(--accent); }
+.visual-project-stats .status { font-size: 12px; padding: 4px 9px; border-radius: 999px; }
+.visual-project-stats .status-unread, .session-tile .status-unread { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
 .visual-session-grid { display: grid; gap: 10px; min-width: 0; }
 .session-tile { display: grid; grid-template-columns: 30px minmax(0, 1fr) 26px; gap: 8px 10px; padding: 14px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--row) 48%, var(--surface)); border-radius: 13px; align-items: start; }
 .session-tile::before, .session-tile::after, .session-tile .session-attention-marker { display: none; }
@@ -155,7 +156,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .session-tile .session-title { white-space: normal; overflow-wrap: anywhere; color: var(--text); font-size: 13px; line-height: 1.6; }
 .session-tile .session-title:hover { color: var(--accent); }
 .session-tile .session-flags { grid-column: 2 / -1; grid-row: 2; flex-wrap: wrap; }
-.session-tile .status { font-size: 10px; padding: 3px 6px; }
+.session-tile .status { font-size: 12px; padding: 4px 9px; border-radius: 999px; }
 .session-tile .browser-link { grid-column: 3; grid-row: 1; width: 26px; height: 26px; }
 .session-tile-meta { grid-column: 2 / -1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px 10px; color: var(--subtle); font-size: 10px; }
 .session-tile-meta>span { display: inline-flex; gap: 4px; align-items: center; }
@@ -168,7 +169,8 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .glyph-error { color: var(--danger); }
 .session-tile[data-state=input], .session-tile[data-state=permission] { border-color: color-mix(in srgb, var(--warning) 30%, var(--rule)); }
 .session-tile[data-state=error] { border-color: color-mix(in srgb, var(--danger) 35%, var(--rule)); }
-.session-tile.session-unread { box-shadow: inset 3px 0 var(--accent); }
+.session-tile[data-state=working] { border-color: var(--working); }
+.session-tile.session-unread { border-color: var(--accent); }
 .projects-islands { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
 .projects-islands .visual-project { position: relative; background-color: var(--surface); background-image: radial-gradient(var(--rule) 1px, transparent 1px); background-size: 16px 16px; padding: 24px 18px; border-radius: 28px; }
 .projects-islands .visual-project-heading { flex-direction: column; text-align: center; gap: 9px; position: relative; }

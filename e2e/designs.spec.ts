@@ -19,6 +19,17 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' })
   await page.goto('/')
   const toggle = page.getByRole('button', { name: /Switch to (islands|list) view/ })
+  async function expectStateBorders() {
+    const working = page.locator('.session-tile[data-state=working]').first()
+    const unread = page.locator('.session-tile.session-unread').first()
+    const workingColor = await working.locator('.glyph-working').evaluate(element => getComputedStyle(element).color)
+    const unreadColor = await unread.locator('.status-unread').evaluate(element => getComputedStyle(element).color)
+    for (const side of ['top', 'right', 'bottom', 'left']) {
+      await expect(working).toHaveCSS(`border-${side}-color`, workingColor)
+      await expect(unread).toHaveCSS(`border-${side}-color`, unreadColor)
+    }
+    await expect(unread).toHaveCSS('box-shadow', 'none')
+  }
   await expect(toggle).toHaveAttribute('aria-label', 'Switch to islands view')
   await expect(page.getByRole('combobox')).toHaveCount(0)
   expect(await toggle.evaluate(element => element.nextElementSibling?.getAttribute('aria-label'))).toBe('Switch to light mode')
@@ -28,6 +39,14 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
     if (design === 'islands') await toggle.click()
     await expect(page.locator('.app-shell')).toHaveAttribute('data-design', design)
     await expect(page.getByRole('link', { name: 'Native Windows support', exact: true })).toBeVisible()
+    if (design === 'islands') {
+      await expect(page.locator('.emblem-signal').first()).toHaveCSS('width', '18px')
+      for (const pill of ['.visual-project-stats .status-working', '.visual-project-stats .status-unread', '.session-tile .status-working', '.session-tile .status-unread']) {
+        await expect(page.locator(pill).first()).toHaveCSS('font-size', '12px')
+        await expect(page.locator(pill).first()).toHaveCSS('border-radius', '999px')
+      }
+      await expectStateBorders()
+    }
     await page.evaluate(() => document.fonts.ready)
     await page.screenshot({ path: `artifacts/design-${design}-desktop.png`, fullPage: true })
     await page.reload()
@@ -52,6 +71,7 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
   }
   await page.setViewportSize({ width: 1440, height: 1100 })
   await page.getByRole('button', { name: 'Switch to light mode' }).click()
+  await expectStateBorders()
   await page.screenshot({ path: 'artifacts/design-islands-light.png', fullPage: true })
   expect(errors).toEqual([])
 })
