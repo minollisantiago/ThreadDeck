@@ -116,3 +116,28 @@ it('moves update details into the connection tooltip', () => {
   expect(tooltip.textContent).toContain('Recent session inventory is limited')
   expect(screen.getByRole('button', { name: 'Connected' }).getAttribute('aria-describedby')).toBe(tooltip.id)
 })
+it('summarizes sessions and highlights only verified threads needing attention', () => {
+  const base = snapshot.projects[0]
+  const sessions = (['working', 'idle', 'input', 'permission', 'error'] as const).map((status, index) => ({
+    ...base.sessions[0], id: `${index}`, title: `${status} thread`, status, agentCount: status === 'working' ? 1 : 0,
+  }))
+  const mixed: Snapshot = { ...snapshot, projects: [{ ...base, sessions }] }
+  const { container, rerender } = render(<Dashboard snapshot={mixed} now={now} />)
+  const header = screen.getByRole('button', { name: /Alpha/ })
+  expect(header.textContent).toContain('5 sessions')
+  expect(header.textContent).toContain('3 need attention')
+  expect(container.querySelectorAll('.session-attention')).toHaveLength(3)
+  expect(container.querySelectorAll('.session-attention-marker')).toHaveLength(3)
+  expect(container.querySelector('.session-row .session-title')?.textContent).toBe('working thread')
+  fireEvent.click(header)
+  expect(header.textContent).toContain('3 need attention')
+  expect(header.getAttribute('aria-expanded')).toBe('false')
+  rerender(<Dashboard snapshot={mixed} transportError now={now} />)
+  expect(container.querySelectorAll('.session-attention')).toHaveLength(0)
+  expect(container.querySelector('.project-attention')).toBeNull()
+})
+it('labels single-session pills and does not flag idle projects as needing attention', () => {
+  const { container } = render(<Dashboard snapshot={snapshot} now={now} />)
+  expect(screen.getByRole('button', { name: /Beta/ }).textContent).toContain('1 session')
+  expect(container.querySelector('.project-attention')).toBeNull()
+})

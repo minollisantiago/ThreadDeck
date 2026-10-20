@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, ChevronDown, ChevronRight, CircleAlert, Clock3, ExternalLink, Github, Layers2, Moon, Search, Sun, X } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, ChevronRight, CircleAlert, Clock3, ExternalLink, Github, Hash, Layers2, Moon, Search, Sun, X } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Badge } from './components/ui/badge'
 import { Input } from './components/ui/input'
@@ -18,16 +18,14 @@ const labels = { working: 'Working', idle: 'Idle', error: 'Error', input: 'Input
 function SessionRow({ session, verified, now }: { session: Session; verified: boolean; now: number }) {
   const links = discordLinks(session)
   const status = verified ? session.status : 'unknown'
-  return <div className="session-row">
+  const attention = verified && isAttention(session.status)
+  return <div className={`session-row ${attention ? 'session-attention' : ''}`} title={`Updated ${relativeTime(session.updatedAt, now)} · ${new Date(session.updatedAt).toLocaleString()}`}>
+    {attention && <span className="session-attention-marker" aria-hidden="true" />}
     <div className="session-copy">
-      {links ? <a className="session-title" href={links.app} title="Open thread in Discord app">{session.title}<ArrowUpRight aria-hidden="true" /></a>
-        : <span className="session-title">{session.title}</span>}
-      <div className="session-meta">
-        <span title={new Date(session.updatedAt).toLocaleString()}>Updated {relativeTime(session.updatedAt, now)}</span>
-        {verified && session.agentCount > 1 && <span> · {session.agentCount} agents</span>}
-      </div>
+      {links ? <a className="session-title" href={links.app} title={session.title}>{session.title}</a>
+         : <span className="session-title">{session.title}</span>}
     </div>
-    <Badge className={`status status-${status}`}><span className="status-dot" />{status === 'unknown' ? 'Unknown' : labels[status]}</Badge>
+    <Badge className={`status status-${status}`} title={verified && session.agentCount > 1 ? `${session.agentCount} agents` : undefined}><span className="status-dot" />{status === 'unknown' ? 'Unknown' : labels[status]}</Badge>
     {links && <Button asChild variant="ghost" size="icon" className="browser-link"><a href={links.browser} target="_blank" rel="noreferrer" aria-label={`Open ${session.title} in browser`} title="Open in Discord browser"><ExternalLink /></a></Button>}
   </div>
 }
@@ -41,11 +39,14 @@ function ProjectPanel({ project, collapsed, toggle, verified, now }: {
   return <section className={`project-panel ${active ? 'project-active' : ''}`} aria-labelledby={`heading-${project.id}`}>
     <button className="project-heading" id={`heading-${project.id}`} onClick={toggle} aria-expanded={!collapsed} aria-controls={`sessions-${project.id}`}>
       {collapsed ? <ChevronRight className="chevron" /> : <ChevronDown className="chevron" />}
+      <Hash className="project-channel-icon" aria-hidden="true" />
       <span className="project-name">{project.name}</span>
-      <span className="project-total">{project.sessions.length}</span>
+      <span className="project-pills">
+        <span className="project-total">{project.sessions.length} {project.sessions.length === 1 ? 'session' : 'sessions'}</span>
+        {verified && attention > 0 && <span className="project-attention"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</span>}
+      </span>
       <span className="project-summary">
         {verified && working > 0 && <span className="working-summary"><i />{working} working</span>}
-        {verified && attention > 0 && <span className="attention-summary">{attention} attention</span>}
         {(!verified || !active) && <span>{verified ? 'No working threads' : 'Status unavailable'}</span>}
       </span>
     </button>
