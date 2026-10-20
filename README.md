@@ -44,6 +44,24 @@ The existing Kimaki CLI must be on PATH and the existing OpenCode V2 service
 must be running. ThreadDeck never starts, stops, or reconfigures either service.
 No Discord token or OpenCode credential is sent to the browser.
 
+### Troubleshooting: disconnected with existing sessions
+
+ThreadDeck must be able to run `kimaki` from its own process environment. If
+Kimaki is installed in `~/.kimaki/bin` but that directory is missing from the
+terminal's `PATH`, the dashboard can show disconnected even when OpenCode is
+healthy and existing sessions are available.
+
+Stop ThreadDeck and restart it with Kimaki on `PATH`:
+
+```sh
+PATH="$HOME/.kimaki/bin:$PATH" npm run dev
+# For a production build, use npm start instead of npm run dev.
+```
+
+To make this permanent, add `export PATH="$HOME/.kimaki/bin:$PATH"` to your
+shell startup file and open a new terminal before starting ThreadDeck. Only
+ThreadDeck needs restarting; do not restart Kimaki or OpenCode for this issue.
+
 ## Data and refresh
 
 - Active sessions are checked every five seconds, independently of the recent list.
