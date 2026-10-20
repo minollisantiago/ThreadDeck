@@ -18,6 +18,15 @@ const snapshot: Snapshot = {
     ] },
   ],
 }
+it('distinguishes positive, zero and unavailable summary pill counts', () => {
+  const { container, rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
+  expect(container.querySelector('.overview-pill-working')?.getAttribute('data-count-state')).toBe('positive')
+  expect(container.querySelector('.overview-pill-attention')?.getAttribute('data-count-state')).toBe('zero')
+  expect(container.querySelector('.overview-pill-projects')?.getAttribute('data-count-state')).toBe('positive')
+  rerender(<Dashboard snapshot={snapshot} transportError now={now} />)
+  expect(container.querySelectorAll('.overview-pill[data-count-state=unknown]')).toHaveLength(3)
+  expect(container.querySelectorAll('.overview-pill[data-count-state=zero]')).toHaveLength(0)
+})
 it('focuses search when slash is pressed outside an editable field', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
   fireEvent.keyDown(document.body, { key: '/', code: 'Slash' })

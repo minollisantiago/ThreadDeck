@@ -54,6 +54,13 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .overview { margin-top: 30px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 25px; border-bottom: 1px solid var(--rule); }
 .overview-counts { display: flex; flex-wrap: wrap; gap: 10px 26px; font-size: 12px; color: var(--muted); }
 .overview-counts strong { color: var(--text); font-size: 17px; font-weight: 600; margin-right: 3px; }
+.overview-counts { gap: 8px; }
+.overview-pill { display: inline-flex; align-items: center; gap: 9px; padding: 5px 10px; border: 1px solid transparent; border-radius: 10px; white-space: nowrap; background: color-mix(in srgb, var(--pill-color) 9%, var(--surface)); color: var(--pill-color); }
+.overview-pill-working { --pill-color: var(--working); }
+.overview-pill-attention { --pill-color: var(--warning); }
+.overview-pill-projects { --pill-color: var(--accent); }
+.overview-pill[data-count-state=unknown] { background: var(--surface); border-color: var(--rule); color: var(--muted); }
+.overview-counts .overview-pill strong { color: inherit; margin-right: 0; font-size: 1em; }
 .connection { position: relative; font-size: 12px; color: var(--muted); flex-shrink: 0; }
 .connection-trigger { display: flex; align-items: center; gap: 9px; padding: 4px 0; border: 0; background: transparent; color: inherit; }
 .connection .connection-dot { width: 9px; height: 9px; }
@@ -72,6 +79,7 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .search-field kbd { position: absolute; right: 12px; top: 11px; font-size: 10px; color: var(--subtle); border: 1px solid var(--rule); border-radius: 4px; width: 19px; text-align: center; }
 .clear-search { position: absolute; right: 9px; top: 10px; color: var(--muted); padding: 2px; }.clear-search svg { width: 16px; height: 16px; }
 .filter-group { display: flex; flex-wrap: wrap; gap: 3px; }.filter-group button { font-size: 10px; height: 36px; padding-inline: 12px; }.filter-group svg { width: 12px; height: 12px; }
+.filter-label-short { display: none; }
 .filter-group .filter-selected { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: color-mix(in srgb, var(--accent) 75%, var(--text)); }
 .mark-all-read { font-size: 12px; height: 36px; }
 [data-appearance=light] .filter-group .filter-selected { color: color-mix(in srgb, var(--accent) 38%, #25212e); }
@@ -123,6 +131,12 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 @media(max-width:1000px) { .overview { flex-direction: column; align-items: flex-start; gap: 18px; }.toolbar { gap: 14px; }.search-field { flex-basis: 100%; }.filter-group { margin-left: -9px; }.connection-tooltip { left: 0; right: auto; } }
 @media(max-width:600px) { .app-shell { padding: 26px 16px 22px; }.page-header { flex-wrap: wrap; gap: 20px; }.identity { gap: 12px; }h1 { font-size: 25px; }.brand-icon { width: 40px; height: 40px; }.appearance-controls { margin-left: auto; }.overview { margin-top: 24px; }.overview-counts { gap: 10px 17px; font-size: 12px; }.overview-counts strong { font-size: 17px; }.project-heading { padding: 17px 14px; gap: 8px; }.project-name { font-size: 14px; }.project-summary { font-size: 11px; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 125px; }.project-sessions { margin-inline: 14px; }.session-row { padding-left: 0; grid-template-columns: minmax(0, 1fr) auto 24px; gap: 9px; }.session-title { font-size: 13px; }.session-meta { font-size: 11px; }.status { font-size: 11px; padding: 4px 6px; }.browser-link { width: 24px; }.filter-group button { padding-inline: 10px; }footer { line-height: 1.8; } }
 @media(prefers-reduced-motion:reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+@media(max-width:600px) {
+  .filter-label-full, .filter-group svg { display: none; }
+  .filter-label-short { display: inline; }
+  .filter-group button { padding-inline: 5px; }
+  .overview-counts { gap: 8px; }
+}
 @media(max-width:600px) {
   .page-header { flex-wrap: nowrap; gap: 10px; }
   .mobile-menu-toggle { display: inline-flex; margin-left: auto; }

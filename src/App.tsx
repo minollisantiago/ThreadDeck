@@ -101,7 +101,11 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
     </header>
 
     <div className="overview">
-      <div className="overview-counts"><span><strong>{verified ? working : '—'}</strong> working</span><span><strong>{verified ? attention : '—'}</strong> need attention</span><span><strong>{verified ? activeProjects : '—'}</strong> active projects</span></div>
+      <div className="overview-counts">{[
+        { kind: 'working', count: working, label: 'working' },
+        { kind: 'attention', count: attention, label: 'need attention' },
+        { kind: 'projects', count: activeProjects, label: 'active projects' },
+      ].map(({ kind, count, label }) => <span key={kind} className={`overview-pill overview-pill-${kind}`} data-count-state={!verified ? 'unknown' : count > 0 ? 'positive' : 'zero'}><strong>{verified ? count : '—'}</strong> {label}</span>)}</div>
       <div className="connection">
         <button className="connection-trigger" aria-label={healthLabel} aria-describedby="connection-details" type="button">
           <span className={`connection-dot ${verified ? 'healthy' : loading ? '' : 'unhealthy'}`} aria-hidden="true" />
@@ -124,8 +128,8 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       <div className="toolbar">
         <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <kbd>/</kbd>}</div>
         <div className="filter-group" role="group" aria-label="Filter sessions">{([
-          ['active', 'Active sessions'], ['all', 'All sessions'], ['working', 'Working'], ['attention', 'Attention'], ['recent', 'Recent activity'],
-        ] as const).map(([value, label]) => <Button key={value} variant="ghost" className={filter === value ? 'filter-selected' : ''} aria-pressed={filter === value} title={value === 'recent' ? 'Updated in the last 24 hours' : undefined} onClick={() => setFilter(value)}>{value === 'recent' && <Clock3 />}{label}</Button>)}</div>
+          ['active', 'Active sessions', 'Active'], ['all', 'All sessions', 'All'], ['working', 'Working', 'Working'], ['attention', 'Attention', 'Attention'], ['recent', 'Recent activity', 'Recent'],
+        ] as const).map(([value, label, shortLabel]) => <Button key={value} variant="ghost" className={filter === value ? 'filter-selected' : ''} aria-label={label} aria-pressed={filter === value} title={value === 'recent' ? 'Updated in the last 24 hours' : undefined} onClick={() => setFilter(value)}>{value === 'recent' && <Clock3 />}<span className="filter-label-full">{label}</span><span className="filter-label-short" aria-hidden="true">{shortLabel}</span></Button>)}</div>
         <Button variant="outline" className="mark-all-read" disabled={unread.size === 0} onClick={markAllRead} title={`Mark all ${unread.size} unread responses across loaded projects as read in this browser, including sessions hidden by filters`}><CheckCheck aria-hidden="true" />Mark all as read</Button>
       </div>
 
