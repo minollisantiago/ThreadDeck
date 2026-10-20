@@ -104,10 +104,10 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
 
     <div className="overview">
       <div className="overview-counts">{[
-        { kind: 'working', count: working, label: 'working' },
-        { kind: 'attention', count: attention, label: 'need attention' },
-        { kind: 'projects', count: activeProjects, label: 'active projects' },
-      ].map(({ kind, count, label }) => <span key={kind} className={`overview-pill overview-pill-${kind}`} data-count-state={!verified ? 'unknown' : count > 0 ? 'positive' : 'zero'}><strong>{verified ? count : '—'}</strong> {label}</span>)}</div>
+        { kind: 'working', count: working, label: 'working', shortLabel: 'working' },
+        { kind: 'attention', count: attention, label: 'need attention', shortLabel: 'attention' },
+        { kind: 'projects', count: activeProjects, label: 'active projects', shortLabel: 'active' },
+      ].map(({ kind, count, label, shortLabel }) => <span key={kind} className={`overview-pill overview-pill-${kind}`} data-count-state={!verified ? 'unknown' : count > 0 ? 'positive' : 'zero'}><strong>{verified ? count : '—'}</strong><span className="overview-label-full">{label}</span><span className="overview-label-short">{shortLabel}</span></span>)}</div>
     </div>
 
     <main>

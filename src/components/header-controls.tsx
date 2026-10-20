@@ -38,7 +38,7 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
     sync()
     return () => { panel.removeEventListener('toggle', toggle); media.removeEventListener('change', sync) }
   }, [])
-  return <>
+  return <div className="header-controls">
     <Button ref={trigger} variant="outline" size="icon" className="mobile-menu-toggle" popoverTarget="header-controls" aria-label="App controls" aria-controls="header-controls" aria-expanded={open}><Menu aria-hidden="true" /></Button>
     <div ref={controls} className="appearance-controls" id="header-controls" role="group" aria-label="Appearance and links">
       <div className="palette-picker" role="group" aria-label="Accent color">{palettes.map(p => <button key={p} className={`palette-swatch palette-${p}`} aria-label={`${p} accent`} title={`${p} accent`} aria-pressed={palette === p} onClick={() => setPalette(p)}>{palette === p ? '✓' : ''}</button>)}</div>
@@ -46,8 +46,8 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
       <Button variant="outline" size="icon" aria-label={`Switch to ${design === 'classic' ? 'islands' : 'list'} view`} title={`Switch to ${design === 'classic' ? 'islands' : 'list'} view`} onClick={() => setDesign(design === 'classic' ? 'islands' : 'classic')}>{design === 'classic' ? <Network aria-hidden="true" /> : <List aria-hidden="true" />}</Button>
       <Button ref={theme} variant="outline" size="icon" aria-label={`Switch to ${appearance === 'dark' ? 'light' : 'dark'} mode`} onClick={() => setAppearance(appearance === 'dark' ? 'light' : 'dark')}>{appearance === 'dark' ? <Sun /> : <Moon />}</Button>
       <Button asChild variant="outline" size="icon"><a href="https://github.com/minollisantiago/ThreadDeck" target="_blank" rel="noopener noreferrer" aria-label="ThreadDeck on GitHub" title="View ThreadDeck on GitHub"><Github aria-hidden="true" /></a></Button>
-      {connection}
       </div>
     </div>
-  </>
+    {connection}
+  </div>
 }
