@@ -65,7 +65,8 @@ Run `npm install` once before first use. This launcher requires Linux/macOS
 For a **Windows desktop / Start menu shortcut** that starts Kimaki, the dashboard
 backend and Electron together without a terminal, run `npm run desktop:install`
 once from WSL. See [Windows all-in-one launcher](docs/windows-launcher.md) for
-setup, logs and safe switching from an already-running Kimaki.
+setup and logs. The Windows shortcut reuses already-running services and starts
+only missing ones; closing it leaves reused services untouched.
 
 Keep `npm run kimaki` for the existing browser dashboard. For a **native Windows
 Electron window** alongside Discord, use this separate command from WSL:
@@ -82,7 +83,8 @@ the others. Stop an earlier Kimaki launcher yourself first; this command never
 replaces an existing bot. No Kimaki or OpenCode services are restarted by setup.
 
 - Opens **430 pixels wide**, filling the primary display's usable height (taskbar
-  stays visible), ready to sit beside Discord. Resizing and dragging remain available.
+  stays visible), ready to sit beside Discord. The starting width is also its
+  minimum width; you can widen or maximize it, but cannot make it narrower.
 - A frameless, draggable title bar follows the app's light/dark theme and accent.
   Maximize fills the desktop; **Restore** returns to narrow, full-height mode on
   the current display. Minimize is the normal Windows taskbar action, not Restore.

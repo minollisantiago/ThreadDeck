@@ -25,7 +25,7 @@ try {
   const windowsScript = execFileSync('wslpath', ['-w', script], { encoding: 'utf8' }).trim()
   execFileSync('/mnt/c/Windows/System32/cscript.exe', ['//Nologo', windowsScript], { stdio: 'inherit', timeout: 30_000 })
   const result = JSON.parse((await readFile(log, 'utf8')).trim())
-  assert.deepEqual(result.args, ['--desktop'])
+  assert.deepEqual(result.args, ['--desktop', '--reuse-existing'])
   assert.equal(result.cwd, root)
   assert.equal(result.node, process.execPath)
   console.log('Windows shortcut -> hidden WSL -> captured Node -> desktop supervisor command passed. No real Kimaki or dashboard was launched.')

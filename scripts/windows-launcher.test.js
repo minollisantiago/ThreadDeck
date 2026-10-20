@@ -9,6 +9,7 @@ describe('Windows all-in-one shortcut', () => {
     expect(script).toContain('wsl.exe --distribution Ubuntu-24.04 --cd')
     expect(script).toContain('Ubuntu-24.04')
     expect(script).toContain("'/home/user/Thread Deck/scripts/kimaki.mjs' --desktop")
+    expect(script).toContain('--desktop --reuse-existing')
     expect(script).toContain("export PATH='/home/user/.nvm:/usr/bin:/bin'")
     expect(script).toContain("'/mnt/c/Users/Some User/ThreadDeck/launcher.log' 2>&1")
     expect(script).toContain(', 0, True)')

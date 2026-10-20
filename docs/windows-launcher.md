@@ -20,11 +20,12 @@ WSL dashboard, and open the native Windows Electron window. No terminal stays
 open. The existing `npm run kimaki` browser launcher and `npm run kimaki:desktop`
 terminal launcher remain available.
 
-**Before switching:** stop any previously started Kimaki or ThreadDeck launcher
-yourself. The all-in-one launcher deliberately refuses to replace an existing
-Kimaki instance; it does not take over or kill existing services. Opening a
-second copy while the first is running is not supported. Closing its Electron
-window stops the backend and Kimaki processes owned by that launcher. Kimaki
+The Windows shortcut **reuses an existing ThreadDeck backend and/or Kimaki** and
+starts only missing services. It checks the dashboard endpoint and `kimaki status`
+before launching. Existing processes are never replaced, restarted or adopted.
+Closing its Electron window stops only the processes started by that launcher;
+reused services keep running. If a different application occupies the dashboard
+port, startup fails with a diagnostic instead of killing that application. Kimaki
 manages OpenCode in the usual way; the shortcut does not independently manage it.
 
 The shortcut captures the current WSL distribution, checkout and Node.js path.
@@ -35,8 +36,8 @@ Windows Script Host (`wscript.exe`), WSL interop and localhost forwarding must
 be available. No Windows Node.js installation is needed.
 
 Build/startup output is appended to `%LOCALAPPDATA%\ThreadDeck\launcher.log`.
-If startup fails, a Windows message box points to that log. An occupied dashboard
-port or an existing Kimaki instance will stop startup rather than replace them.
+If startup fails, a Windows message box points to that log. Rerun
+`npm run desktop:install` to update a shortcut created before service reuse was added.
 
 To remove the shortcut, delete **ThreadDeck** from the desktop and Start menu.
 The runtime and generated launcher live under `%LOCALAPPDATA%\ThreadDeck`;

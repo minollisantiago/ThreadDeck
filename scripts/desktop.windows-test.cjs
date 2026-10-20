@@ -33,6 +33,13 @@ async function main() {
     const bounds = await app.evaluate(({ BrowserWindow, screen }) => ({ bounds: BrowserWindow.getAllWindows()[0].getBounds(), area: screen.getPrimaryDisplay().workArea }))
     assert.equal(bounds.bounds.width, 430)
     assert.equal(bounds.bounds.height, bounds.area.height)
+    const minimumWidth = await app.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0]
+      const minimum = window.getMinimumSize()[0]
+      window.setSize(320, window.getBounds().height)
+      return { minimum, actual: window.getBounds().width }
+    })
+    assert.deepEqual(minimumWidth, { minimum: 430, actual: 430 })
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
     log('Initial window sizing passed')
     await page.screenshot({ path: path.join(directory, 'electron-windows-narrow-dark.png') })
