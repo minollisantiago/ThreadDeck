@@ -18,6 +18,16 @@ const snapshot: Snapshot = {
     ] },
   ],
 }
+it('tracks the direction of filter changes without changing selection behavior', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  const filters = screen.getByRole('group', { name: 'Filter sessions' })
+  expect(filters.getAttribute('data-motion-direction')).toBe('none')
+  fireEvent.click(screen.getByRole('button', { name: 'Working' }))
+  expect(filters.getAttribute('data-motion-direction')).toBe('right')
+  expect(screen.getByRole('button', { name: 'Working' }).getAttribute('aria-pressed')).toBe('true')
+  fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
+  expect(filters.getAttribute('data-motion-direction')).toBe('left')
+})
 it('distinguishes positive, zero and unavailable summary pill counts', () => {
   const { container, rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
   expect(container.querySelector('.overview-pill-working')?.getAttribute('data-count-state')).toBe('positive')

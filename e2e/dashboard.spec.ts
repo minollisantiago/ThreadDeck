@@ -2,6 +2,36 @@ import { mkdir } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import type { Snapshot, Session } from '../shared/model'
 
+test('filter underline slides in either direction and respects reduced motion', async ({ page }) => {
+  const now = Date.now()
+  await page.route('**/api/snapshot', route => route.fulfill({ json: { projects: [], health: 'connected', lastSuccessAt: now, checkedAt: now, attentionAvailable: true, inventoryLimited: false, message: null } }))
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  const indicator = page.locator('.filter-indicator')
+  await expect(indicator).toBeVisible()
+  for (const [label, direction] of [['Recent activity', 'right'], ['All sessions', 'left']] as const) {
+    await page.getByRole('button', { name: label, exact: true }).click()
+    await expect(page.getByRole('group', { name: 'Filter sessions', exact: true })).toHaveAttribute('data-motion-direction', direction)
+    await expect.poll(() => indicator.evaluate(element => element.getAnimations().some(animation => animation instanceof CSSTransition && animation.transitionProperty === 'transform'))).toBe(true)
+    const motion = await indicator.evaluate(async element => {
+      const animation = element.getAnimations().find(item => item instanceof CSSTransition && item.transitionProperty === 'transform')
+      if (!animation || !(animation.effect instanceof KeyframeEffect)) throw new Error('Expected a sliding underline transition')
+      const frames = animation.effect.getKeyframes()
+      const from = new DOMMatrix(String(frames[0].transform)).m41
+      const to = new DOMMatrix(String(frames[frames.length - 1].transform)).m41
+      await animation.finished
+      return { from, to }
+    })
+    if (direction === 'right') expect(motion.to).toBeGreaterThan(motion.from)
+    else expect(motion.to).toBeLessThan(motion.from)
+  }
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.getByRole('button', { name: 'Attention', exact: true }).click()
+  await expect(indicator).toHaveCSS('transition-duration', '0s')
+  expect(await indicator.evaluate(element => element.getAnimations().length)).toBe(0)
+})
+
 test('state grouping stacks attention first with project pills on narrow screens', async ({ page }) => {
   const now = Date.now()
   const snapshot: Snapshot = { health: 'connected', lastSuccessAt: now, checkedAt: now,
@@ -199,12 +229,11 @@ test('desktop, theme, search, collapse, stale state and mobile layout', async ({
   await expect(selectedTab).toHaveCSS('border-radius', '0px')
   await expect(selectedTab).toHaveCSS('padding-left', '2px')
   await expect(selectedTab).toHaveCSS('padding-right', '2px')
-  const underline = await selectedTab.locator('.filter-label-short').evaluate(label => {
-    const line = getComputedStyle(label, '::after')
-    return { width: parseFloat(line.width), labelWidth: label.getBoundingClientRect().width, height: line.height }
-  })
-  expect(underline.height).toBe('2px')
-  expect(Math.abs(underline.width - underline.labelWidth)).toBeLessThan(1)
+  const underline = page.locator('.filter-indicator')
+  await expect(underline).toHaveCSS('height', '2px')
+  const lineWidth = await underline.evaluate(element => element.getBoundingClientRect().width)
+  const labelWidth = await selectedTab.locator('.filter-label-short').evaluate(label => label.getBoundingClientRect().width)
+  expect(Math.abs(lineWidth - labelWidth)).toBeLessThan(1)
   const filledPill = page.locator('.overview-pill-working')
   await expect(filledPill).toHaveAttribute('data-count-state', 'positive')
   await expect(filledPill).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
