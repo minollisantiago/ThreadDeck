@@ -14,6 +14,11 @@ The shortcuts and Electron window use the same pink layered ThreadDeck icon as
 the web app. Rerun the installer to refresh existing shortcut icons. The checked-in
 Windows icon is generated from `src/assets/favicon.svg`; after changing that SVG,
 run `node scripts/generate-desktop-icon.mjs` (requires Playwright Chromium).
+The shortcuts and native window also share a Windows AppUserModelID and explicit
+taskbar icon/relaunch metadata. This prevents Windows from using the generic
+Electron or Windows Script Host icon when grouping or pinning the app. If you
+pinned an older generic icon, unpin it and pin the updated running ThreadDeck
+window after rerunning setup; old pinned shortcuts can retain cached metadata.
 
 Double-click the shortcut to build ThreadDeck, start Kimaki and the production
 WSL dashboard, and open the native Windows Electron window. No terminal stays

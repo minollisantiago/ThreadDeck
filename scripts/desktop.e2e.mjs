@@ -31,6 +31,7 @@ try {
   // loopback inspector. Electron's Node mode avoids requiring Windows Node.js.
   const directory = path.dirname(runtime.executable)
   await copyFile('scripts/desktop.windows-test.cjs', path.join(directory, 'desktop.windows-test.cjs'))
+  await copyFile('scripts/windows-taskbar-probe.ps1', path.join(directory, 'windows-taskbar-probe.ps1'))
   const windowsPath = value => execFileSync('wslpath', ['-w', path.resolve(value)], { encoding: 'utf8' }).trim()
   const code = await new Promise((resolve, reject) => {
     const child = spawn(runtime.executable, [windowsPath(path.join(directory, 'desktop.windows-test.cjs')), windowsPath('node_modules/playwright-core'), String(server.address().port)], {

@@ -4,6 +4,18 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 const require = createRequire(import.meta.url)
 const { externalLink, mobileBounds } = require('../electron/policy.cjs')
+const { appId, taskbarDetails } = require('../electron/taskbar.cjs')
+
+test('taskbar icon and relaunch metadata share the shortcut app identity', () => {
+  const details = taskbarDetails('C:\\Apps\\Thread Deck\\runtime', 43127, { exists: () => true, windowsDirectory: 'C:\\Windows' })
+  assert.equal(details.appId, appId)
+  assert.equal(details.appIconPath, 'C:\\Apps\\Thread Deck\\runtime\\ThreadDeck.ico')
+  assert.equal(details.relaunchDisplayName, 'ThreadDeck')
+  assert.equal(details.relaunchCommand, '"C:\\Windows\\System32\\wscript.exe" "C:\\Apps\\Thread Deck\\launch.vbs"')
+  const fallback = taskbarDetails('C:\\Apps\\runtime', 43127, { exists: () => false, executable: 'C:\\Apps\\runtime\\electron.exe' })
+  assert.ok(fallback.relaunchCommand.includes('main.cjs'))
+  assert.ok(!fallback.relaunchCommand.includes('supervisor-lease'))
+})
 
 test('Windows app icon includes small and high-DPI versions of the favicon', () => {
   const icon = readFileSync(new URL('../electron/ThreadDeck.ico', import.meta.url))

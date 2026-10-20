@@ -1,4 +1,5 @@
-import { execFileSync } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
+import { promisify } from 'node:util'
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -8,7 +9,6 @@ import { launcherScript } from './windows-launcher.mjs'
 if (process.platform !== 'linux' || !process.env.WSL_DISTRO_NAME) throw new Error('Install the Windows launcher from WSL with Windows interop enabled.')
 const root = fileURLToPath(new URL('..', import.meta.url))
 const powershell = '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
-const quote = value => `'${value.replaceAll("'", "''")}'`
 const win = value => execFileSync('wslpath', ['-w', value], { encoding: 'utf8' }).trim()
 const runtime = await windowsRuntime()
 const directory = path.dirname(path.dirname(runtime.executable))
@@ -21,30 +21,21 @@ await writeFile(script, launcherScript({
   log,
 }))
 const windowsScript = win(script)
-const install = `
-$ErrorActionPreference = 'Stop'
-$shell = New-Object -ComObject WScript.Shell
-$arguments = '"' + ${quote(windowsScript)} + '"'
-$locations = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))
-foreach ($folder in $locations) {
-  if (!$folder) { throw 'Windows shortcut folder is unavailable' }
-  $file = Join-Path $folder 'ThreadDeck.lnk'
-  if (Test-Path -LiteralPath $file) {
-    $existing = $shell.CreateShortcut($file)
-    if ($existing.Arguments -ne $arguments) { throw "Refusing to overwrite an unrelated shortcut: $file" }
-  }
-}
-foreach ($folder in $locations) {
-  $file = Join-Path $folder 'ThreadDeck.lnk'
-  $link = $shell.CreateShortcut($file)
-  $link.TargetPath = Join-Path $env:WINDIR 'System32\\wscript.exe'
-  $link.Arguments = $arguments
-  $link.WorkingDirectory = ${quote(win(directory))}
-  $link.Description = 'Start Kimaki, the WSL dashboard and the Windows ThreadDeck app'
-  $link.IconLocation = ${quote(win(path.join(path.dirname(runtime.executable), 'ThreadDeck.ico')))} + ',0'
-  $link.Save()
-  Write-Output $file
-}
-`
-console.log(execFileSync(powershell, ['-NoProfile', '-NonInteractive', '-Command', install], { encoding: 'utf8' }).trim())
+const folders = JSON.parse(execFileSync(powershell, ['-NoProfile', '-NonInteractive', '-Command',
+  "@{ desktop=[Environment]::GetFolderPath('Desktop'); programs=[Environment]::GetFolderPath('Programs'); windows=$env:WINDIR } | ConvertTo-Json -Compress"], { encoding: 'utf8' }))
+if (!folders.desktop || !folders.programs || !folders.windows) throw new Error('Windows shortcut folders are unavailable')
+const config = path.join(directory, 'shortcuts.json')
+await writeFile(config, JSON.stringify({
+  shortcuts: [folders.desktop, folders.programs].map(folder => path.win32.join(folder, 'ThreadDeck.lnk')),
+  details: {
+    target: path.win32.join(folders.windows, 'System32', 'wscript.exe'), args: `"${windowsScript}"`,
+    cwd: win(directory), description: 'Start Kimaki, the WSL dashboard and the Windows ThreadDeck app',
+    icon: win(path.join(path.dirname(runtime.executable), 'ThreadDeck.ico')), iconIndex: 0,
+  },
+}))
+// Native Electron writes the Windows AppUserModelID, which WScript.Shell cannot.
+const { stdout } = await promisify(execFile)(runtime.executable,
+  [win(path.join(path.dirname(runtime.executable), 'install-shortcuts.cjs')), win(config)],
+  { cwd: path.dirname(runtime.executable), timeout: 30_000 })
+console.log(stdout.trim())
 console.log('Installed. Setup did not start or restart Kimaki, OpenCode or ThreadDeck.')

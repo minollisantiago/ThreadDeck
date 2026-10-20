@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen, shell, dialog } = require('electron')
 const path = require('node:path')
 const { externalLink, mobileBounds } = require('./policy.cjs')
+const { appId, taskbarDetails } = require('./taskbar.cjs')
 
 const port = Number(process.argv.find(arg => arg.startsWith('--dashboard-port='))?.split('=')[1] ?? 43127)
 if (!Number.isInteger(port) || port < 1024 || port > 65535) app.exit(1)
@@ -8,7 +9,7 @@ const origin = `http://127.0.0.1:${port}`
 let window
 let quitting = false
 app.setName('ThreadDeck')
-app.setAppUserModelId('ThreadDeck')
+app.setAppUserModelId(appId)
 app.on('before-quit', () => { quitting = true })
 const lease = process.argv.find(arg => arg.startsWith('--supervisor-lease='))?.slice('--supervisor-lease='.length)
 if (lease) {
@@ -42,6 +43,7 @@ app.whenReady().then(async () => {
     icon: path.join(__dirname, 'ThreadDeck.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },
   })
+  if (process.platform === 'win32') window.setAppDetails(taskbarDetails(__dirname, port))
   window.setMenu(null)
   const openExternal = url => { if (externalLink(url)) void shell.openExternal(url).catch(console.error) }
   ipcMain.on('open-discord', (event, url) => {
