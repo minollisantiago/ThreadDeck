@@ -3,6 +3,7 @@ import { ArrowUpRight, CheckCheck, ChevronDown, ChevronRight, CircleAlert, Clock
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { HeaderControls, palettes, type Palette } from './components/header-controls'
+import { ConnectionIndicator } from './components/connection-indicator'
 import { SessionRow } from './components/session-row'
 import { ProjectIslands } from './components/project-islands'
 import { isDesign, type Design } from './lib/design'
@@ -97,7 +98,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   return <div className="app-shell" data-design={design}>
     <header className="page-header">
       <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><div><p className="eyebrow">YOUR AGENT SWITCHBOARD</p><h1>ThreadDeck<span className="live-label">LIVE</span></h1></div></div>
-      <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} design={design} setDesign={setDesign} />
+      <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
     </header>
 
     <div className="overview">
@@ -106,22 +107,6 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         { kind: 'attention', count: attention, label: 'need attention' },
         { kind: 'projects', count: activeProjects, label: 'active projects' },
       ].map(({ kind, count, label }) => <span key={kind} className={`overview-pill overview-pill-${kind}`} data-count-state={!verified ? 'unknown' : count > 0 ? 'positive' : 'zero'}><strong>{verified ? count : '—'}</strong> {label}</span>)}</div>
-      <div className="connection">
-        <button className="connection-trigger" aria-label={healthLabel} aria-describedby="connection-details" type="button">
-          <span className={`connection-dot ${verified ? 'healthy' : loading ? '' : 'unhealthy'}`} aria-hidden="true" />
-          <span role="status">{healthLabel}</span>
-        </button>
-        <div className="connection-tooltip" id="connection-details" role="tooltip">
-          <strong>Automatic refresh enabled</strong>
-          <span>{snapshot?.lastSuccessAt != null ? `Last successful update: ${new Date(snapshot.lastSuccessAt).toLocaleString()}` : 'Waiting for first successful update'}</span>
-          {snapshot && snapshot.checkedAt > 0 && <span>Last source check: {new Date(snapshot.checkedAt).toLocaleString()}</span>}
-          <span>Refresh interval: 5s (15s in background)</span>
-          {transportError && <span>Cannot reach the dashboard server.</span>}
-          {snapshot?.message && <span>{snapshot.message}</span>}
-          {snapshot && !snapshot.attentionAvailable && <span>Attention status unavailable.</span>}
-          {snapshot?.inventoryLimited && <span>Recent session inventory is limited.</span>}
-        </div>
-      </div>
     </div>
 
     <main>

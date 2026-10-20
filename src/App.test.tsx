@@ -126,6 +126,11 @@ it('moves update details into the connection tooltip', () => {
   expect(tooltip.textContent).toContain('Attention status unavailable')
   expect(tooltip.textContent).toContain('Recent session inventory is limited')
   expect(screen.getByRole('button', { name: 'Connected' }).getAttribute('aria-describedby')).toBe(tooltip.id)
+  const indicator = container.querySelector('.connection')
+  expect(indicator?.previousElementSibling).toBe(screen.getByRole('link', { name: 'ThreadDeck on GitHub' }))
+  expect(indicator?.parentElement?.lastElementChild).toBe(indicator)
+  expect(screen.getByRole('status').classList.contains('sr-only')).toBe(true)
+  expect(container.querySelector('.overview .connection')).toBeNull()
 })
 it('summarizes sessions and highlights only verified threads needing attention', () => {
   const base = snapshot.projects[0]
