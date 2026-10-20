@@ -1,21 +1,21 @@
 import { isActive, isAttention, type Project, type Session } from '../../shared/model'
 
 export type Filter = 'active' | 'all' | 'working' | 'attention' | 'recent'
-export function visibleProjects(projects: Project[], query: string, filter: Filter, now: number, verified: boolean) {
+export function visibleProjects(projects: Project[], query: string, filter: Filter, now: number, verified: boolean, unread: ReadonlySet<string> = new Set()) {
   const search = query.trim().toLocaleLowerCase()
   return projects.map(project => ({ ...project, sessions: project.sessions.filter(session => {
     const matches = !search || `${project.name} ${session.title}`.toLocaleLowerCase().includes(search)
     if (!matches) return false
-    if (filter === 'active') return !verified || isActive(session)
+    if (filter === 'active') return !verified || isActive(session) || unread.has(session.id)
     if (filter === 'working') return verified && session.agentCount > 0
-    if (filter === 'attention') return verified && isAttention(session.status)
+    if (filter === 'attention') return unread.has(session.id) || verified && isAttention(session.status)
     if (filter === 'recent') return session.updatedAt >= now - 24 * 60 * 60 * 1000
     return true
   }) })).filter(project => !search && filter === 'all' || project.sessions.length > 0)
 }
-export function projectOrder(projects: Project[], verified: boolean) {
+export function projectOrder(projects: Project[], verified: boolean, unread: ReadonlySet<string> = new Set()) {
   return [...projects].sort((a, b) => {
-    const active = (p: Project) => verified && p.sessions.some(isActive) ? 1 : 0
+    const active = (p: Project) => p.sessions.some(s => unread.has(s.id) || verified && isActive(s)) ? 1 : 0
     return active(b) - active(a) || a.name.localeCompare(b.name)
   })
 }

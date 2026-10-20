@@ -6,6 +6,7 @@ export const sessionSchema = z.object({
   id: z.string(), title: z.string(), projectId: z.string(), threadId: z.string(),
   guildId: z.string().nullable(), status: statusSchema, updatedAt: z.number(),
   agentCount: z.number(),
+  responseAt: z.number().nullable().optional(),
 })
 export type Session = z.infer<typeof sessionSchema>
 export const projectSchema = z.object({

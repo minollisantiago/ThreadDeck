@@ -20,6 +20,18 @@ export const rawSessionSchema = z.object({
 })
 export type RawSession = z.infer<typeof rawSessionSchema>
 
+const responseSchema = z.object({
+  type: z.literal('assistant'), time: z.object({ completed: z.number() }),
+  finish: z.enum(['stop', 'length']), error: z.unknown().optional(),
+  content: z.array(z.object({ type: z.string(), text: z.string().optional() })),
+})
+export function completedResponseAt(message: unknown) {
+  const result = responseSchema.safeParse(message)
+  if (!result.success || result.data.error
+    || !result.data.content.some(part => part.type === 'text' && part.text?.trim())) return null
+  return result.data.time.completed
+}
+
 export interface Source {
   projects(): Promise<Registration[]>
   connect(): Promise<Connection>
@@ -30,6 +42,7 @@ export interface Connection {
   active(): Promise<string[]>
   get(id: string): Promise<RawSession>
   attention(directory: string): Promise<{ input: string[]; permission: string[] }>
+  response(id: string): Promise<number | null>
 }
 
 export const source: Source = {
@@ -58,6 +71,10 @@ export const source: Source = {
       },
       async active() { return Object.keys(await client.session.active(options())) },
       async get(id) { return rawSessionSchema.parse(await client.session.get({ sessionID: id }, options())) },
+      async response(id) {
+        const page = await client.message.list({ sessionID: id, type: 'assistant', order: 'desc', limit: 1 }, options())
+        return completedResponseAt(page.data[0])
+      },
       async attention(directory) {
         const location = { directory }
         const [forms, permissions] = await Promise.all([

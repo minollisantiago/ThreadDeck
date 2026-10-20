@@ -161,3 +161,56 @@ it('offers a way to reveal idle sessions when none are active', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Show all sessions' }))
   expect(screen.getByRole('button', { name: /Beta/ })).toBeTruthy()
 })
+it('shows unread idle responses in the active view and persists marking them read', () => {
+  const unread: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[1], sessions: [{ ...snapshot.projects[1].sessions[0], responseAt: now - 10 }] }] }
+  const { container, unmount } = render(<Dashboard snapshot={unread} now={now} />)
+  expect(screen.getByRole('button', { name: /Beta/ }).textContent).toContain('1 unread')
+  expect(screen.getByRole('button', { name: /Beta/ }).getAttribute('aria-expanded')).toBe('true')
+  expect(container.querySelectorAll('.session-unread')).toHaveLength(1)
+  fireEvent.click(screen.getByRole('button', { name: 'Attention' }))
+  expect(screen.getByRole('link', { name: 'Old conversation' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Mark Old conversation as read' }))
+  expect(container.querySelector('.session-unread')).toBeNull()
+  unmount()
+  render(<Dashboard snapshot={unread} now={now} />)
+  expect(screen.queryByRole('button', { name: /Beta/ })).toBeNull()
+  expect(screen.getByText('No active sessions')).toBeTruthy()
+})
+it('marks a response read when opening its thread and flags the next completed response again', () => {
+  const response = { ...snapshot.projects[1].sessions[0], responseAt: now - 10 }
+  const unread: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[1], sessions: [response] }] }
+  const { rerender, container } = render(<Dashboard snapshot={unread} now={now} />)
+  const link = screen.getByRole('link', { name: 'Old conversation' })
+  link.addEventListener('click', event => event.preventDefault())
+  fireEvent.click(link)
+  expect(container.querySelector('.session-unread')).toBeNull()
+  rerender(<Dashboard snapshot={{ ...unread, projects: [{ ...unread.projects[0], sessions: [{ ...response, responseAt: now, updatedAt: now }] }] }} now={now} />)
+  expect(container.querySelector('.session-unread')).not.toBeNull()
+})
+it('does not clear unread responses when merely expanding or collapsing their project', () => {
+  const unread: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[1], sessions: [{ ...snapshot.projects[1].sessions[0], responseAt: now }] }] }
+  render(<Dashboard snapshot={unread} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: /Beta/ }))
+  expect(screen.getByRole('button', { name: /Beta/ }).textContent).toContain('1 unread')
+  fireEvent.click(screen.getByRole('button', { name: /Beta/ }))
+  expect(screen.getByRole('button', { name: 'Mark Old conversation as read' })).toBeTruthy()
+})
+it('marks all unread responses read across projects and filters without acknowledging future replies', () => {
+  const unread: Snapshot = { ...snapshot, projects: snapshot.projects.map(project => ({ ...project, sessions: project.sessions.map(session => ({ ...session, status: 'idle', agentCount: 0, responseAt: now - 10 })) })) }
+  const { container, unmount } = render(<Dashboard snapshot={unread} now={now} />)
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'switchboard' } })
+  expect(screen.queryByRole('button', { name: /Beta/ })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Mark all as read' }))
+  expect(container.querySelector('.session-unread')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Mark all as read' }).hasAttribute('disabled')).toBe(true)
+  unmount()
+  const view = render(<Dashboard snapshot={unread} now={now} />)
+  expect(screen.getByText('No active sessions')).toBeTruthy()
+  view.rerender(<Dashboard snapshot={{ ...unread, projects: [{ ...unread.projects[1], sessions: [{ ...unread.projects[1].sessions[0], responseAt: now }] }] }} now={now} />)
+  expect(screen.getByRole('button', { name: 'Mark Old conversation as read' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Mark all as read' }).hasAttribute('disabled')).toBe(false)
+})
+it('disables mark all as read when no responses are unread', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  expect(screen.getByRole('button', { name: 'Mark all as read' }).hasAttribute('disabled')).toBe(true)
+})

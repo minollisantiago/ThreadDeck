@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, ChevronDown, ChevronRight, CircleAlert, Clock3, ExternalLink, Github, Hash, Layers2, Moon, Search, Sun, X } from 'lucide-react'
+import { ArrowUpRight, CheckCheck, ChevronDown, ChevronRight, CircleAlert, Clock3, ExternalLink, Github, Hash, Layers2, Moon, Search, Sun, X } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Badge } from './components/ui/badge'
 import { Input } from './components/ui/input'
 import { useSnapshot } from './hooks/use-snapshot'
+import { useUnread } from './hooks/use-unread'
 import { discordLinks, isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
 import { projectOrder, relativeTime, sessionOrder, visibleProjects, workingCount, type Filter } from './lib/view'
 
@@ -15,27 +16,32 @@ function saved<T>(key: string, fallback: T, validate: (value: unknown) => value 
 function persist(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* preferences are optional */ } }
 const labels = { working: 'Working', idle: 'Idle', error: 'Error', input: 'Input requested', permission: 'Permission needed' }
 
-function SessionRow({ session, verified, now }: { session: Session; verified: boolean; now: number }) {
+function SessionRow({ session, verified, now, unread, markRead }: { session: Session; verified: boolean; now: number; unread: boolean; markRead: (session: Session) => void }) {
   const links = discordLinks(session)
   const status = verified ? session.status : 'unknown'
   const attention = verified && isAttention(session.status)
-  return <div className={`session-row ${attention ? 'session-attention' : ''}`} title={`Updated ${relativeTime(session.updatedAt, now)} · ${new Date(session.updatedAt).toLocaleString()}`}>
-    {attention && <span className="session-attention-marker" aria-hidden="true" />}
+  return <div className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''}`} title={`Updated ${relativeTime(session.updatedAt, now)} · ${new Date(session.updatedAt).toLocaleString()}`}>
+    {(attention || unread) && <span className="session-attention-marker" aria-hidden="true" />}
     <div className="session-copy">
-      {links ? <a className="session-title" href={links.app} title={session.title}>{session.title}</a>
+      {links ? <a className="session-title" href={links.app} title={session.title} onClick={() => markRead(session)} onAuxClick={event => { if (event.button === 1) markRead(session) }}>{session.title}</a>
          : <span className="session-title">{session.title}</span>}
     </div>
-    <Badge className={`status status-${status}`} title={verified && session.agentCount > 1 ? `${session.agentCount} agents` : undefined}><span className="status-dot" />{status === 'unknown' ? 'Unknown' : labels[status]}</Badge>
-    {links && <Button asChild variant="ghost" size="icon" className="browser-link"><a href={links.browser} target="_blank" rel="noreferrer" aria-label={`Open ${session.title} in browser`} title="Open in Discord browser"><ExternalLink /></a></Button>}
+    <div className="session-flags">
+      {unread && <button className="status status-unread" aria-label={`Mark ${session.title} as read`} title="Unread in ThreadDeck. Click to mark as read.
+Reading in Discord does not clear this flag." onClick={() => markRead(session)}>Unread</button>}
+      {(!unread || status !== 'idle') && <Badge className={`status status-${status}`} title={verified && session.agentCount > 1 ? `${session.agentCount} agents` : undefined}><span className="status-dot" />{status === 'unknown' ? 'Unknown' : labels[status]}</Badge>}
+    </div>
+    {links && <Button asChild variant="ghost" size="icon" className="browser-link"><a href={links.browser} target="_blank" rel="noreferrer" aria-label={`Open ${session.title} in browser`} title="Open in Discord browser" onClick={() => markRead(session)} onAuxClick={event => { if (event.button === 1) markRead(session) }}><ExternalLink /></a></Button>}
   </div>
 }
 
-function ProjectPanel({ project, collapsed, toggle, verified, now }: {
-  project: Project; collapsed: boolean; toggle: () => void; verified: boolean; now: number
+function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markRead }: {
+  project: Project; collapsed: boolean; toggle: () => void; verified: boolean; now: number; unread: ReadonlySet<string>; markRead: (session: Session) => void
 }) {
   const working = workingCount(project.sessions)
   const attention = project.sessions.filter(s => isAttention(s.status)).length
-  const active = verified && project.sessions.some(isActive)
+  const unreadCount = project.sessions.filter(s => unread.has(s.id)).length
+  const active = unreadCount > 0 || verified && project.sessions.some(isActive)
   return <section className={`project-panel ${active ? 'project-active' : ''}`} aria-labelledby={`heading-${project.id}`}>
     <button className="project-heading" id={`heading-${project.id}`} onClick={toggle} aria-expanded={!collapsed} aria-controls={`sessions-${project.id}`}>
       {collapsed ? <ChevronRight className="chevron" /> : <ChevronDown className="chevron" />}
@@ -44,6 +50,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now }: {
       <span className="project-pills">
         <span className="project-total">{project.sessions.length} {project.sessions.length === 1 ? 'session' : 'sessions'}</span>
         {verified && attention > 0 && <span className="project-attention"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</span>}
+        {unreadCount > 0 && <span className="project-unread" title="Unread responses in this browser, not synced with Discord">{unreadCount} unread</span>}
       </span>
       <span className="project-summary">
         {verified && working > 0 && <span className="working-summary"><i />{working} working</span>}
@@ -51,7 +58,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now }: {
       </span>
     </button>
     <div id={`sessions-${project.id}`} hidden={collapsed} className="project-sessions">
-      {project.sessions.length ? sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} />)
+      {project.sessions.length ? sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)
         : <p className="project-empty">No recent Discord sessions.</p>}
     </div>
   </section>
@@ -84,22 +91,23 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const verified = !transportError && snapshot?.health === 'connected' && !old
   const loading = !transportError && (!snapshot || snapshot.lastSuccessAt === null && snapshot.checkedAt === 0)
   const projects = snapshot?.projects ?? []
+  const { unread, markRead, markAllRead } = useUnread(projects)
   useEffect(() => {
     if (!snapshot || snapshot.lastSuccessAt === null) return
     setCollapsed(previous => {
       const next = { ...previous }
       let changed = false
       for (const project of snapshot.projects) if (!(project.id in next)) {
-        next[project.id] = !project.sessions.some(isActive); changed = true
+        next[project.id] = !project.sessions.some(s => isActive(s) || unread.has(s.id)); changed = true
       }
       return changed ? next : previous
     })
   }, [snapshot])
   const sessions = projects.flatMap(p => p.sessions)
   const working = verified ? workingCount(sessions) : 0
-  const attention = verified ? sessions.filter(s => isAttention(s.status)).length : 0
-  const activeProjects = verified ? projects.filter(p => p.sessions.some(isActive)).length : 0
-  const shown = projectOrder(visibleProjects(projects, query, filter, now, verified), verified)
+  const attention = verified ? sessions.filter(s => isAttention(s.status) || unread.has(s.id)).length : 0
+  const activeProjects = verified ? projects.filter(p => p.sessions.some(s => isActive(s) || unread.has(s.id))).length : 0
+  const shown = projectOrder(visibleProjects(projects, query, filter, now, verified, unread), verified, unread)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
   return <div className="app-shell">
@@ -138,15 +146,16 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         <div className="filter-group" role="group" aria-label="Filter sessions">{([
           ['active', 'Active sessions'], ['all', 'All sessions'], ['working', 'Working'], ['attention', 'Attention'], ['recent', 'Recent activity'],
         ] as const).map(([value, label]) => <Button key={value} variant="ghost" className={filter === value ? 'filter-selected' : ''} aria-pressed={filter === value} title={value === 'recent' ? 'Updated in the last 24 hours' : undefined} onClick={() => setFilter(value)}>{value === 'recent' && <Clock3 />}{label}</Button>)}</div>
+        <Button variant="outline" className="mark-all-read" disabled={unread.size === 0} onClick={markAllRead} title={`Mark all ${unread.size} unread responses across loaded projects as read in this browser, including sessions hidden by filters`}><CheckCheck aria-hidden="true" />Mark all as read</Button>
       </div>
 
       {!verified && !loading && <div className="connection-notice" role="alert"><CircleAlert /><div><strong>Live status unavailable</strong><p>{snapshot?.lastSuccessAt ? 'Showing your last snapshot. Retrying automatically.' : 'Check that Kimaki and OpenCode are running. Retrying automatically.'}</p></div></div>}
       <div className="section-caption"><span>PROJECTS <span className="caption-count">{shown.length.toString().padStart(2, '0')}</span></span><span>{narrowed ? `${shown.reduce((count, p) => count + p.sessions.length, 0)} matching sessions` : 'Active projects first'}</span></div>
       <div className="project-list">
         {shown.map(project => {
-          const defaultCollapsed = !verified || !project.sessions.some(isActive)
+          const defaultCollapsed = !project.sessions.some(s => unread.has(s.id) || verified && isActive(s))
           const isCollapsed = collapsed[project.id] ?? (narrowed ? false : defaultCollapsed)
-          return <ProjectPanel key={project.id} project={project} verified={verified} now={now} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />
+          return <ProjectPanel key={project.id} project={project} verified={verified} now={now} unread={unread} markRead={markRead} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />
         })}
         {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button variant="outline" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
       </div>

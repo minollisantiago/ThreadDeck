@@ -13,6 +13,17 @@ with a lightweight Node.js backend. Node 24+ is required.
 - One column of project panels, with active projects first and inactive groups
   initially collapsed. Manual collapse, search, filters and scroll survive refresh.
 - Working, Attention and Recent activity (last 24 hours) filters keep project groups.
+- Active sessions is the default: working threads, requests needing attention and
+  locally unread responses stay visible; All sessions also reveals idle threads.
+- Completed assistant responses are marked **Unread** until opened from ThreadDeck
+  or acknowledged with the row's Unread button. Unread counts appear on projects
+  and unread threads also appear under Attention. Merely expanding a project does
+  not mark its threads read.
+- **Mark all as read** clears unread flags across all loaded projects, including
+  sessions hidden by the current search or filter. Subsequent replies become unread again.
+- Read receipts are local to this browser and persist across reloads. They do not
+  sync with Discord. On first use, existing completed responses are unread because
+  ThreadDeck has no record of what you have already read elsewhere.
 - Session titles open `discord://` app links; the external-link icon opens Discord
   in the browser instead. Windows may ask permission for the first app handoff.
 - Local light/dark, accent palette and collapse preferences; no account or cloud sync.
@@ -101,7 +112,10 @@ ThreadDeck needs restarting; do not restart Kimaki or OpenCode for this issue.
 - Forms and permissions supply optional attention badges. Ordinary Discord
   questions/buttons are not inferred. Idle is not completion.
 - A failed source check preserves the previous rows as stale, never as newly idle.
-- No transcripts, Git history, database access, or service mutations are used.
+- The latest assistant message is checked for a completed text response when a
+  thread settles, cached until its session updates. Message bodies are not stored
+  or sent to the browser; only the completion timestamp is exposed for unread tracking.
+- No Git history, database access, or service mutations are used.
 
 The local backend is loopback-only and rejects foreign Host/Origin headers.
 Do not expose it through a public tunnel: session titles are personal data.

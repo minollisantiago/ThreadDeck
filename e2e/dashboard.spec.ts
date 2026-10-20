@@ -2,6 +2,56 @@ import { mkdir } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import type { Snapshot, Session } from '../shared/model'
 
+test('mark all as read includes filtered-out threads and survives reload', async ({ page }) => {
+  const now = Date.now()
+  const snapshot: Snapshot = { health: 'connected', lastSuccessAt: now, checkedAt: now,
+    attentionAvailable: true, inventoryLimited: false, message: null,
+    projects: ['Alpha', 'Beta'].map(name => ({ id: name, name, directory: `/${name}`, sessions: [
+      { id: name, projectId: name, title: `${name} reply`, threadId: name, guildId: null,
+        status: 'idle', agentCount: 0, updatedAt: now, responseAt: now - 1 },
+    ] })) }
+  await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
+  await page.goto('/')
+  await expect(page.locator('.session-unread')).toHaveCount(2)
+  await page.getByRole('searchbox').fill('Alpha')
+  await expect(page.locator('.session-unread')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Mark all as read', exact: true }).click()
+  await page.getByRole('searchbox').fill('')
+  await expect(page.locator('.session-unread')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Mark all as read', exact: true })).toBeDisabled()
+  await page.reload()
+  await expect(page.getByText('No active sessions', { exact: true })).toBeVisible()
+})
+
+test('unread replies remain visible until acknowledged and new replies become unread again', async ({ page, context }) => {
+  const now = Date.now()
+  const session: Session = { id: 'reply', title: 'A response waiting for you', projectId: 'a',
+    guildId: '1526236793048141935', threadId: '1561737719133114458', status: 'idle', agentCount: 0, updatedAt: now, responseAt: now - 1000 }
+  let snapshot: Snapshot = { health: 'connected', lastSuccessAt: now, checkedAt: now,
+    attentionAvailable: true, inventoryLimited: false, message: null,
+    projects: [{ id: 'a', name: 'Replies', directory: '/replies', sessions: [session] }] }
+  await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
+  await context.route('https://discord.com/**', route => route.fulfill({ body: 'Discord thread' }))
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: /Replies/ })).toContainText('1 unread')
+  await expect(page.locator('.session-unread .session-title')).toBeVisible()
+  await page.getByRole('button', { name: 'Attention', exact: true }).click()
+  await expect(page.locator('.session-unread')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Mark A response waiting for you as read' }).click()
+  await expect(page.locator('.session-unread')).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByText('No active sessions', { exact: true })).toBeVisible()
+  snapshot = { ...snapshot, projects: [{ ...snapshot.projects[0], sessions: [{ ...session, responseAt: now + 1, updatedAt: now + 1 }] }] }
+  await expect(page.locator('.session-unread')).toHaveCount(1, { timeout: 10_000 })
+  const popupPromise = page.waitForEvent('popup')
+  await page.getByRole('link', { name: 'Open A response waiting for you in browser' }).click()
+  const popup = await popupPromise
+  await popup.close()
+  await expect(page.locator('.session-unread')).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByText('No active sessions', { exact: true })).toBeVisible()
+})
+
 test('desktop, theme, search, collapse, stale state and mobile layout', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))

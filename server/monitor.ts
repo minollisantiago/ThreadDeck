@@ -83,6 +83,7 @@ export class Monitor {
   private limited = false
   private guilds = new Map<string, { guildId: string | null; checkedAt: number }>()
   private endpoint: Connection | undefined
+  private responses = new Map<string, { updatedAt: number; responseAt: number | null }>()
   private pending: Promise<Snapshot> | undefined
   private snapshot: Snapshot = {
     projects: [], health: 'disconnected', checkedAt: 0, lastSuccessAt: null,
@@ -151,8 +152,20 @@ export class Monitor {
         this.guilds.set(project.channelId, { guildId, checkedAt: now })
         return { ...project, guildId }
       })
+      const projects = groupSessions(registrations, [...sessions.values()], new Set(activeIds), inputs, permissions)
+      await mapLimit(projects.flatMap(p => p.sessions), async session => {
+        if (session.agentCount > 0) return
+        const cached = this.responses.get(session.id)
+        if (cached?.updatedAt === session.updatedAt) { session.responseAt = cached.responseAt; return }
+        try {
+          session.responseAt = await this.endpoint!.response(session.id)
+          this.responses.set(session.id, { updatedAt: session.updatedAt, responseAt: session.responseAt })
+        } catch { session.responseAt = cached?.responseAt ?? null } // Retry without losing live status.
+      })
+      const visibleIds = new Set(projects.flatMap(p => p.sessions.map(s => s.id)))
+      for (const id of this.responses.keys()) if (!visibleIds.has(id)) this.responses.delete(id)
       this.snapshot = {
-        projects: groupSessions(registrations, [...sessions.values()], new Set(activeIds), inputs, permissions),
+        projects,
         health: 'connected', checkedAt: this.clock(), lastSuccessAt: this.clock(),
         attentionAvailable: attention.every(Boolean), inventoryLimited: this.limited, message: null,
       }

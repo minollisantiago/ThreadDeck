@@ -13,6 +13,13 @@ it('preserves project grouping through every filter and search', () => {
   expect(visibleProjects(projects, 'beta', 'all', 100, true)[0].sessions[0].id).toBe('b')
   expect(visibleProjects(projects, 'layout', 'all', 100, true)[0].name).toBe('Alpha')
 })
+it('includes locally unread idle threads in the active and attention views', () => {
+  const idle = { ...projects[0], sessions: [{ ...projects[0].sessions[0], status: 'idle' as const, agentCount: 0 }] }
+  const unread = new Set(['a'])
+  expect(visibleProjects([idle], '', 'active', 100, true, unread)).toHaveLength(1)
+  expect(visibleProjects([idle], '', 'attention', 100, true, unread)).toHaveLength(1)
+  expect(visibleProjects([idle], '', 'working', 100, true, unread)).toHaveLength(0)
+})
 it('hides idle sessions in the active view but preserves attention and working sessions', () => {
   const idle = { ...projects[0].sessions[0], id: 'idle', title: 'Idle session', status: 'idle' as const, agentCount: 0 }
   const mixed = [{ ...projects[0], sessions: [idle, ...projects[0].sessions, ...projects[1].sessions] }]

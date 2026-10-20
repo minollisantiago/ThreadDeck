@@ -51,12 +51,41 @@ function fixture() {
     recent: vi.fn(async () => ({ sessions: [raw()], limited: false })),
     get: vi.fn(async () => raw()),
     attention: vi.fn(async () => ({ input: [], permission: [] })),
+    response: vi.fn(async () => null),
   }
   const source: Source = { projects: vi.fn(async () => [project]), connect: vi.fn(async () => connection), guild: vi.fn(async () => project.guildId) }
   return { monitor: new Monitor(source, () => now), source, connection, advance: () => { now += 5_000 } }
 }
 
 describe('monitor refresh', () => {
+  it('fetches completion metadata for settled threads and caches it until the session changes', async () => {
+    const { monitor, connection, advance } = fixture()
+    vi.mocked(connection.active).mockResolvedValue([])
+    vi.mocked(connection.response).mockResolvedValue(90)
+    expect((await monitor.refresh()).projects[0].sessions[0].responseAt).toBe(90)
+    advance(); await monitor.refresh()
+    expect(connection.response).toHaveBeenCalledTimes(1)
+    vi.mocked(connection.get).mockResolvedValue(raw({ time: { updated: 200 } }))
+    vi.mocked(connection.response).mockResolvedValue(190)
+    advance()
+    expect((await monitor.refresh()).projects[0].sessions[0].responseAt).toBe(190)
+    expect(connection.response).toHaveBeenCalledTimes(2)
+  })
+  it('does not fetch completion metadata while agents are working', async () => {
+    const { monitor, connection } = fixture()
+    await monitor.refresh()
+    expect(connection.response).not.toHaveBeenCalled()
+  })
+  it('retries failed completion checks without losing live status', async () => {
+    const { monitor, connection, advance } = fixture()
+    vi.mocked(connection.active).mockResolvedValue([])
+    vi.mocked(connection.response).mockRejectedValueOnce(new Error('Unavailable')).mockResolvedValue(90)
+    const first = await monitor.refresh()
+    expect(first.health).toBe('connected')
+    expect(first.projects[0].sessions[0].responseAt).toBeNull()
+    advance()
+    expect((await monitor.refresh()).projects[0].sessions[0].responseAt).toBe(90)
+  })
   it('resolves missing guild IDs through the supported URL lookup and caches them', async () => {
     const { monitor, source, advance } = fixture()
     vi.mocked(source.projects).mockResolvedValue([{ ...project, guildId: null }])
