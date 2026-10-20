@@ -36,6 +36,7 @@ test('state grouping stacks attention first with project pills on narrow screens
   await page.reload()
   await options.click()
   await expect(page.getByRole('button', { name: 'By state', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Working', exact: true }).click()
   await expect(page.locator('.session-project')).toHaveText(['Alpha'])
   await options.click()
@@ -52,6 +53,8 @@ test('state grouping stacks attention first with project pills on narrow screens
   expect(gear!.y).toBe(search!.y)
   expect(gear!.x).toBeGreaterThan(search!.x)
   expect(recent!.y).toBeGreaterThan(search!.y)
+  await page.getByRole('button', { name: 'Recent activity', exact: true }).focus()
+  await expect(page.getByRole('button', { name: 'Recent activity', exact: true })).toBeInViewport({ ratio: 1 })
 })
 
 test('mark all as read includes filtered-out threads and survives reload', async ({ page }) => {
@@ -187,6 +190,8 @@ test('desktop, theme, search, collapse, stale state and mobile layout', async ({
   await expect(page.locator('.filter-label-short:visible')).toHaveText(['Active', 'All', 'Working', 'Attention', 'Recent'])
   await expect(page.locator('.overview-label-short:visible')).toHaveText(['working', 'attention', 'active'])
   await expect(page.locator('.overview-label-full:visible')).toHaveCount(0)
+  const mobileTabWidths = await page.locator('.session-filters button').evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().width))
+  expect(Math.max(...mobileTabWidths) - Math.min(...mobileTabWidths)).toBeLessThan(1)
   await expect(page.locator('.filter-label-full:visible')).toHaveCount(0)
   const selectedTab = page.locator('.session-filters .filter-selected')
   await expect(selectedTab).toHaveCSS('border-bottom-width', '2px')
@@ -194,6 +199,12 @@ test('desktop, theme, search, collapse, stale state and mobile layout', async ({
   await expect(selectedTab).toHaveCSS('border-radius', '0px')
   await expect(selectedTab).toHaveCSS('padding-left', '2px')
   await expect(selectedTab).toHaveCSS('padding-right', '2px')
+  const underline = await selectedTab.locator('.filter-label-short').evaluate(label => {
+    const line = getComputedStyle(label, '::after')
+    return { width: parseFloat(line.width), labelWidth: label.getBoundingClientRect().width, height: line.height }
+  })
+  expect(underline.height).toBe('2px')
+  expect(Math.abs(underline.width - underline.labelWidth)).toBeLessThan(1)
   const filledPill = page.locator('.overview-pill-working')
   await expect(filledPill).toHaveAttribute('data-count-state', 'positive')
   await expect(filledPill).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
@@ -228,6 +239,8 @@ test('desktop, theme, search, collapse, stale state and mobile layout', async ({
   await expect(page.locator('.filter-label-short:visible')).toHaveCount(0)
   await expect(page.locator('.overview-label-short:visible')).toHaveCount(0)
   await expect(page.locator('.overview-label-full:visible')).toHaveText(['working', 'need attention', 'active projects'])
+  const desktopTabWidths = await page.locator('.session-filters button').evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().width))
+  expect(Math.max(...desktopTabWidths) - Math.min(...desktopTabWidths)).toBeLessThan(1)
   await expect(page.locator('.filter-label-full:visible')).toHaveText(['Active sessions', 'All sessions', 'Working', 'Attention', 'Recent activity'])
   await expect(menu).not.toBeVisible()
   await expect(page.locator('#header-controls')).not.toHaveAttribute('popover')

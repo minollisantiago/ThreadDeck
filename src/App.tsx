@@ -119,9 +119,11 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       <div className="toolbar">
         <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <kbd>/</kbd>}</div>
         <div className="filter-toolbar">
+        <div className="session-filter-scroll">
         <div className="filter-group session-filters" role="group" aria-label="Filter sessions">{([
           ['active', 'Active sessions', 'Active'], ['all', 'All sessions', 'All'], ['working', 'Working', 'Working'], ['attention', 'Attention', 'Attention'], ['recent', 'Recent activity', 'Recent'],
         ] as const).map(([value, label, shortLabel]) => <Button key={value} variant="ghost" className={filter === value ? 'filter-selected' : ''} aria-label={label} aria-pressed={filter === value} title={value === 'recent' ? 'Updated in the last 24 hours' : undefined} onClick={() => setFilter(value)}>{value === 'recent' && <Clock3 />}<span className="filter-label-full">{label}</span><span className="filter-label-short" aria-hidden="true">{shortLabel}</span></Button>)}</div>
+        </div>
         <ThreadOptions grouping={grouping} setGrouping={setGrouping} unreadCount={unread.size} markAllRead={markAllRead} />
         </div>
       </div>

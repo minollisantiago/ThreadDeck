@@ -89,7 +89,7 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .thread-options-toggle, .thread-options-heading { display: none; }
 .toolbar .grouping-control { order: 0; height: 40px; padding: 2px; }
 .toolbar .search-field { order: 1; }
-.toolbar .filter-toolbar > .filter-group { order: 2; }
+.session-filter-scroll { order: 2; max-width: 100%; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .toolbar .mark-all-read { order: 3; height: 40px; }
 .toolbar .filter-group button { height: 40px; }
 .toolbar .grouping-control button { height: 32px; }
@@ -249,7 +249,8 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
   .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; padding-block: 16px 18px; }
   .toolbar .search-field { grid-column: 1; grid-row: 1; min-width: 0; }
   .filter-toolbar { display: contents; }
-  .filter-toolbar > .filter-group { grid-column: 1 / -1; grid-row: 2; flex-wrap: nowrap; margin-left: 0; justify-self: start; }
+  .session-filter-scroll { grid-column: 1 / -1; grid-row: 2; width: 100%; }
+  .session-filters { margin-left: 0; }
   .thread-options-toggle { display: inline-flex; grid-column: 2; grid-row: 1; width: 40px; height: 40px; }
   .thread-list-options[popover] { position: fixed; inset: auto; margin: 0; display: grid; gap: 12px; width: 260px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); padding: 16px; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 8px 28px #0003; overflow: auto; }
   .thread-list-options[popover]:not(:popover-open) { display: none; }
@@ -260,7 +261,9 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
   .project-heading { padding-block: 14px; }
   .section-caption { margin-bottom: 10px; }
 }
-.session-filters { gap: 8px; }
+.session-filters { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; width: max-content; }
 .session-filters button { padding-inline: 2px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; }
-.session-filters .filter-selected { border-bottom-color: var(--accent); background: transparent; }
+.session-filters .filter-selected { background: transparent; }
+.session-filters .filter-label-full, .session-filters .filter-label-short { position: relative; }
+.session-filters .filter-selected .filter-label-full::after, .session-filters .filter-selected .filter-label-short::after { content: ''; position: absolute; left: 0; right: 0; bottom: -7px; height: 2px; background: var(--accent); }
 .session-filters button:hover { background: transparent; }
