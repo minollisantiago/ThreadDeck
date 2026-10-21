@@ -66,7 +66,32 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
       await toggle.click()
       await expect(page.locator('.app-shell')).toHaveAttribute('data-design', design)
       await page.keyboard.press('Escape')
+      if (design === 'islands') {
+        const header = page.locator('.island-header').first()
+        const connection = await header.evaluate(element => {
+          const bounds = element.getBoundingClientRect()
+          const emblem = element.querySelector('.project-emblem')!.getBoundingClientRect()
+          const grid = element.nextElementSibling!
+          const spine = getComputedStyle(grid, '::before')
+          const line = getComputedStyle(element, '::before')
+          return {
+            startY: bounds.top + parseFloat(line.top), emblemCenterY: emblem.top + emblem.height / 2,
+            endY: bounds.bottom - parseFloat(line.bottom), gridTop: grid.getBoundingClientRect().top + parseFloat(spine.top),
+            railX: bounds.left + parseFloat(line.left), spineX: grid.getBoundingClientRect().left + parseFloat(spine.left),
+            lineEndX: bounds.left + parseFloat(line.width), emblemRingX: emblem.left - 8,
+          }
+        })
+        expect(Math.abs(connection.startY - connection.emblemCenterY)).toBeLessThan(1)
+        expect(Math.abs(connection.endY - connection.gridTop)).toBeLessThan(1)
+        expect(Math.abs(connection.railX - connection.spineX)).toBeLessThan(1)
+        expect(Math.abs(connection.lineEndX - connection.emblemRingX)).toBeLessThan(1)
+        await header.locator('button').click()
+        await expect(header).toHaveAttribute('data-connected', 'false')
+        expect(await header.evaluate(element => getComputedStyle(element, '::before').content)).toBe('none')
+        await header.locator('button').click()
+      }
       if (width === 390) await page.screenshot({ path: `artifacts/design-${design}-mobile.png`, fullPage: true })
+      if (width === 390 && design === 'islands') await page.locator('.visual-project').first().screenshot({ path: 'artifacts/island-mobile-connector.png' })
     }
   }
   await page.setViewportSize({ width: 1440, height: 1100 })
