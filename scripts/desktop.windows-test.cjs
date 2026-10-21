@@ -24,6 +24,10 @@ async function main() {
     if (process.argv[4]) {
       await page.waitForURL(url => url.protocol === 'file:' && url.pathname.endsWith('/startup.html'))
       await page.getByRole('heading', { name: 'ThreadDeck', exact: true }).waitFor()
+      const typeSizes = await page.evaluate(() => Object.fromEntries(['.eyebrow', '.sequence-heading', '.stage-copy strong', '.stage-copy p', '#status', 'footer'].map(selector => [selector, parseFloat(getComputedStyle(document.querySelector(selector)).fontSize)])))
+      assert.ok(Object.values(typeSizes).every(size => size >= 10))
+      assert.equal(typeSizes['.stage-copy strong'], 12)
+      assert.equal(typeSizes['.stage-copy p'], 11)
       assert.equal(await page.locator('.scan-band').evaluate(element => getComputedStyle(element).animationName), 'scan')
       await page.locator('#error').waitFor({ state: 'visible' })
       await page.screenshot({ path: path.join(directory, 'electron-windows-startup-error.png') })
