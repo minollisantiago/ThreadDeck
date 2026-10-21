@@ -288,7 +288,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
   .project-heading { padding-block: 14px; }
   .section-caption { margin-bottom: 10px; }
 }
-.session-filters { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; width: max-content; }
+.session-filters { position: relative; display: flex; flex-wrap: nowrap; gap: 8px; width: max-content; }
 .session-filters button { padding-inline: 2px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; }
 .session-filters .filter-selected { background: transparent; }
 .filter-indicator { position: absolute; top: 0; left: 0; height: 2px; background: var(--accent); pointer-events: none; transition: transform 240ms cubic-bezier(.22, 1, .36, 1), width 240ms cubic-bezier(.22, 1, .36, 1); }
