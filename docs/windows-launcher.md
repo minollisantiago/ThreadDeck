@@ -25,6 +25,12 @@ before WSL or the backend has started. A local branded screen shows the ThreadDe
 logo with a top-to-bottom opacity scanner, followed by live WSL, dashboard-backend
 and Kimaki startup stages. Once the services are ready, the same window transitions
 into the dashboard. The animation respects Windows' reduced-motion preference.
+The drafting-frame layout adds a softly faded line grid, a restrained pink glow,
+registration corners and diagonal hatch gutters around the service list. Its
+ready count reflects actual visible startup stages, not an estimated time or
+fake percentage; direct client-only launches count just the backend connection.
+The complete loading composition (including its grid and footer) stays centered
+at a maximum width of **430px**, even when the native window is maximized.
 The loading screen uses the dashboard's saved **light or dark appearance**, including
 its native window background, status indicators and error controls. Preferences are
 read locally before WSL starts, so an existing light-mode choice does not flash dark

@@ -52,6 +52,7 @@ async function beginStartup() {
       try {
         const response = await fetch(`${origin}/api/snapshot`, { signal: AbortSignal.timeout(1500) })
         if (response.ok) {
+          if (!configFile) { startupState.stages.backend = { state: 'ready', detail: 'Dashboard backend is ready' }; notifyStartup() }
           await window.loadURL(origin)
           controller?.ready()
           return

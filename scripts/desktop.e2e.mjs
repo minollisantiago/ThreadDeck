@@ -72,7 +72,7 @@ await sleep(1500); ready=true; emit('kimaki','ready','Kimaki is ready');
   await mkdir('artifacts', { recursive: true })
   for (const name of ['narrow-dark', 'maximized', 'narrow-light']) await copyFile(path.join(directory, `electron-windows-${name}.png`), `artifacts/electron-windows-${name}.png`)
   if (startupConfig) {
-    for (const name of ['startup', 'startup-error', 'startup-light', 'startup-dark']) await copyFile(path.join(directory, `electron-windows-${name}.png`), `artifacts/electron-windows-${name}.png`)
+    for (const name of ['startup', 'startup-error', 'startup-light', 'startup-dark', 'startup-wide']) await copyFile(path.join(directory, `electron-windows-${name}.png`), `artifacts/electron-windows-${name}.png`)
     await readFile(path.join(startupRoot, 'stopped'))
     await readFile(path.join(startupRoot, 'cancelled'))
     console.log('Client-first startup, scanner animation, retry, handoff and owned-service cleanup passed.')

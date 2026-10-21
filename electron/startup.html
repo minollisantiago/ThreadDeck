@@ -11,7 +11,10 @@
 </head>
 <body>
   <header><span class="drag">ThreadDeck <small>LOCAL</small></span><div class="window-controls"><button aria-label="Minimize window" data-control="minimize">−</button><button aria-label="Maximize window" data-control="maximize">□</button><button aria-label="Close window" data-control="close">×</button></div></header>
+  <div class="startup-shell">
+  <div class="startup-plane" aria-hidden="true"></div>
   <main>
+    <div class="startup-identity">
     <div class="brand-mark" aria-hidden="true">
       <svg viewBox="0 0 32 32">
         <defs>
@@ -25,14 +28,21 @@
     <p class="eyebrow">YOUR AGENT SWITCHBOARD</p>
     <h1>ThreadDeck</h1>
     <p class="intro" id="intro">Getting your workspace ready.</p>
-    <ol id="stages" aria-label="Startup progress">
-      <li data-phase="wsl"><span class="stage-icon"></span><div><strong>Windows Subsystem for Linux</strong><p>Waiting to start</p></div></li>
-      <li data-phase="backend"><span class="stage-icon"></span><div><strong>Dashboard backend</strong><p>Waiting for Linux</p></div></li>
-      <li data-phase="kimaki"><span class="stage-icon"></span><div><strong>Kimaki</strong><p>Waiting for Linux</p></div></li>
-    </ol>
+    </div>
+    <div class="sequence-heading"><span>STARTUP SEQUENCE</span><span id="ready-count" aria-live="polite">00 / 03 READY</span></div>
+    <div class="stages-frame">
+      <div class="registration-corners" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <ol id="stages" aria-label="Startup progress">
+        <li data-phase="wsl"><span class="stage-hatch" aria-hidden="true"></span><div class="stage-copy"><strong>Windows Subsystem for Linux</strong><p>Waiting to start</p></div><span class="stage-state"><span class="stage-icon" aria-hidden="true"></span><span class="sr-only">Waiting</span></span><span class="stage-hatch" aria-hidden="true"></span></li>
+        <li data-phase="backend"><span class="stage-hatch" aria-hidden="true"></span><div class="stage-copy"><strong>Dashboard backend</strong><p>Waiting for Linux</p></div><span class="stage-state"><span class="stage-icon" aria-hidden="true"></span><span class="sr-only">Waiting</span></span><span class="stage-hatch" aria-hidden="true"></span></li>
+        <li data-phase="kimaki"><span class="stage-hatch" aria-hidden="true"></span><div class="stage-copy"><strong>Kimaki</strong><p>Waiting for Linux</p></div><span class="stage-state"><span class="stage-icon" aria-hidden="true"></span><span class="sr-only">Waiting</span></span><span class="stage-hatch" aria-hidden="true"></span></li>
+      </ol>
+    </div>
+    <div class="sequence-stripe" aria-hidden="true"></div>
     <p id="status" role="status" aria-live="polite">Opening your workspace…</p>
     <section id="error" hidden><p id="error-message" role="alert"></p><div><button id="retry">Retry startup</button><button id="logs">Open startup log</button></div></section>
   </main>
   <footer><i></i> LOCAL · YOUR SESSIONS STAY ON YOUR MACHINE</footer>
+  </div>
 </body>
 </html>
