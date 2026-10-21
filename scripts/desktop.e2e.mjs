@@ -13,7 +13,9 @@ const snapshot = { health: 'connected', checkedAt: now, lastSuccessAt: now, atte
     { id: 'weektrace', name: 'WeekTrace', directory: '/demo/weektrace', sessions: [session('report', 'Weekly activity report', 'working'), session('review', 'Review the new timeline', 'permission')] },
     { id: 'naturalgas', name: 'naturalgas', directory: '/demo/naturalgas', sessions: [session('results', 'Compare saved backtesting results', 'working')] },
   ] }
+let preferenceRequests = 0
 const server = createServer(async (req, res) => {
+  if (req.url?.startsWith('/__threaddeck_appearance_')) preferenceRequests++
   if (req.url === '/api/snapshot') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ...snapshot, checkedAt: Date.now(), lastSuccessAt: Date.now() })); return }
   try {
     const pathname = new URL(req.url, 'http://localhost').pathname
@@ -66,10 +68,11 @@ await sleep(1500); ready=true; emit('kimaki','ready','Kimaki is ready');
     child.once('exit', resolve)
   })
   if (code !== 0) throw new Error(`Windows desktop checks exited ${code}`)
+  if (preferenceRequests !== 0) throw new Error('Startup preferences must be read locally, not fetched from the backend')
   await mkdir('artifacts', { recursive: true })
   for (const name of ['narrow-dark', 'maximized', 'narrow-light']) await copyFile(path.join(directory, `electron-windows-${name}.png`), `artifacts/electron-windows-${name}.png`)
   if (startupConfig) {
-    for (const name of ['startup', 'startup-error']) await copyFile(path.join(directory, `electron-windows-${name}.png`), `artifacts/electron-windows-${name}.png`)
+    for (const name of ['startup', 'startup-error', 'startup-light', 'startup-dark']) await copyFile(path.join(directory, `electron-windows-${name}.png`), `artifacts/electron-windows-${name}.png`)
     await readFile(path.join(startupRoot, 'stopped'))
     await readFile(path.join(startupRoot, 'cancelled'))
     console.log('Client-first startup, scanner animation, retry, handoff and owned-service cleanup passed.')

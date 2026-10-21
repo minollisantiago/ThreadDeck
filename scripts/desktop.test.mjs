@@ -5,6 +5,15 @@ import { readFileSync } from 'node:fs'
 const require = createRequire(import.meta.url)
 const { externalLink, mobileBounds } = require('../electron/policy.cjs')
 const { appId, taskbarDetails } = require('../electron/taskbar.cjs')
+const { colors, parseAppearance } = require('../electron/appearance.cjs')
+
+test('startup appearance follows saved dashboard mode and falls back safely', () => {
+  assert.equal(parseAppearance('"light"', 'dark'), 'light')
+  assert.equal(parseAppearance('"dark"', 'light'), 'dark')
+  for (const value of [null, 'null', '{}', '"system"', 'bad json']) assert.equal(parseAppearance(value, 'light'), 'light')
+  assert.equal(colors.light, '#f4f3f6')
+  assert.equal(colors.dark, '#101014')
+})
 
 test('taskbar icon and relaunch metadata share the shortcut app identity', () => {
   const details = taskbarDetails('C:\\Apps\\Thread Deck\\runtime', 43127, { exists: () => true, windowsDirectory: 'C:\\Windows' })

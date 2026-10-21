@@ -22,7 +22,7 @@ async function main() {
     page.on('pageerror', error => errors.push(error.message))
     log(`URL: ${page.url()}`)
     if (process.argv[4]) {
-      assert.ok(page.url().startsWith('file:'))
+      await page.waitForURL(url => url.protocol === 'file:' && url.pathname.endsWith('/startup.html'))
       await page.getByRole('heading', { name: 'ThreadDeck', exact: true }).waitFor()
       assert.equal(await page.locator('.scan-band').evaluate(element => getComputedStyle(element).animationName), 'scan')
       await page.locator('#error').waitFor({ state: 'visible' })
@@ -101,15 +101,37 @@ async function main() {
     console.log('Windows Electron sizing, maximize/restore, minimize, themes, isolation and close passed.')
   } finally { await app.close().catch(() => {}) }
   if (process.argv[4]) {
+    // Reopen the same profile: the loader must read the actual dashboard's saved
+    // light preference without a running backend, not rely on file localStorage.
+    const lightApp = await electron.launch({ executablePath: path.join(directory, 'electron.exe'), args: [entry, `--launch-services=${process.argv[4]}`], env, timeout: 60_000 })
+    try {
+      const splash = await lightApp.firstWindow()
+      await splash.waitForURL(url => url.protocol === 'file:' && url.pathname.endsWith('/startup.html'))
+      assert.equal(await splash.locator('html').getAttribute('data-appearance'), 'light')
+      assert.equal(await splash.locator('body').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(244, 243, 246)')
+      assert.match(await lightApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBackgroundColor()), /f4f3f6/i)
+      await splash.waitForFunction(() => document.querySelector('[data-phase="backend"]')?.dataset.state === 'working')
+      await splash.screenshot({ path: path.join(directory, 'electron-windows-startup-light.png') })
+      await splash.waitForURL(`http://127.0.0.1:${process.argv[3]}/`, { waitUntil: 'load', timeout: 30_000 })
+      await splash.evaluate(() => localStorage.setItem('threaddeck:appearance', '"dark"'))
+      await splash.reload()
+      await splash.waitForFunction(() => document.documentElement.dataset.appearance === 'dark')
+      await splash.getByRole('button', { name: 'Close window', exact: true }).click()
+    } finally { await lightApp.close().catch(() => {}) }
     const cancelEntry = path.join(directory, 'test-startup-cancel.cjs')
-    await fs.writeFile(cancelEntry, `require('electron').app.setPath('userData', ${JSON.stringify(path.join(directory, 'cancel-test-profile'))}); require('./main.cjs')`)
+    await fs.writeFile(cancelEntry, `require('electron').app.setPath('userData', ${JSON.stringify(path.join(directory, 'test-profile'))}); require('./main.cjs')`)
     const cancelApp = await electron.launch({ executablePath: path.join(directory, 'electron.exe'), args: [cancelEntry, `--launch-services=${process.argv[4]}`], env, timeout: 60_000 })
     try {
       const splash = await cancelApp.firstWindow()
+      await splash.waitForURL(url => url.protocol === 'file:' && url.pathname.endsWith('/startup.html'))
+      assert.equal(await splash.locator('html').getAttribute('data-appearance'), 'dark')
+      assert.equal(await splash.locator('body').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(16, 16, 20)')
       await splash.waitForFunction(() => document.querySelector('[data-phase="backend"]')?.dataset.state === 'working')
+      await splash.screenshot({ path: path.join(directory, 'electron-windows-startup-dark.png') })
       await splash.getByRole('button', { name: 'Close window', exact: true }).click()
     } finally { await cancelApp.close().catch(() => {}) }
     console.log('Closing the client during startup cancels its owned WSL attempt.')
+    console.log('Saved light/dark appearance persists into the next native loading screen before WSL readiness.')
   }
   // Verify the cross-OS lease contract: removing the lease quits the native app.
   const supervisedEntry = path.join(directory, 'test-supervised.cjs')

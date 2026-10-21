@@ -12,6 +12,15 @@ function openLink(event) {
 }
 window.addEventListener('click', openLink, true)
 window.addEventListener('auxclick', openLink, true)
+window.addEventListener('DOMContentLoaded', () => {
+  if (location.protocol !== 'http:') return
+  const syncAppearance = () => {
+    const mode = document.documentElement.dataset.appearance
+    if (mode === 'dark' || mode === 'light') ipcRenderer.send('appearance-changed', mode)
+  }
+  syncAppearance()
+  new MutationObserver(syncAppearance).observe(document.documentElement, { attributes: true, attributeFilter: ['data-appearance'] })
+})
 contextBridge.exposeInMainWorld('threaddeckDesktop', {
   startupState: () => ipcRenderer.invoke('startup-state'),
   startupAction: action => { if (['retry', 'logs'].includes(action)) ipcRenderer.send('startup-action', action) },

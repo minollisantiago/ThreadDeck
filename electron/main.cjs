@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, screen, shell, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, screen, shell, dialog, nativeTheme, net } = require('electron')
 const path = require('node:path')
 const { externalLink, mobileBounds } = require('./policy.cjs')
 const { appId, taskbarDetails } = require('./taskbar.cjs')
 const { startupController } = require('./startup.cjs')
 const { readFileSync } = require('node:fs')
+const { colors, savedAppearance } = require('./appearance.cjs')
 
 const configFile = process.argv.find(arg => arg.startsWith('--launch-services='))?.slice('--launch-services='.length)
 let config
@@ -17,6 +18,8 @@ let quitting = false
 let controller
 let attempt = 0
 let startupState
+let appearance
+const loadSplash = () => window.loadFile(path.join(__dirname, 'startup.html'), { query: { appearance } })
 const initialState = () => ({ stages: {
   wsl: { state: 'working', detail: 'Starting Windows Subsystem for Linux', hidden: !configFile },
   backend: { state: configFile ? 'pending' : 'working', detail: configFile ? 'Waiting for Linux' : 'Connecting to your dashboard' },
@@ -56,7 +59,7 @@ async function beginStartup() {
       } catch {
         // A failed navigation must not leave Chromium's blank error document.
         if (!quitting && id === attempt && !window.webContents.getURL().startsWith('file:')) {
-          await window.loadFile(path.join(__dirname, 'startup.html'))
+          await loadSplash()
           notifyStartup()
         }
       }
@@ -73,19 +76,23 @@ async function beginStartup() {
 app.whenReady().then(async () => {
   if (quitting) return
   startupState = initialState()
+  appearance = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
   const initialBounds = mobileBounds(screen.getPrimaryDisplay().workArea)
   window = new BrowserWindow({
     ...initialBounds, minWidth: initialBounds.width, minHeight: 400,
-    frame: false, show: false, backgroundColor: '#101014', title: 'ThreadDeck',
+    frame: false, show: false, backgroundColor: colors[appearance], title: 'ThreadDeck',
     icon: path.join(__dirname, 'ThreadDeck.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },
   })
+  appearance = await savedAppearance(window, origin, appearance, net)
+  if (quitting || window.isDestroyed()) return
+  window.setBackgroundColor(colors[appearance])
   if (process.platform === 'win32') window.setAppDetails(taskbarDetails(__dirname, port))
   if (config) controller = startupController({ ...config, port }, event => {
     if (event.error) {
       startupState.error = event.error
       if (!quitting && !window.isDestroyed() && !window.webContents.getURL().startsWith('file:')) {
-        void window.loadFile(path.join(__dirname, 'startup.html')).then(notifyStartup).catch(() => {})
+        void loadSplash().then(notifyStartup).catch(() => {})
       }
     }
     else startupState.stages[event.phase] = { state: event.state, detail: String(event.detail ?? '') }
@@ -109,6 +116,12 @@ app.whenReady().then(async () => {
     if (action === 'maximize') window.isMaximized() ? window.unmaximize() : window.maximize()
     if (action === 'close') window.close()
   })
+  ipcMain.on('appearance-changed', (event, mode) => {
+    if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame
+      || !event.senderFrame.url.startsWith(`${origin}/`) || !['dark', 'light'].includes(mode)) return
+    appearance = mode
+    window.setBackgroundColor(colors[appearance])
+  })
   const isSplash = event => event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame && event.senderFrame.url.startsWith('file:')
   ipcMain.handle('startup-state', event => isSplash(event) ? startupState : null)
   ipcMain.on('startup-action', (event, action) => {
@@ -123,9 +136,10 @@ app.whenReady().then(async () => {
     notify()
   })
   window.webContents.on('did-finish-load', notify)
-  window.once('ready-to-show', () => window.show())
   window.on('closed', () => { quitting = true; attempt++; void controller?.stop() })
-  await window.loadFile(path.join(__dirname, 'startup.html'))
+  await loadSplash()
+  if (quitting || window.isDestroyed()) return
+  window.show()
   void beginStartup()
 }).catch(error => { if (!quitting) dialog.showErrorBox('ThreadDeck could not start', error.message); app.exit(1) })
 app.on('window-all-closed', () => app.quit())

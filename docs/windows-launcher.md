@@ -25,6 +25,10 @@ before WSL or the backend has started. A local branded screen shows the ThreadDe
 logo with a top-to-bottom opacity scanner, followed by live WSL, dashboard-backend
 and Kimaki startup stages. Once the services are ready, the same window transitions
 into the dashboard. The animation respects Windows' reduced-motion preference.
+The loading screen uses the dashboard's saved **light or dark appearance**, including
+its native window background, status indicators and error controls. Preferences are
+read locally before WSL starts, so an existing light-mode choice does not flash dark
+on a cold launch. With no saved appearance, the Windows color scheme is used.
 
 No terminal window is opened. The client starts WSL invisibly, builds the production
 dashboard only when a backend is missing, and starts missing services. The existing
