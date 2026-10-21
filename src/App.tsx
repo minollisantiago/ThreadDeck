@@ -4,6 +4,7 @@ import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { HeaderControls, palettes, type Palette } from './components/header-controls'
 import { ConnectionIndicator } from './components/connection-indicator'
+import { ConnectionNotice } from './components/connection-notice'
 import { ThreadOptions } from './components/thread-options'
 import { FilterTabs } from './components/filter-tabs'
 import { SessionRow } from './components/session-row'
@@ -12,6 +13,7 @@ import { ProjectCollapse } from './components/project-collapse'
 import { StatePanels } from './components/state-panels'
 import { isDesign, type Design } from './lib/design'
 import { useSnapshot } from './hooks/use-snapshot'
+import { useChangeMotion } from './hooks/use-change-motion'
 import { useUnread } from './hooks/use-unread'
 import { DesktopTitlebar } from './components/desktop-titlebar'
 import { isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
@@ -65,6 +67,8 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const [design, setDesign] = useState<Design>(() => saved('threaddeck:design', 'classic', isDesign))
   const [visualCollapsed, setVisualCollapsed] = useState<Record<string, boolean>>({})
   const search = useRef<HTMLInputElement>(null)
+  const results = useRef<HTMLDivElement>(null)
+  useChangeMotion(results, `${grouping}:${design}:${filter}`)
   useEffect(() => { document.documentElement.dataset.appearance = appearance; persist('threaddeck:appearance', appearance) }, [appearance])
   useEffect(() => { document.documentElement.dataset.palette = palette; persist('threaddeck:palette', palette) }, [palette])
   useEffect(() => { persist('threaddeck:collapsed', collapsed) }, [collapsed])
@@ -128,9 +132,9 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         </div>
       </div>
 
-      {!verified && !loading && <div className="connection-notice" role="alert"><CircleAlert /><div><strong>Live status unavailable</strong><p>{snapshot?.lastSuccessAt ? 'Showing your last snapshot. Retrying automatically.' : 'Check that Kimaki and OpenCode are running. Retrying automatically.'}</p></div></div>}
+      <ConnectionNotice visible={!verified && !loading} hasSnapshot={Boolean(snapshot?.lastSuccessAt)} />
       <div className="section-caption"><span>{grouping === 'project' ? 'PROJECTS' : 'STATES'} <span className="caption-count">{(grouping === 'project' ? shown.length : groups.length).toString().padStart(2, '0')}</span></span><span>{narrowed ? `${shown.reduce((count, p) => count + p.sessions.length, 0)} matching sessions` : grouping === 'project' ? 'Active projects first' : 'Needs attention first'}</span></div>
-      <div className="project-list">
+      <div className="project-list" ref={results}>
         {grouping === 'state' && <StatePanels groups={groups} verified={verified} now={now} unread={unread} markRead={markRead} graphical={design === 'islands'} />}
         {grouping === 'project' && design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}
         {grouping === 'project' && design === 'classic' && shown.map(project => {

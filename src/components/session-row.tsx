@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { CircleAlert, CirclePause, ExternalLink, LoaderCircle, ShieldQuestion, Users } from 'lucide-react'
 import { discordLinks, isAttention, type Session } from '../../shared/model'
 import { relativeTime } from '../lib/view'
+import { useChangeMotion } from '../hooks/use-change-motion'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { SessionContextMenu } from './session-context-menu'
@@ -20,6 +21,8 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
   const links = discordLinks(session)
   const status = verified ? session.status : 'unknown'
   const attention = verified && isAttention(session.status)
+  const flags = useRef<HTMLDivElement>(null)
+  useChangeMotion(flags, `${status}:${unread}:${unread ? session.responseAt ?? '' : ''}`, 120, 2)
   const Icon = status === 'working' ? LoaderCircle : status === 'idle' ? CirclePause : status === 'permission' ? ShieldQuestion : CircleAlert
   return <div ref={row} tabIndex={0} aria-haspopup="menu" className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''} ${graphical ? 'session-tile' : ''}`} data-state={status} title={`Updated ${relativeTime(session.updatedAt, now)} · ${new Date(session.updatedAt).toLocaleString()}`} onContextMenu={event => {
     event.preventDefault()
@@ -38,7 +41,7 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
          : <span className="session-title">{session.title}</span>}
       {projectName && <span className="session-project" title={`Project: ${projectName}`}>{projectName}</span>}
     </div>
-    <div className="session-flags">
+    <div className="session-flags" ref={flags}>
       {unread && <button className="status status-unread" aria-label={`Mark ${session.title} as read`} title="Unread in ThreadDeck. Click to mark as read.
 Reading in Discord does not clear this flag." onClick={() => markRead(session)}>Unread</button>}
       {(!unread || status !== 'idle') && <Badge className={`status status-${status}`} title={verified && session.agentCount > 1 ? `${session.agentCount} agents` : undefined}><span className="status-dot" />{status === 'unknown' ? 'Unknown' : labels[status]}</Badge>}

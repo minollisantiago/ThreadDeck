@@ -320,6 +320,10 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .project-sessions .session-row::after { width: calc(var(--project-branch-width) + 1px); border-bottom-width: 2px; }
 .project-sessions .session-attention-marker { display: none; }
 /* Contextual motion: no mount animations or snapshot-driven entrances. */
+.connection-notice-region { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows 160ms var(--motion-ease), opacity var(--motion-fast) ease, visibility 0s 160ms; }
+.connection-notice-region[data-visible=true] { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-delay: 0s; }
+.connection-notice-clip { min-height: 0; overflow: hidden; }
+.session-flags .status, .session-glyph { transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease; }
 .project-collapse { display: grid; grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows var(--motion-layout) var(--motion-ease), opacity var(--motion-fast) ease, visibility 0s; }
 .project-collapse[data-collapsed=true] { grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition-delay: 0s, 0s, var(--motion-layout); }
 .project-collapse-clip { min-height: 0; overflow: hidden; }
