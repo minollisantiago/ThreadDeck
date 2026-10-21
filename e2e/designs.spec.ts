@@ -66,6 +66,40 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
       await toggle.click()
       await expect(page.locator('.app-shell')).toHaveAttribute('data-design', design)
       await page.keyboard.press('Escape')
+      if (design === 'classic') {
+        const panel = page.locator('.project-panel').first()
+        for (const pill of ['.project-total', '.project-attention', '.project-unread']) {
+          await expect(panel.locator(pill)).toHaveCSS('font-size', '11px')
+          await expect(panel.locator(pill)).toHaveCSS('line-height', '20px')
+        }
+        const connection = await panel.evaluate(element => {
+          const heading = element.querySelector('.project-heading')!
+          const icon = element.querySelector('.project-channel-icon')!.getBoundingClientRect()
+          const name = element.querySelector('.project-name')!.getBoundingClientRect()
+          const pills = element.querySelector('.project-pills')!.getBoundingClientRect()
+          const row = element.querySelector('.session-row')!
+          const rail = getComputedStyle(row, '::before')
+          const stem = getComputedStyle(heading, '::after')
+          return {
+            iconCenter: icon.left + icon.width / 2,
+            railCenter: row.getBoundingClientRect().left + parseFloat(rail.left) + parseFloat(rail.borderLeftWidth) / 2,
+            stemCenter: heading.getBoundingClientRect().left + parseFloat(stem.left) + parseFloat(stem.width) / 2,
+            stemGap: heading.getBoundingClientRect().top + parseFloat(stem.top) - icon.bottom,
+            nameTop: name.top, nameRight: name.right, pillsTop: pills.top, pillsLeft: pills.left,
+          }
+        })
+        expect(Math.abs(connection.iconCenter - connection.railCenter)).toBeLessThan(1)
+        expect(Math.abs(connection.iconCenter - connection.stemCenter)).toBeLessThan(1)
+        expect(connection.stemGap).toBeGreaterThanOrEqual(2)
+        expect(connection.stemGap).toBeLessThanOrEqual(6)
+        expect(Math.abs(connection.nameTop - connection.pillsTop)).toBeLessThan(1)
+        expect(connection.pillsLeft).toBeGreaterThan(connection.nameRight)
+        await expect(panel.locator('.session-row').first()).toHaveCSS('min-height', '42px')
+        await expect(panel.locator('.session-attention-marker').first()).not.toBeVisible()
+        await panel.locator('.project-heading').click()
+        expect(await panel.locator('.project-heading').evaluate(element => getComputedStyle(element, '::after').content)).toBe('none')
+        await panel.locator('.project-heading').click()
+      }
       if (design === 'islands') {
         const header = page.locator('.island-header').first()
         const connection = await header.evaluate(element => {
@@ -109,8 +143,10 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
         expect(await header.evaluate(element => getComputedStyle(element, '::before').content)).toBe('none')
         await header.locator('button').click()
       }
+      await page.mouse.move(0, 0)
       if (width === 390) await page.screenshot({ path: `artifacts/design-${design}-mobile.png`, fullPage: true })
       if (width === 390 && design === 'islands') await page.locator('.visual-project').first().screenshot({ path: 'artifacts/island-mobile-connector.png' })
+      if (width === 390 && design === 'classic') await page.locator('.project-panel').first().screenshot({ path: 'artifacts/list-mobile-connectors.png' })
     }
   }
   await page.setViewportSize({ width: 1440, height: 1100 })

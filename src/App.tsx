@@ -29,19 +29,19 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
   const unreadCount = project.sessions.filter(s => unread.has(s.id)).length
   const active = unreadCount > 0 || verified && project.sessions.some(isActive)
   return <section className={`project-panel ${active ? 'project-active' : ''}`} aria-labelledby={`heading-${project.id}`}>
-    <button className="project-heading" id={`heading-${project.id}`} onClick={toggle} aria-expanded={!collapsed} aria-controls={`sessions-${project.id}`}>
+    <button className="project-heading" id={`heading-${project.id}`} onClick={toggle} aria-expanded={!collapsed} aria-controls={`sessions-${project.id}`} data-connected={!collapsed && project.sessions.length > 0}>
       {collapsed ? <ChevronRight className="chevron" /> : <ChevronDown className="chevron" />}
       <Hash className="project-channel-icon" aria-hidden="true" />
-      <span className="project-name">{project.name}</span>
+      <span className="project-name" title={project.name}>{project.name}</span>
       <span className="project-pills">
         <span className="project-total">{project.sessions.length} {project.sessions.length === 1 ? 'session' : 'sessions'}</span>
         {verified && attention > 0 && <span className="project-attention"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</span>}
         {unreadCount > 0 && <span className="project-unread" title="Unread responses in this browser, not synced with Discord">{unreadCount} unread</span>}
       </span>
-      <span className="project-summary">
+      {(!verified || working > 0 || !active) && <span className="project-summary">
         {verified && working > 0 && <span className="working-summary"><i />{working} working</span>}
         {(!verified || !active) && <span>{verified ? 'No working threads' : 'Status unavailable'}</span>}
-      </span>
+      </span>}
     </button>
     <div id={`sessions-${project.id}`} hidden={collapsed} className="project-sessions">
       {project.sessions.length ? sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)
