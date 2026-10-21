@@ -24,7 +24,16 @@
   --ground: #f4f3f6; --surface: #fff; --row: #f0edf4; --hover: #e9e5ee;
   --text: #25212e; --muted: #625d70; --subtle: #797183; --rule: #211b3012;
   --working: #237947; --warning: #94601c; --danger: #c52b3b;
+  --pill-working-ink: #166534; --pill-working-bg: #d6f5e3;
+  --pill-attention-ink: #854d0e; --pill-attention-bg: #ffebc5;
+  --pill-danger-ink: #9f1239; --pill-danger-bg: #ffe0e7;
+  --pill-accent-ink: #9d174d; --pill-accent-bg: color-mix(in srgb, var(--accent) 36%, #fff);
+  --pill-neutral-bg: #e6e1ed;
 }
+:root[data-appearance=light][data-palette=lavender] { --pill-accent-ink: #5b21b6; }
+:root[data-appearance=light][data-palette=blue] { --pill-accent-ink: #075985; }
+:root[data-appearance=light][data-palette=green] { --pill-accent-ink: #166534; }
+:root[data-appearance=light][data-palette=peach] { --pill-accent-ink: #9a3412; }
 :root[data-palette=lavender] { --accent: #b1a7f2; }
 :root[data-palette=blue] { --accent: #88c1f2; }
 :root[data-palette=green] { --accent: #8fd9af; }
@@ -281,6 +290,18 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .session-filters .filter-selected { background: transparent; }
 .filter-indicator { position: absolute; top: 0; left: 0; height: 2px; background: var(--accent); pointer-events: none; transition: transform 240ms cubic-bezier(.22, 1, .36, 1), width 240ms cubic-bezier(.22, 1, .36, 1); }
 .session-filters button:hover { background: transparent; }
+/* Richer light-mode fills keep pills distinct from white cards without changing dark mode. */
+:root[data-appearance=light] .overview-pill-working { --pill-color: var(--pill-working-ink); --pill-background: var(--pill-working-bg); }
+:root[data-appearance=light] .overview-pill-attention { --pill-color: var(--pill-attention-ink); --pill-background: var(--pill-attention-bg); }
+:root[data-appearance=light] .overview-pill-projects { --pill-color: var(--pill-accent-ink); --pill-background: var(--pill-accent-bg); }
+:root[data-appearance=light] .overview-pill:not([data-count-state=unknown]) { background: var(--pill-background); }
+:root[data-appearance=light] .status-working { color: var(--pill-working-ink); background: var(--pill-working-bg); }
+:root[data-appearance=light] .status-input, :root[data-appearance=light] .status-permission, :root[data-appearance=light] .status-unknown, :root[data-appearance=light] .project-attention { color: var(--pill-attention-ink); background: var(--pill-attention-bg); }
+:root[data-appearance=light] .status-error { color: var(--pill-danger-ink); background: var(--pill-danger-bg); }
+:root[data-appearance=light] .status-unread, :root[data-appearance=light] .project-unread { color: var(--pill-accent-ink); background: var(--pill-accent-bg); }
+:root[data-appearance=light] .status-unread:hover { background: color-mix(in srgb, var(--accent) 48%, #fff); }
+:root[data-appearance=light] .status-idle, :root[data-appearance=light] .project-total, :root[data-appearance=light] .session-project { color: var(--muted); background: var(--pill-neutral-bg); }
+:root[data-appearance=light] .session-tile.session-unread { border-color: var(--pill-accent-ink); }
 .project-panel { --project-pad-x: 23px; --project-pad-y: 19px; --project-heading-gap: 11px; --project-branch-width: 20px; --project-rail-x: calc(var(--project-pad-x) + 14px + var(--project-heading-gap) + 9px); }
 .project-heading { position: relative; display: grid; grid-template-columns: 14px 18px minmax(0, 1fr) auto; gap: 8px var(--project-heading-gap); padding: var(--project-pad-y) var(--project-pad-x); }
 .project-heading .chevron { grid-column: 1; grid-row: 1; align-self: start; margin-top: 5px; }
