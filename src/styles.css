@@ -13,6 +13,9 @@
 }
 
 :root {
+  --motion-fast: 120ms;
+  --motion-layout: 220ms;
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
   color-scheme: dark;
   --ground: #101014; --surface: #17171e; --row: #24232b; --hover: #2c2b35;
   --text: #eeeeef; --muted: #a4a2b2; --subtle: #797786; --rule: #ffffff0d;
@@ -316,6 +319,30 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .project-sessions .session-row::before, .project-sessions .session-row::after { left: calc(-1px - var(--project-branch-width)); border-left-width: 2px; }
 .project-sessions .session-row::after { width: calc(var(--project-branch-width) + 1px); border-bottom-width: 2px; }
 .project-sessions .session-attention-marker { display: none; }
+/* Contextual motion: no mount animations or snapshot-driven entrances. */
+.project-collapse { display: grid; grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows var(--motion-layout) var(--motion-ease), opacity var(--motion-fast) ease, visibility 0s; }
+.project-collapse[data-collapsed=true] { grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition-delay: 0s, 0s, var(--motion-layout); }
+.project-collapse-clip { min-height: 0; overflow: hidden; }
+.chevron, .visual-chevron { transition: transform 160ms var(--motion-ease); }
+.chevron.is-closed { transform: rotate(-90deg); }
+/* Preserve the existing connector overhang without moving the grid or header. */
+.projects-islands .project-collapse-clip { overflow: clip; overflow-clip-margin: 15px; }
+.connection-tooltip { transform: translateY(-3px); transition: opacity var(--motion-fast) ease, transform var(--motion-fast) var(--motion-ease), visibility 0s var(--motion-fast); }
+.connection:hover .connection-tooltip, .connection:focus-within .connection-tooltip { transform: translateY(0); transition-delay: 0s; }
+.app-shell [data-slot=button], .palette-swatch, .clear-search, .project-heading, .session-row, .session-title, .status-unread { transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease; }
+.app-shell [data-slot=button]:not(a):has(> svg:only-child) { transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, transform var(--motion-fast) var(--motion-ease); }
+.app-shell [data-slot=button]:not(a):has(> svg:only-child):active:not(:disabled) { transform: scale(.98); }
+@media(prefers-reduced-motion:reduce) {
+  .app-shell [data-slot=button]:active { transform: none !important; }
+}
+@media(max-width:600px) {
+  .appearance-controls[popover], .thread-list-options[popover] { opacity: 0; transform: translateY(-4px) scale(.98); transform-origin: top right; transition: opacity var(--motion-fast) ease, transform 160ms var(--motion-ease), display 160ms allow-discrete, overlay 160ms allow-discrete; }
+  .appearance-controls[popover]:popover-open, .thread-list-options[popover]:popover-open { opacity: 1; transform: translateY(0) scale(1); }
+  .appearance-controls[popover]:not(:popover-open), .thread-list-options[popover]:not(:popover-open) { pointer-events: none; }
+  @starting-style {
+    .appearance-controls[popover]:popover-open, .thread-list-options[popover]:popover-open { opacity: 0; transform: translateY(-4px) scale(.98); }
+  }
+}
 @media(max-width:600px) {
   .project-panel { --project-pad-x: 14px; --project-pad-y: 14px; --project-heading-gap: 7px; }
   .project-heading .project-pills { max-width: 46vw; gap: 6px; font-size: 11px; }

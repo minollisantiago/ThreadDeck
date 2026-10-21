@@ -3,6 +3,7 @@ import { isAttention, type Project, type Session } from '../../shared/model'
 import { sessionOrder, workingCount } from '../lib/view'
 import { SessionRow } from './session-row'
 import { Badge } from './ui/badge'
+import { ProjectCollapse } from './project-collapse'
 
 export function ProjectIslands({ projects, verified, now, unread, markRead, collapsed, toggle }: {
   projects: Project[]; verified: boolean; now: number
@@ -28,10 +29,12 @@ export function ProjectIslands({ projects, verified, now, unread, markRead, coll
           {unreadCount > 0 && <Badge className="status status-unread visual-unread">{unreadCount} unread</Badge>}
         </div>
         </div>
-        <div className="visual-session-grid" id={`visual-sessions-${project.id}`} hidden={closed}>
-          {sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} graphical verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)}
-          {project.sessions.length === 0 && <p className="project-empty">No recent Discord sessions.</p>}
-        </div>
+        <ProjectCollapse id={`visual-sessions-${project.id}`} collapsed={closed}>
+          <div className="visual-session-grid">
+            {sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} graphical verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)}
+            {project.sessions.length === 0 && <p className="project-empty">No recent Discord sessions.</p>}
+          </div>
+        </ProjectCollapse>
       </section>
     })}
   </div>

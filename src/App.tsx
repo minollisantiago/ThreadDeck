@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, ChevronDown, ChevronRight, CircleAlert, ExternalLink, Hash, Layers2, Search, X } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, Hash, Layers2, Search, X } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { HeaderControls, palettes, type Palette } from './components/header-controls'
@@ -8,6 +8,7 @@ import { ThreadOptions } from './components/thread-options'
 import { FilterTabs } from './components/filter-tabs'
 import { SessionRow } from './components/session-row'
 import { ProjectIslands } from './components/project-islands'
+import { ProjectCollapse } from './components/project-collapse'
 import { StatePanels } from './components/state-panels'
 import { isDesign, type Design } from './lib/design'
 import { useSnapshot } from './hooks/use-snapshot'
@@ -30,7 +31,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
   const active = unreadCount > 0 || verified && project.sessions.some(isActive)
   return <section className={`project-panel ${active ? 'project-active' : ''}`} aria-labelledby={`heading-${project.id}`}>
     <button className="project-heading" id={`heading-${project.id}`} onClick={toggle} aria-expanded={!collapsed} aria-controls={`sessions-${project.id}`} data-connected={!collapsed && project.sessions.length > 0}>
-      {collapsed ? <ChevronRight className="chevron" /> : <ChevronDown className="chevron" />}
+      <ChevronDown className={`chevron ${collapsed ? 'is-closed' : ''}`} aria-hidden="true" />
       <Hash className="project-channel-icon" aria-hidden="true" />
       <span className="project-name" title={project.name}>{project.name}</span>
       <span className="project-pills">
@@ -43,10 +44,12 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
         {(!verified || !active) && <span>{verified ? 'No working threads' : 'Status unavailable'}</span>}
       </span>}
     </button>
-    <div id={`sessions-${project.id}`} hidden={collapsed} className="project-sessions">
-      {project.sessions.length ? sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)
-        : <p className="project-empty">No recent Discord sessions.</p>}
-    </div>
+    <ProjectCollapse id={`sessions-${project.id}`} collapsed={collapsed}>
+      <div className="project-sessions">
+        {project.sessions.length ? sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)
+          : <p className="project-empty">No recent Discord sessions.</p>}
+      </div>
+    </ProjectCollapse>
   </section>
 }
 
