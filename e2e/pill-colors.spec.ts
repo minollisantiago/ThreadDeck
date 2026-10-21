@@ -45,12 +45,19 @@ test('light pills have richer fills and readable text across every accent palett
       return elements.map(element => {
         const style = getComputedStyle(element)
         const foreground = luminance(rgb(style.color)), background = luminance(rgb(style.backgroundColor))
-        return { name: element.className, contrast: (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05) }
+        return { name: element.className, radius: style.borderRadius, contrast: (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05) }
       })
     })
-    for (const pill of pills) expect(pill.contrast, `${palette}: ${pill.name}`).toBeGreaterThanOrEqual(4.5)
+    for (const pill of pills) {
+      expect(pill.contrast, `${palette}: ${pill.name}`).toBeGreaterThanOrEqual(4.5)
+      expect(pill.radius, `${palette}: ${pill.name}`).toBe('10px')
+    }
   }
   await page.getByRole('button', { name: 'pink accent', exact: true }).click()
+  await page.getByRole('button', { name: 'By state', exact: true }).click()
+  await expect(page.locator('.session-project').first()).toHaveCSS('border-radius', '10px')
+  await expect(page.locator('.state-heading .project-total').first()).toHaveCSS('border-radius', '10px')
+  await page.getByRole('button', { name: 'By project', exact: true }).click()
   await page.evaluate(() => document.fonts.ready)
   await mkdir('artifacts', { recursive: true })
   await page.screenshot({ path: 'artifacts/pill-colors-light-desktop.png', fullPage: true })

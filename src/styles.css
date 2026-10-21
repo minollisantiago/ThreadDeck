@@ -13,6 +13,7 @@
 }
 
 :root {
+  --pill-radius: 10px;
   --motion-fast: 120ms;
   --motion-layout: 220ms;
   --motion-ease: cubic-bezier(.22, 1, .36, 1);
@@ -66,7 +67,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .brand-icon svg { width: 25px; height: 25px; stroke-width: 1.5; }
 .eyebrow { margin: 0 0 3px; color: var(--subtle); font-size: 9px; letter-spacing: 1.8px; }
 h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 13px; }
-.live-label { font-size: 9px; color: var(--accent); letter-spacing: 1px; border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 4px; padding: 3px 5px; }
+.live-label { font-size: 9px; color: var(--accent); letter-spacing: 1px; border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: var(--pill-radius); padding: 3px 5px; }
 .appearance-controls { display: flex; align-items: center; gap: 6px; }
 .header-controls { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .header-actions { display: flex; align-items: center; gap: 6px; }
@@ -80,7 +81,7 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .overview-counts { display: flex; flex-wrap: wrap; gap: 10px 26px; font-size: 12px; color: var(--muted); }
 .overview-counts strong { color: var(--text); font-size: 17px; font-weight: 600; margin-right: 3px; }
 .overview-counts { gap: 8px; }
-.overview-pill { display: inline-flex; align-items: center; gap: 9px; padding: 5px 10px; border: 1px solid transparent; border-radius: 10px; white-space: nowrap; background: color-mix(in srgb, var(--pill-color) 9%, var(--surface)); color: var(--pill-color); }
+.overview-pill { display: inline-flex; align-items: center; gap: 9px; padding: 5px 10px; border: 1px solid transparent; border-radius: var(--pill-radius); white-space: nowrap; background: color-mix(in srgb, var(--pill-color) 9%, var(--surface)); color: var(--pill-color); }
 .overview-pill-working { --pill-color: var(--working); }
 .overview-pill-attention { --pill-color: var(--warning); }
 .overview-pill-projects { --pill-color: var(--accent); }
@@ -127,20 +128,20 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .state-panel-working .state-heading { color: var(--working); }
 .state-sessions { padding: 0 16px 16px; }
 .state-sessions .session-row::before, .state-sessions .session-row::after, .state-sessions .session-attention-marker { display: none; }
-.session-project { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; margin-top: 4px; padding: 1px 7px; border: 1px solid var(--rule); border-radius: 999px; color: var(--muted); background: var(--row); font-size: 10px; }
+.session-project { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; margin-top: 4px; padding: 1px 7px; border: 1px solid var(--rule); border-radius: var(--pill-radius); color: var(--muted); background: var(--row); font-size: 10px; }
 .state-sessions .session-row { padding-block: 10px; }
 .project-panel { background: var(--surface); border-radius: 15px; min-width: 0; overflow: clip; }
 .project-heading { display: flex; flex-wrap: wrap; width: 100%; align-items: center; text-align: left; padding: 19px 23px; gap: 11px; border-radius: 15px; }
 .project-heading:focus-visible { outline-offset: -4px; }.project-heading:hover { background: color-mix(in srgb, var(--row) 35%, transparent); }
 .chevron { width: 14px; height: 14px; color: var(--subtle); flex-shrink: 0; }
-.project-name { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }.project-total { font-size: 10px; color: var(--subtle); background: var(--row); border-radius: 5px; padding: 0 6px; line-height: 20px; }
+.project-name { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }.project-total { font-size: 10px; color: var(--subtle); background: var(--row); border-radius: var(--pill-radius); padding: 0 6px; line-height: 20px; }
 .project-summary { display: flex; gap: 18px; align-items: center; margin-left: auto; font-size: 10px; color: var(--subtle); flex-shrink: 0; }.working-summary { color: var(--working); display: inline-flex; align-items: center; gap: 6px; }.working-summary i { width: 5px; height: 5px; border-radius: 50%; background: var(--working); }.attention-summary { color: var(--warning); }
 .project-channel-icon { width: 18px; height: 18px; color: var(--subtle); flex-shrink: 0; }
 .project-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.project-total, .project-attention { white-space: nowrap; border-radius: 999px; padding: 2px 9px; }
+.project-total, .project-attention { white-space: nowrap; border-radius: var(--pill-radius); padding: 2px 9px; }
 .project-attention { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, var(--surface)); }
 .project-attention svg { width: 12px; height: 12px; }
-.project-unread { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: 999px; padding: 2px 9px; font-size: 12px; white-space: nowrap; }
+.project-unread { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-radius: var(--pill-radius); padding: 2px 9px; font-size: 12px; white-space: nowrap; }
 .session-flags { display: flex; align-items: center; gap: 5px; }
 .status-unread { border: 0; font-weight: 600; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
 .status-unread:hover { background: color-mix(in srgb, var(--accent) 20%, var(--surface)); }
@@ -159,7 +160,7 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .session-copy { min-width: 0; }.session-title { display: block; font-size: 14px; line-height: 1.65; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }.session-title:hover { color: var(--text); }
 .session-attention .session-title { color: var(--text); font-weight: 600; }
 .session-attention-marker { position: absolute; left: -29px; width: 4px; height: 9px; border-radius: 0 3px 3px 0; background: var(--text); }
-.status { background: var(--row); color: var(--muted); font-size: 10px; padding: 4px 8px; border-radius: 5px; }.status-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.status { background: var(--row); color: var(--muted); font-size: 10px; padding: 4px 8px; border-radius: var(--pill-radius); }.status-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
 .status-working { color: var(--working); background: color-mix(in srgb, var(--working) 8%, var(--surface)); }.status-input, .status-permission { color: var(--warning); background: color-mix(in srgb, var(--warning) 9%, var(--surface)); }.status-error { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }.status-unknown { color: var(--warning); background: color-mix(in srgb, var(--warning) 6%, var(--surface)); }
 .browser-link { width: 30px; height: 30px; color: var(--subtle); }.browser-link svg { width: 13px; height: 13px; }
 .project-empty { padding: 16px 25px; font-size: 11px; color: var(--subtle); }
@@ -210,7 +211,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .visual-project-stats { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 17px 0; color: var(--subtle); font-size: 11px; }
 .visual-project-stats>span { display: inline-flex; align-items: center; gap: 5px; }
 .visual-project-stats svg { width: 12px; height: 12px; }
-.visual-project-stats .status { font-size: 12px; padding: 4px 9px; border-radius: 999px; }
+.visual-project-stats .status { font-size: 12px; padding: 4px 9px; border-radius: var(--pill-radius); }
 .visual-project-stats .status-unread, .session-tile .status-unread { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
 .visual-session-grid { display: grid; gap: 10px; min-width: 0; }
 .session-tile { display: grid; grid-template-columns: 30px minmax(0, 1fr) 26px; gap: 8px 10px; padding: 14px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--row) 48%, var(--surface)); border-radius: 13px; align-items: start; }
@@ -219,7 +220,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .session-tile .session-title { white-space: normal; overflow-wrap: anywhere; color: var(--text); font-size: 13px; line-height: 1.6; }
 .session-tile .session-title:hover { color: var(--accent); }
 .session-tile .session-flags { grid-column: 2 / -1; grid-row: 2; flex-wrap: wrap; }
-.session-tile .status { font-size: 12px; padding: 4px 9px; border-radius: 999px; }
+.session-tile .status { font-size: 12px; padding: 4px 9px; border-radius: var(--pill-radius); }
 .session-tile .browser-link { grid-column: 3; grid-row: 1; width: 26px; height: 26px; }
 .session-tile-meta { grid-column: 2 / -1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px 10px; color: var(--subtle); font-size: 10px; }
 .session-tile-meta>span { display: inline-flex; gap: 4px; align-items: center; }

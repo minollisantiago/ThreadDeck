@@ -19,6 +19,11 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' })
   await page.goto('/')
   const toggle = page.getByRole('button', { name: /Switch to (islands|list) view/ })
+  async function expectPillRadius() {
+    const radii = await page.locator('.overview-pill, .project-total, .project-attention, .project-unread, .status, [data-slot=badge], .live-label, .session-project').evaluateAll(elements => elements.map(element => getComputedStyle(element).borderRadius))
+    expect(radii.length).toBeGreaterThan(0)
+    expect([...new Set(radii)]).toEqual(['10px'])
+  }
   async function expectStateBorders() {
     const working = page.locator('.session-tile[data-state=working]').first()
     const unread = page.locator('.session-tile.session-unread').first()
@@ -38,12 +43,13 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
     await page.setViewportSize({ width: 1440, height: 1100 })
     if (design === 'islands') await toggle.click()
     await expect(page.locator('.app-shell')).toHaveAttribute('data-design', design)
+    await expectPillRadius()
     await expect(page.getByRole('link', { name: 'Native Windows support', exact: true })).toBeVisible()
     if (design === 'islands') {
       await expect(page.locator('.emblem-signal').first()).toHaveCSS('width', '18px')
       for (const pill of ['.visual-project-stats .status-working', '.visual-project-stats .status-unread', '.session-tile .status-working', '.session-tile .status-unread']) {
         await expect(page.locator(pill).first()).toHaveCSS('font-size', '12px')
-        await expect(page.locator(pill).first()).toHaveCSS('border-radius', '999px')
+        await expect(page.locator(pill).first()).toHaveCSS('border-radius', '10px')
       }
       await expectStateBorders()
     }
@@ -66,6 +72,7 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
       await toggle.click()
       await expect(page.locator('.app-shell')).toHaveAttribute('data-design', design)
       await page.keyboard.press('Escape')
+      await expectPillRadius()
       if (design === 'classic') {
         const panel = page.locator('.project-panel').first()
         for (const pill of ['.project-total', '.project-attention', '.project-unread']) {
@@ -152,6 +159,7 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
   await page.setViewportSize({ width: 1440, height: 1100 })
   await page.getByRole('button', { name: 'Switch to light mode' }).click()
   await expectStateBorders()
+  await expectPillRadius()
   await page.screenshot({ path: 'artifacts/design-islands-light.png', fullPage: true })
   expect(errors).toEqual([])
 })
