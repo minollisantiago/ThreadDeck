@@ -46,6 +46,7 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
     await expectPillRadius()
     await expect(page.getByRole('link', { name: 'Native Windows support', exact: true })).toBeVisible()
     if (design === 'islands') {
+      await expect(page.locator('.projects-islands .visual-project').first()).toHaveCSS('background-image', 'none')
       await expect(page.locator('.emblem-signal').first()).toHaveCSS('width', '18px')
       for (const pill of ['.visual-project-stats .status-working', '.visual-project-stats .status-unread', '.session-tile .status-working', '.session-tile .status-unread']) {
         await expect(page.locator(pill).first()).toHaveCSS('font-size', '12px')

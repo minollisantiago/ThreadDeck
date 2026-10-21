@@ -236,7 +236,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .session-tile[data-state=working] { border-color: var(--working); }
 .session-tile.session-unread { border-color: var(--accent); }
 .projects-islands { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
-.projects-islands .visual-project { position: relative; background-color: var(--surface); background-image: radial-gradient(var(--rule) 1px, transparent 1px); background-size: 16px 16px; padding: 24px 18px; border-radius: 28px; }
+.projects-islands .visual-project { position: relative; background-color: var(--surface); padding: 24px 18px; border-radius: 28px; }
 .projects-islands .visual-project-heading { flex-direction: column; text-align: center; gap: 9px; position: relative; }
 .projects-islands .island-header { position: relative; }
 .projects-islands .project-emblem { width: 64px; height: 64px; border-radius: 50%; font-size: 20px; box-shadow: 0 0 0 7px var(--surface), 0 0 0 8px var(--rule); }
