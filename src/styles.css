@@ -248,7 +248,11 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 }
 @media(max-width:600px) {
   .projects-islands .island-header[data-connected=true]::before { content: ''; position: absolute; top: 32px; bottom: 0; left: 0; width: calc(50% - 40px); border-top: 1px solid color-mix(in srgb, var(--accent) 35%, var(--rule)); border-left: 1px solid color-mix(in srgb, var(--accent) 35%, var(--rule)); border-top-left-radius: 16px; pointer-events: none; }
-  .projects-islands .visual-session-grid::before { top: 0; }
+  .projects-islands .visual-session-grid { --island-session-gap: 18px; row-gap: var(--island-session-gap); }
+  .projects-islands .visual-session-grid::before { content: none; }
+  .projects-islands .session-tile::before, .projects-islands .session-tile:nth-child(even)::before { top: 50%; background: color-mix(in srgb, var(--accent) 35%, var(--rule)); opacity: 1; }
+  .projects-islands .session-tile::after { content: ''; display: block; position: absolute; top: -1px; bottom: calc(-1px - var(--island-session-gap)); left: -17px; width: 1px; height: auto; border: 0; border-radius: 0; background: color-mix(in srgb, var(--accent) 35%, var(--rule)); opacity: 1; pointer-events: none; }
+  .projects-islands .session-tile:last-child::after { bottom: 50%; }
 }
 @media(max-width:600px) {
   .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; padding-block: 16px 18px; }

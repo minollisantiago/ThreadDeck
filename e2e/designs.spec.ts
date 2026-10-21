@@ -72,12 +72,14 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
           const bounds = element.getBoundingClientRect()
           const emblem = element.querySelector('.project-emblem')!.getBoundingClientRect()
           const grid = element.nextElementSibling!
-          const spine = getComputedStyle(grid, '::before')
+          const tile = grid.querySelector('.session-tile')!
+          const spine = getComputedStyle(tile, '::after')
+          const border = parseFloat(getComputedStyle(tile).borderLeftWidth)
           const line = getComputedStyle(element, '::before')
           return {
             startY: bounds.top + parseFloat(line.top), emblemCenterY: emblem.top + emblem.height / 2,
-            endY: bounds.bottom - parseFloat(line.bottom), gridTop: grid.getBoundingClientRect().top + parseFloat(spine.top),
-            railX: bounds.left + parseFloat(line.left), spineX: grid.getBoundingClientRect().left + parseFloat(spine.left),
+            endY: bounds.bottom - parseFloat(line.bottom), gridTop: tile.getBoundingClientRect().top + border + parseFloat(spine.top),
+            railX: bounds.left + parseFloat(line.left), spineX: tile.getBoundingClientRect().left + border + parseFloat(spine.left),
             lineEndX: bounds.left + parseFloat(line.width), emblemRingX: emblem.left - 8,
           }
         })
@@ -85,6 +87,23 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
         expect(Math.abs(connection.endY - connection.gridTop)).toBeLessThan(1)
         expect(Math.abs(connection.railX - connection.spineX)).toBeLessThan(1)
         expect(Math.abs(connection.lineEndX - connection.emblemRingX)).toBeLessThan(1)
+        const rails = await page.locator('.visual-project').first().locator('.session-tile').evaluateAll(tiles => tiles.map(tile => {
+          const bounds = tile.getBoundingClientRect()
+          const border = parseFloat(getComputedStyle(tile).borderTopWidth)
+          const horizontal = getComputedStyle(tile, '::before')
+          const vertical = getComputedStyle(tile, '::after')
+          return {
+            center: bounds.top + bounds.height / 2,
+            branch: bounds.top + border + parseFloat(horizontal.top),
+            start: bounds.top + border + parseFloat(vertical.top),
+            end: bounds.bottom - border - parseFloat(vertical.bottom),
+          }
+        }))
+        for (const [index, rail] of rails.entries()) {
+          expect(Math.abs(rail.branch - rail.center)).toBeLessThan(1)
+          if (index < rails.length - 1) expect(Math.abs(rail.end - rails[index + 1].start)).toBeLessThan(1)
+          else expect(Math.abs(rail.end - rail.center)).toBeLessThan(1)
+        }
         await header.locator('button').click()
         await expect(header).toHaveAttribute('data-connected', 'false')
         expect(await header.evaluate(element => getComputedStyle(element, '::before').content)).toBe('none')
