@@ -1,19 +1,36 @@
+import { useCallback, useRef, useState } from 'react'
 import { CircleAlert, CirclePause, ExternalLink, LoaderCircle, ShieldQuestion, Users } from 'lucide-react'
 import { discordLinks, isAttention, type Session } from '../../shared/model'
 import { relativeTime } from '../lib/view'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
+import { SessionContextMenu } from './session-context-menu'
 
 const labels = { working: 'Working', idle: 'Idle', error: 'Error', input: 'Input requested', permission: 'Permission needed' }
 
 export function SessionRow({ session, verified, now, unread, markRead, graphical = false, projectName }: {
   session: Session; verified: boolean; now: number; unread: boolean; markRead: (session: Session) => void; graphical?: boolean; projectName?: string
 }) {
+  const row = useRef<HTMLDivElement>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const closeMenu = useCallback((restoreFocus = false) => {
+    setMenu(null)
+    if (restoreFocus) row.current?.focus()
+  }, [])
   const links = discordLinks(session)
   const status = verified ? session.status : 'unknown'
   const attention = verified && isAttention(session.status)
   const Icon = status === 'working' ? LoaderCircle : status === 'idle' ? CirclePause : status === 'permission' ? ShieldQuestion : CircleAlert
-  return <div className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''} ${graphical ? 'session-tile' : ''}`} data-state={status} title={`Updated ${relativeTime(session.updatedAt, now)} · ${new Date(session.updatedAt).toLocaleString()}`}>
+  return <div ref={row} tabIndex={0} aria-haspopup="menu" className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''} ${graphical ? 'session-tile' : ''}`} data-state={status} title={`Updated ${relativeTime(session.updatedAt, now)} · ${new Date(session.updatedAt).toLocaleString()}`} onContextMenu={event => {
+    event.preventDefault()
+    setMenu({ x: event.clientX, y: event.clientY })
+  }} onKeyDown={event => {
+    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+      event.preventDefault()
+      const rect = event.currentTarget.getBoundingClientRect()
+      setMenu({ x: rect.left, y: rect.bottom })
+    }
+  }}>
     {(attention || unread) && <span className="session-attention-marker" aria-hidden="true" />}
     {graphical && <span className={`session-glyph glyph-${status}`} aria-hidden="true"><Icon /></span>}
     <div className="session-copy">
@@ -28,5 +45,6 @@ Reading in Discord does not clear this flag." onClick={() => markRead(session)}>
     </div>
     {graphical && <div className="session-tile-meta"><span>Updated {relativeTime(session.updatedAt, now)}</span>{verified && session.agentCount > 0 && <span><Users aria-hidden="true" />{session.agentCount} {session.agentCount === 1 ? 'agent' : 'agents'}</span>}</div>}
     {links && <Button asChild variant="ghost" size="icon" className="browser-link"><a href={links.browser} target="_blank" rel="noreferrer" aria-label={`Open ${session.title} in browser`} title="Open in Discord browser" onClick={() => markRead(session)} onAuxClick={event => { if (event.button === 1) markRead(session) }}><ExternalLink /></a></Button>}
+    {menu && <SessionContextMenu {...menu} unread={unread} markRead={() => markRead(session)} close={closeMenu} />}
   </div>
 }

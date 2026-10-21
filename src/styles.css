@@ -138,6 +138,11 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .session-row::after { top: 0; height: 50%; width: 10px; border-bottom: 1px solid var(--subtle); border-bottom-left-radius: 5px; }
 .session-row:last-child::before { height: 50%; }
 .session-row:hover, .session-row:focus-within { background: var(--row); }
+.session-context-menu { position: fixed; z-index: 100; min-width: 170px; max-width: calc(100vw - 16px); padding: 5px; border: 1px solid var(--rule); border-radius: 9px; background: var(--surface); color: var(--text); box-shadow: 0 8px 28px #0003; }
+.session-context-menu button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border-radius: 5px; text-align: left; font-size: 13px; }
+.session-context-menu button:hover, .session-context-menu button:focus-visible { background: var(--row); }
+.session-context-menu button[aria-disabled=true] { color: var(--subtle); cursor: default; }
+.session-context-menu svg { width: 15px; height: 15px; }
 .session-copy { min-width: 0; }.session-title { display: block; font-size: 14px; line-height: 1.65; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }.session-title:hover { color: var(--text); }
 .session-attention .session-title { color: var(--text); font-weight: 600; }
 .session-attention-marker { position: absolute; left: -29px; width: 4px; height: 9px; border-radius: 0 3px 3px 0; background: var(--text); }

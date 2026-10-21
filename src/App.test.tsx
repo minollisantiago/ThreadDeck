@@ -238,6 +238,43 @@ it('disables mark all as read when no responses are unread', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
   expect(screen.getByRole('button', { name: 'Mark all as read' }).hasAttribute('disabled')).toBe(true)
 })
+it.each(['list', 'islands', 'state'] as const)('marks only the right-clicked thread read in the %s view', view => {
+  const unread: Snapshot = { ...snapshot, projects: snapshot.projects.map(project => ({ ...project, sessions: project.sessions.map(session => ({ ...session, status: 'idle', agentCount: 0, responseAt: now })) })) }
+  const { unmount } = render(<Dashboard snapshot={unread} now={now} />)
+  if (view === 'islands') fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
+  if (view === 'state') fireEvent.click(screen.getByRole('button', { name: 'By state' }))
+  fireEvent.contextMenu(screen.getByRole('link', { name: 'Old conversation' }), { clientX: 100, clientY: 200 })
+  const menu = screen.getByRole('menu', { name: 'Thread actions' })
+  expect(screen.getByRole('button', { name: 'Mark Old conversation as read' })).toBeTruthy()
+  const action = within(menu).getByRole('menuitem', { name: 'Mark as read' })
+  expect(document.activeElement).toBe(action)
+  fireEvent.click(action)
+  expect(screen.queryByRole('menu')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Mark Old conversation as read' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Mark Build a switchboard as read' })).toBeTruthy()
+  unmount()
+  render(<Dashboard snapshot={unread} now={now} />)
+  expect(screen.queryByRole('button', { name: 'Mark Old conversation as read' })).toBeNull()
+})
+it('dismisses a thread menu without marking it read and supports keyboard invocation', () => {
+  const unread: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[0], sessions: [{ ...snapshot.projects[0].sessions[0], status: 'idle', agentCount: 0, responseAt: now }] }] }
+  render(<Dashboard snapshot={unread} now={now} />)
+  const row = screen.getByRole('link', { name: 'Build a switchboard' }).closest('.session-row')!
+  fireEvent.keyDown(row, { key: 'F10', shiftKey: true })
+  expect(screen.getByRole('menu')).toBeTruthy()
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+  expect(screen.queryByRole('menu')).toBeNull()
+  expect(document.activeElement).toBe(row)
+  fireEvent.contextMenu(row)
+  fireEvent.pointerDown(document.body)
+  expect(screen.queryByRole('menu')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Mark Build a switchboard as read' })).toBeTruthy()
+})
+it('disables the context action for threads already read', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  fireEvent.contextMenu(screen.getByRole('link', { name: 'Build a switchboard' }))
+  expect(screen.getByRole('menuitem', { name: 'Mark as read' }).getAttribute('aria-disabled')).toBe('true')
+})
 it('toggles state grouping, shows project pills, preserves filters and restores project collapse', () => {
   const mixed: Snapshot = { ...snapshot, projects: snapshot.projects.map(project => ({ ...project, sessions: project.sessions.map(session => ({ ...session, responseAt: session.id === 'b' ? now : undefined })) })) }
   render(<Dashboard snapshot={mixed} now={now} />)
