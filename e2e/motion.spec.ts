@@ -77,7 +77,9 @@ test('compact popovers animate entry and exit without losing native dismissal or
     await finishMotion(panel)
     await expect(panel).not.toBeVisible()
     await trigger.click()
-    await page.getByRole('searchbox').click()
+    // The fixed-size appearance picker can cover the search field. Click an
+    // actually exposed area to exercise native outside-click dismissal.
+    await page.getByRole('heading', { name: 'ThreadDeck LIVE' }).click()
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
     await finishMotion(panel)
     await trigger.click()

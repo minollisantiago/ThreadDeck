@@ -32,6 +32,10 @@ with a lightweight Node.js backend. Node 24+ is required.
 - Session titles open `discord://` app links; the external-link icon opens Discord
   in the browser instead. Windows may ask permission for the first app handoff.
 - Local light/dark, accent palette and collapse preferences; no account or cloud sync.
+- Each mode has four independently saved backgrounds: dark **Original, Charcoal,
+  Midnight, Graphite**, and light **Original, Porcelain, Warm paper, Cool slate**.
+  Both modes keep the same four-slot picker so the controls popup does not move
+  when switching modes. Background choices do not change the selected accent.
 - Shared charcoal/light surfaces and bundled OFL-licensed JetBrains Mono typography
   follow the WeekTrace/NaturalGas references without sharing runtime code.
 

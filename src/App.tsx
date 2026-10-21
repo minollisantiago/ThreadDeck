@@ -12,7 +12,7 @@ import { ProjectIslands } from './components/project-islands'
 import { ProjectCollapse } from './components/project-collapse'
 import { StatePanels } from './components/state-panels'
 import { isDesign, type Design } from './lib/design'
-import { isLightTheme, type LightTheme } from './lib/theme'
+import { isDarkTheme, isLightTheme, type DarkTheme, type LightTheme } from './lib/theme'
 import { useSnapshot } from './hooks/use-snapshot'
 import { useChangeMotion } from './hooks/use-change-motion'
 import { useUnread } from './hooks/use-unread'
@@ -66,6 +66,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
     window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark', (v): v is 'light' | 'dark' => v === 'light' || v === 'dark'))
   const [palette, setPalette] = useState<Palette>(() => saved('threaddeck:palette', 'pink', (v): v is Palette => palettes.some(p => p === v)))
   const [lightTheme, setLightTheme] = useState<LightTheme>(() => saved('threaddeck:light-theme', 'original', isLightTheme))
+  const [darkTheme, setDarkTheme] = useState<DarkTheme>(() => saved('threaddeck:dark-theme', 'original', isDarkTheme))
   const [design, setDesign] = useState<Design>(() => saved('threaddeck:design', 'classic', isDesign))
   const [visualCollapsed, setVisualCollapsed] = useState<Record<string, boolean>>({})
   const search = useRef<HTMLInputElement>(null)
@@ -74,6 +75,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   useEffect(() => { document.documentElement.dataset.appearance = appearance; persist('threaddeck:appearance', appearance) }, [appearance])
   useEffect(() => { document.documentElement.dataset.palette = palette; persist('threaddeck:palette', palette) }, [palette])
   useEffect(() => { document.documentElement.dataset.lightTheme = lightTheme; persist('threaddeck:light-theme', lightTheme) }, [lightTheme])
+  useEffect(() => { document.documentElement.dataset.darkTheme = darkTheme; persist('threaddeck:dark-theme', darkTheme) }, [darkTheme])
   useEffect(() => { persist('threaddeck:collapsed', collapsed) }, [collapsed])
   useEffect(() => { persist('threaddeck:design', design) }, [design])
   useEffect(() => { persist('threaddeck:grouping', grouping) }, [grouping])
@@ -115,7 +117,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   return <><DesktopTitlebar /><div className="app-shell" data-design={design}>
     <header className="page-header">
       <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><div><p className="eyebrow">YOUR AGENT SWITCHBOARD</p><h1>ThreadDeck<span className="live-label">LIVE</span></h1></div></div>
-      <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
+      <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
     </header>
 
     <div className="overview">

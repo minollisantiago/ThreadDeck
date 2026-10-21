@@ -13,6 +13,10 @@
         document.documentElement.dataset.appearance = ['light', 'dark'].includes(mode) ? mode : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
         const palette = JSON.parse(localStorage.getItem('threaddeck:palette') || 'null');
         if (['pink', 'lavender', 'blue', 'green', 'peach'].includes(palette)) document.documentElement.dataset.palette = palette;
+        const lightTheme = JSON.parse(localStorage.getItem('threaddeck:light-theme') || 'null');
+        if (['original', 'porcelain', 'paper', 'slate'].includes(lightTheme)) document.documentElement.dataset.lightTheme = lightTheme;
+        const darkTheme = JSON.parse(localStorage.getItem('threaddeck:dark-theme') || 'null');
+        if (['original', 'charcoal', 'midnight', 'graphite'].includes(darkTheme)) document.documentElement.dataset.darkTheme = darkTheme;
       } catch {}
     </script>
   </head>
