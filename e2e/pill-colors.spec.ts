@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import type { Session, Snapshot } from '../shared/model'
 
 test('light pills have richer fills and readable text across every accent palette', async ({ page }) => {

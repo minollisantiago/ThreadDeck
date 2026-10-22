@@ -19,6 +19,7 @@ import { useChangeMotion } from './hooks/use-change-motion'
 import { useUnread } from './hooks/use-unread'
 import { DesktopTitlebar } from './components/desktop-titlebar'
 import { isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
+import { snapshotStaleAfterMs } from '../shared/update-timing'
 import { isGrouping, projectOrder, sessionOrder, stateGroups, visibleProjects, workingCount, type Filter, type Grouping } from './lib/view'
 
 function saved<T>(key: string, fallback: T, validate: (value: unknown) => value is T): T {
@@ -94,7 +95,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
     window.addEventListener('keydown', keydown, true)
     return () => window.removeEventListener('keydown', keydown, true)
   }, [])
-  const old = snapshot?.lastSuccessAt != null && now - snapshot.lastSuccessAt > 20_000
+  const old = snapshot?.lastSuccessAt != null && now - snapshot.lastSuccessAt > snapshotStaleAfterMs
   const verified = !transportError && snapshot?.health === 'connected' && !old
   const loading = !transportError && (!snapshot || snapshot.lastSuccessAt === null && snapshot.checkedAt === 0)
   const projects = snapshot?.projects ?? []
@@ -154,7 +155,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button variant="outline" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
       </div>
     </main>
-    <footer><span><span className="footer-dot" />LOCAL · READ ONLY</span><span>Titles open Discord app <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span><span title="Recent inventory is bounded to the latest 300 OpenCode sessions. Working threads are checked separately.">Refreshes every 5s</span></footer>
+    <footer><span><span className="footer-dot" />LOCAL · READ ONLY</span><span>Titles open Discord app <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span></footer>
   </div></>
 }
 

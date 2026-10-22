@@ -33,6 +33,7 @@ export function completedResponseAt(message: unknown) {
 }
 
 export interface Source {
+  events(signal: AbortSignal): AsyncIterable<{ type: string }>
   projects(): Promise<Registration[]>
   connect(): Promise<Connection>
   guild(sessionId: string): Promise<string | null>
@@ -46,6 +47,21 @@ export interface Connection {
 }
 
 export const source: Source = {
+  async *events(signal) {
+    const endpoint = await Service.discover({ file: process.env.KIMAKI_OPENCODE_SERVICE_FILE })
+    if (!endpoint) throw new Error('OpenCode is unavailable')
+    const client = OpenCode.make({ baseUrl: endpoint.url, headers: Service.headers(endpoint) })
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const activity = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => controller.abort(), 45_000)
+    }
+    activity()
+    try {
+      yield* client.event.subscribe({ signal: AbortSignal.any([signal, controller.signal]), onActivity: activity })
+    } finally { clearTimeout(timer) }
+  },
   async guild(sessionId) {
     const { stdout } = await exec('kimaki', ['session', 'url', sessionId], {
       timeout: 8_000, maxBuffer: 4096,

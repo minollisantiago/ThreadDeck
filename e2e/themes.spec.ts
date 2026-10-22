@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 test('background picker changes canvas colors, persists, and works in mobile controls', async ({ page }) => {
   await page.route('**/api/snapshot', route => route.fulfill({ json: {

@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
 import { snapshotSchema, type Snapshot } from '../../shared/model'
+import { reconciliationIntervalMs } from '../../shared/update-timing'
 
 export function useSnapshot() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [transportError, setTransportError] = useState(false)
   useEffect(() => {
     let cancelled = false, running = false
-    let timer: ReturnType<typeof setTimeout>
+    let timer: ReturnType<typeof setTimeout> | undefined
     let controller: AbortController | undefined
+    let stream: EventSource | undefined
+    let streaming = false
     async function refresh() {
       if (running || cancelled) return
+      timer = undefined
       running = true
       controller = new AbortController()
       try {
@@ -18,20 +22,33 @@ export function useSnapshot() {
         })
         if (!response.ok) throw new Error('Source unavailable')
         const next = snapshotSchema.parse(await response.json())
-        if (!cancelled) { setSnapshot(next); setTransportError(false) }
-      } catch { if (!cancelled) setTransportError(true) }
+        if (!cancelled && !streaming) { setSnapshot(next); setTransportError(false) }
+      } catch { if (!cancelled && !streaming) setTransportError(true) }
       finally {
         running = false
-        if (!cancelled) timer = setTimeout(refresh, document.hidden ? 15_000 : 5_000)
+        if (!cancelled && !streaming) timer = setTimeout(refresh, reconciliationIntervalMs)
       }
     }
     function visibility() {
-      if (!document.hidden) { clearTimeout(timer); void refresh() }
+      if (!document.hidden && !streaming) { clearTimeout(timer); void refresh() }
     }
-    void refresh()
+    if (typeof EventSource !== 'undefined') {
+      stream = new EventSource('/api/events')
+      stream.addEventListener('snapshot', event => {
+        try {
+          const next = snapshotSchema.parse(JSON.parse(event.data))
+          streaming = true; clearTimeout(timer); timer = undefined; controller?.abort()
+          setSnapshot(next); setTransportError(false)
+        } catch { setTransportError(true) }
+      })
+      stream.onerror = () => {
+        streaming = false; setTransportError(true)
+        if (!timer) void refresh()
+      }
+    } else void refresh()
     document.addEventListener('visibilitychange', visibility)
     return () => {
-      cancelled = true; controller?.abort(); clearTimeout(timer)
+      cancelled = true; stream?.close(); controller?.abort(); clearTimeout(timer)
       document.removeEventListener('visibilitychange', visibility)
     }
   }, [])

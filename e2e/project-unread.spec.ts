@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import type { Session, Snapshot } from '../shared/model'
 
 for (const design of ['classic', 'islands']) for (const width of [390, 1280]) {

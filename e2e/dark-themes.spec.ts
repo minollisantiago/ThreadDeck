@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 test('dark background variants persist and the mobile popup stays in place across modes', async ({ page }) => {
   const now = Date.now()

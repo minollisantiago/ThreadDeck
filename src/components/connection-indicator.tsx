@@ -13,7 +13,6 @@ export function ConnectionIndicator({ snapshot, verified, loading, healthLabel, 
       <span>Automatic refresh enabled</span>
       <span>{snapshot?.lastSuccessAt != null ? `Last successful update: ${new Date(snapshot.lastSuccessAt).toLocaleString()}` : 'Waiting for first successful update'}</span>
       {snapshot && snapshot.checkedAt > 0 && <span>Last source check: {new Date(snapshot.checkedAt).toLocaleString()}</span>}
-      <span>Refresh interval: 5s (15s in background)</span>
       {transportError && <span>Cannot reach the dashboard server.</span>}
       {snapshot?.message && <span>{snapshot.message}</span>}
       {snapshot && !snapshot.attentionAvailable && <span>Attention status unavailable.</span>}

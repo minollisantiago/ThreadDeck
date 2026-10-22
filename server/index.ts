@@ -34,14 +34,8 @@ const server = createServer((request, response) => {
 })
 // Loopback only: this dashboard contains private session titles and is not a public service.
 server.listen(port, '127.0.0.1', () => console.log(`ThreadDeck listening on http://localhost:${port}`))
-let stopped = false
-async function poll() {
-  await monitor.refresh()
-  if (!stopped) timer = setTimeout(poll, 5_000)
-}
-let timer: ReturnType<typeof setTimeout> | undefined
-void poll()
+monitor.start()
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => {
-  stopped = true; clearTimeout(timer)
-  server.close(); void vite?.close()
+  monitor.stop()
+  server.close(); server.closeAllConnections(); void vite?.close()
 })

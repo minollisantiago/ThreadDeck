@@ -9,7 +9,7 @@ export function trustedRequest(request: IncomingMessage, port: number) {
   return !origin || origin === `http://${host}`
 }
 
-export function apiHandler(monitor: Pick<Monitor, 'read'>, port: number) {
+export function apiHandler(monitor: Pick<Monitor, 'read' | 'subscribe'>, port: number) {
   return (request: IncomingMessage, response: ServerResponse): boolean => {
     response.setHeader('X-Content-Type-Options', 'nosniff')
     response.setHeader('Referrer-Policy', 'no-referrer')
@@ -23,7 +23,35 @@ export function apiHandler(monitor: Pick<Monitor, 'read'>, port: number) {
       response.setHeader('Allow', 'GET')
       response.writeHead(405).end(JSON.stringify({ error: 'Read-only endpoint' })); return true
     }
-    if (request.url.split('?')[0] !== '/api/snapshot') {
+    const pathname = request.url.split('?')[0]
+    if (pathname === '/api/events') {
+      response.setHeader('Content-Type', 'text/event-stream')
+      response.setHeader('X-Accel-Buffering', 'no')
+      response.writeHead(200)
+      response.flushHeaders()
+      // While a client is slow, retain only the latest snapshot rather than history.
+      let blockedAt = 0
+      let latest: ReturnType<Monitor['read']> | undefined
+      const send = (snapshot: ReturnType<Monitor['read']>) => {
+        if (blockedAt) { latest = snapshot; return }
+        if (!response.write(`event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`)) blockedAt = Date.now()
+      }
+      response.on('drain', () => {
+        blockedAt = 0
+        if (latest) { const snapshot = latest; latest = undefined; send(snapshot) }
+      })
+      const unsubscribe = monitor.subscribe(send)
+      const heartbeat = setInterval(() => {
+        if (blockedAt) {
+          if (Date.now() - blockedAt >= 45_000) response.destroy()
+        } else if (!response.write(': heartbeat\n\n')) blockedAt = Date.now()
+      }, 15_000)
+      response.on('close', () => { clearInterval(heartbeat); unsubscribe() })
+      response.write('retry: 1000\n\n')
+      send(monitor.read())
+      return true
+    }
+    if (pathname !== '/api/snapshot') {
       response.writeHead(404).end(JSON.stringify({ error: 'Not found' })); return true
     }
     response.writeHead(200).end(JSON.stringify(monitor.read())); return true

@@ -1,6 +1,12 @@
 import path from 'node:path'
+import { reconciliationIntervalMs } from '../shared/update-timing.ts'
 import type { Project, Session, Snapshot } from '../shared/model.ts'
 import type { Connection, RawSession, Registration, Source } from './source.ts'
+
+function relevantEvent(type: string) {
+  return type.startsWith('form.') || type.startsWith('permission.')
+    || /^session\.(created|deleted|forked|moved|renamed|metadata\.updated|status|idle|execution\.(started|succeeded|failed|interrupted))$/.test(type)
+}
 
 // Limit simultaneous requests without dropping active sessions from the result.
 async function mapLimit<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -76,6 +82,8 @@ export function groupSessions(
 }
 
 export class Monitor {
+  private listeners = new Set<(snapshot: Snapshot) => void>()
+  private stopWatching: (() => void) | undefined
   private registrations: Registration[] = []
   private registrationTime = -Infinity
   private recent: RawSession[] = []
@@ -92,9 +100,73 @@ export class Monitor {
   constructor(private source: Source, private clock = Date.now) {}
 
   read() { return this.snapshot }
-  refresh(): Promise<Snapshot> {
+  subscribe(listener: (snapshot: Snapshot) => void) {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
+
+  // One shared upstream subscription, independent of the number of dashboard windows.
+  start() {
+    if (this.stopWatching) return
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let running = false, dirty = false, inventory = false
+    const schedule = (full = false, wait = 150) => {
+      if (controller.signal.aborted) return
+      dirty = true; inventory ||= full
+      if (timer || running) return
+      timer = setTimeout(() => { timer = undefined; void run() }, wait)
+    }
+    const run = async () => {
+      running = true; dirty = false
+      const full = inventory; inventory = false
+      // A manual refresh may already be in progress. Do not lose invalidation behind it.
+      if (this.pending) await this.pending
+      if (!controller.signal.aborted) await this.refresh(full)
+      running = false
+      if (dirty) schedule()
+    }
+    const reconcile = setInterval(() => schedule(true), reconciliationIntervalMs)
+    const watch = async () => {
+      let backoff = 1_000
+      while (!controller.signal.aborted) {
+        try {
+          for await (const event of this.source.events(controller.signal)) {
+            if (controller.signal.aborted) break
+            if (event.type === 'server.connected') { backoff = 1_000; schedule(true) }
+            else if (relevantEvent(event.type)) schedule(true)
+          }
+        } catch { /* Rediscover the service and credentials on the next attempt. */ }
+        if (controller.signal.aborted) break
+        schedule(true)
+        await new Promise<void>(resolve => {
+          const finish = () => {
+            clearTimeout(retry)
+            controller.signal.removeEventListener('abort', finish)
+            resolve()
+          }
+          const retry = setTimeout(finish, backoff)
+          controller.signal.addEventListener('abort', finish, { once: true })
+        })
+        backoff = Math.min(backoff * 2, 30_000)
+      }
+    }
+    this.stopWatching = () => {
+      controller.abort(); clearTimeout(timer); clearInterval(reconcile)
+    }
+    schedule(true, 0)
+    void watch()
+  }
+
+  stop() { this.stopWatching?.(); this.stopWatching = undefined }
+
+  refresh(full = false): Promise<Snapshot> {
     if (this.pending) return this.pending
-    this.pending = this.update().finally(() => { this.pending = undefined })
+    if (full) this.recentTime = -Infinity
+    this.pending = this.update().then(snapshot => {
+      for (const listener of this.listeners) listener(snapshot)
+      return snapshot
+    }).finally(() => { this.pending = undefined })
     return this.pending
   }
 
@@ -105,7 +177,7 @@ export class Monitor {
         this.registrations = await this.source.projects()
         this.registrationTime = now
       }
-      // Re-discover on each poll so service restarts and rotated credentials recover.
+      // Re-discover on each refresh so service restarts and rotated credentials recover.
       this.endpoint = await this.source.connect()
       const activeIds = await this.endpoint.active()
       if (now - this.recentTime >= 30_000) {

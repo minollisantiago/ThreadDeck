@@ -46,6 +46,11 @@ it.each(['classic', 'islands'] as const)('marks a project read from its header i
   ] }} now={now} />)
   expect(screen.getByRole('button', { name: 'Mark all threads as read', description: /Alpha/ }).textContent).toBe('1 unread')
 })
+it('does not advertise the retired polling interval in the footer or connection details', () => {
+  const { container } = render(<Dashboard snapshot={snapshot} now={now} />)
+  expect(container.querySelector('footer')?.textContent).not.toContain('Refreshes every')
+  expect(container.querySelector('[role="tooltip"]')?.textContent).not.toContain('Refresh interval:')
+})
 it('tracks the direction of filter changes without changing selection behavior', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
   const filters = screen.getByRole('group', { name: 'Filter sessions' })
@@ -155,9 +160,20 @@ it('searches within project groups and supports the working filter', () => {
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'no match' } })
   expect(screen.getByText('No matching sessions')).toBeTruthy()
 })
-it('marks aged successful snapshots stale even if the backend stops polling', () => {
-  render(<Dashboard snapshot={snapshot} now={now + 21_000} />)
+it.each([21_000, 29_999, 45_000, 60_000])('keeps live status verified between reconciliation refreshes after %i ms', elapsed => {
+  render(<Dashboard snapshot={snapshot} now={now + elapsed} />)
+  expect(screen.getByRole('status').textContent).toBe('Connected')
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByRole('button', { name: /Alpha/ }).textContent).toContain('1 working')
+})
+it('marks aged successful snapshots stale if the backend silently stops refreshing', () => {
+  render(<Dashboard snapshot={snapshot} now={now + 75_001} />)
   expect(screen.getByRole('status').textContent).toContain('Connection stale')
+})
+it('shows explicit source failures immediately even with a recently successful snapshot', () => {
+  render(<Dashboard snapshot={{ ...snapshot, health: 'stale' }} now={now + 1} />)
+  expect(screen.getByRole('status').textContent).toBe('Connection stale')
+  expect(screen.getByRole('alert').textContent).toContain('Live status unavailable')
 })
 it('moves update details into the connection tooltip', () => {
   const details: Snapshot = { ...snapshot, message: 'Source connected', attentionAvailable: false, inventoryLimited: true }

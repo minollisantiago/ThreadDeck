@@ -143,6 +143,23 @@ starts, stops, or reconfigures either service; the optional shared launcher abov
 owns only the processes it starts.
 No Discord token or OpenCode credential is sent to the browser.
 
+### Live updates
+
+ThreadDeck subscribes to OpenCode lifecycle, status, form and permission events,
+coalesces bursts for 150 ms, and pushes full snapshots to dashboard windows over
+server-sent events (`/api/events`). Token deltas do not trigger expensive refreshes.
+One upstream subscription serves all windows; a 30-second reconciliation refresh
+catches missed events and discovers project-registration changes (cached for 60 seconds).
+Stream failures retry with exponential backoff and rediscover service credentials;
+silent upstream streams are reconnected after 45 seconds without transport activity.
+Browsers automatically reconnect and receive the current snapshot, so replay is
+unnecessary. If streaming fails, the dashboard falls back to `/api/snapshot` every
+30 seconds until streaming recovers. Source failures retain the last good data
+with stale/disconnected status. Both endpoints remain read-only and loopback-only.
+Quiet streams do not imply an outage: the UI allows 75 seconds (two reconciliation
+cycles plus request headroom) before marking a silently frozen snapshot stale.
+Explicit source or dashboard-transport failures are still shown immediately.
+
 ### Troubleshooting: disconnected with existing sessions
 
 ThreadDeck must be able to run `kimaki` from its own process environment. If

@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import type { Snapshot } from '../shared/model'
 
 test('list and islands toggle before theme, persist, and fit desktop and mobile', async ({ page }) => {

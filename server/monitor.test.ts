@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Monitor, groupSessions, projectFor } from './monitor.ts'
 import type { Connection, RawSession, Registration, Source } from './source.ts'
 import { discordLinks } from '../shared/model.ts'
@@ -53,7 +53,7 @@ function fixture() {
     attention: vi.fn(async () => ({ input: [], permission: [] })),
     response: vi.fn(async () => null),
   }
-  const source: Source = { projects: vi.fn(async () => [project]), connect: vi.fn(async () => connection), guild: vi.fn(async () => project.guildId) }
+  const source: Source = { events: async function* () {}, projects: vi.fn(async () => [project]), connect: vi.fn(async () => connection), guild: vi.fn(async () => project.guildId) }
   return { monitor: new Monitor(source, () => now), source, connection, advance: () => { now += 5_000 } }
 }
 
@@ -131,5 +131,92 @@ describe('monitor refresh', () => {
     const { monitor, connection } = fixture()
     await Promise.all([monitor.refresh(), monitor.refresh()])
     expect(connection.active).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('live monitoring', () => {
+  let monitor: Monitor | undefined
+  afterEach(() => { monitor?.stop(); vi.useRealTimers() })
+
+  function liveFixture() {
+    const fixtureValue = fixture()
+    monitor = fixtureValue.monitor
+    let emit: ((event: { type: string }) => void) | undefined
+    fixtureValue.source.events = async function* (signal) {
+      yield { type: 'server.connected' }
+      while (!signal.aborted) {
+        const event = await new Promise<{ type: string } | null>(resolve => {
+          const abort = () => resolve(null)
+          signal.addEventListener('abort', abort, { once: true })
+          emit = event => { signal.removeEventListener('abort', abort); resolve(event) }
+        })
+        if (!event) break
+        yield event
+      }
+    }
+    return { ...fixtureValue, emit: async (type: string) => { emit?.({ type }); await Promise.resolve(); await Promise.resolve() } }
+  }
+
+  it('publishes refreshes and supports unsubscribing', async () => {
+    const { monitor } = fixture()
+    const listener = vi.fn(), unsubscribe = monitor.subscribe(listener)
+    await monitor.refresh()
+    expect(listener).toHaveBeenCalledWith(monitor.read())
+    unsubscribe(); await monitor.refresh()
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('coalesces lifecycle bursts, ignores token deltas and immediately rediscovers new idle threads', async () => {
+    vi.useFakeTimers()
+    const { monitor, connection, emit } = liveFixture()
+    monitor.start(); monitor.start()
+    await vi.advanceTimersByTimeAsync(150)
+    expect(connection.active).toHaveBeenCalledTimes(1)
+    await emit('session.text.delta'); await emit('session.step.streamed')
+    await vi.advanceTimersByTimeAsync(200)
+    expect(connection.active).toHaveBeenCalledTimes(1)
+    await emit('session.created'); await emit('session.renamed'); await emit('permission.asked')
+    await vi.advanceTimersByTimeAsync(150)
+    expect(connection.active).toHaveBeenCalledTimes(2)
+    expect(connection.recent).toHaveBeenCalledTimes(2)
+    monitor.stop()
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(connection.active).toHaveBeenCalledTimes(2)
+  })
+
+  it('reconciles periodically even with no events', async () => {
+    vi.useFakeTimers()
+    const { monitor, connection } = liveFixture()
+    monitor.start()
+    await vi.advanceTimersByTimeAsync(30_150)
+    expect(connection.active).toHaveBeenCalledTimes(2)
+  })
+
+  it('runs a follow-up refresh when events arrive during an in-flight refresh', async () => {
+    vi.useFakeTimers()
+    const { monitor, connection, emit } = liveFixture()
+    let release!: (ids: string[]) => void
+    vi.mocked(connection.active).mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+    monitor.start()
+    await vi.advanceTimersByTimeAsync(150)
+    await emit('session.created')
+    release(['ses_root'])
+    await vi.advanceTimersByTimeAsync(200)
+    expect(connection.active).toHaveBeenCalledTimes(2)
+    expect(connection.recent).toHaveBeenCalledTimes(2)
+  })
+
+  it('rediscovers and resubscribes after stream failures', async () => {
+    vi.useFakeTimers()
+    const { monitor, source, connection } = fixture()
+    const events = vi.fn(async function* () { throw new Error('offline') })
+    source.events = events
+    // Ensure cleanup also covers this fixture.
+    try {
+      monitor.start()
+      await vi.advanceTimersByTimeAsync(3_200)
+      expect(events).toHaveBeenCalledTimes(3)
+      expect(connection.active).toHaveBeenCalledTimes(3)
+    } finally { monitor.stop() }
   })
 })

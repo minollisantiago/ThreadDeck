@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import type { Snapshot, Session } from '../shared/model'
 
 test('filter underline slides in either direction and respects reduced motion', async ({ page }) => {
@@ -137,6 +137,7 @@ test('unread replies remain visible until acknowledged and new replies become un
   await page.reload()
   await expect(page.getByText('No active sessions', { exact: true })).toBeVisible()
   snapshot = { ...snapshot, projects: [{ ...snapshot.projects[0], sessions: [{ ...session, responseAt: now + 1, updatedAt: now + 1 }] }] }
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
   await expect(page.locator('.session-unread')).toHaveCount(1, { timeout: 10_000 })
   const popupPromise = page.waitForEvent('popup')
   await page.getByRole('link', { name: 'Open A response waiting for you in browser' }).click()
@@ -280,7 +281,10 @@ test('desktop, theme, search, collapse, stale state and mobile layout', async ({
   await page.setViewportSize({ width: 1440, height: 1060 })
 
   await page.getByRole('button', { name: /WeekTrace/ }).click()
-  await page.waitForResponse('**/api/snapshot')
+  await Promise.all([
+    page.waitForResponse('**/api/snapshot'),
+    page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))),
+  ])
   await expect(page.getByRole('button', { name: /WeekTrace/ })).toHaveAttribute('aria-expanded', 'false')
   await page.getByRole('button', { name: 'Working', exact: true }).click()
   await expect(page.getByRole('button', { name: /Website/ })).toHaveCount(0)
@@ -323,7 +327,10 @@ test('desktop, theme, search, collapse, stale state and mobile layout', async ({
   await page.setViewportSize({ width: 390, height: 844 })
 
   snapshot = { ...snapshot, health: 'stale' }
-  await page.waitForResponse('**/api/snapshot')
+  await Promise.all([
+    page.waitForResponse('**/api/snapshot'),
+    page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))),
+  ])
   await expect(page.getByRole('alert')).toContainText('Live status unavailable')
   await expect(page.getByText('Unknown', { exact: true }).first()).toBeVisible()
   await expect(page.locator('.session-attention')).toHaveCount(0)

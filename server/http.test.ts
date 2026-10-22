@@ -1,6 +1,6 @@
 import { createServer, get } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { apiHandler } from './http.ts'
 import type { Snapshot } from '../shared/model.ts'
 
@@ -12,7 +12,12 @@ async function setup() {
   servers.push(server)
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const port = (server.address() as AddressInfo).port
-  server.on('request', apiHandler({ read: () => snapshot }, port))
+  const listeners = new Set<(next: Snapshot) => void>()
+  server.on('request', apiHandler({ read: () => snapshot, subscribe: listener => {
+    listeners.add(listener)
+    return () => { listeners.delete(listener) }
+  } }, port))
+  Object.assign(server, { listeners })
   return `http://127.0.0.1:${port}`
 }
 it('serves only the sanitized snapshot, without caching', async () => {
@@ -33,4 +38,28 @@ it('rejects cross-origin requests and DNS-rebinding hosts', async () => {
     }).on('error', reject)
   })
   expect(status).toBe(403)
+})
+
+it('streams the current snapshot immediately and subsequent updates, then unsubscribes', async () => {
+  const base = await setup()
+  const controller = new AbortController()
+  const response = await fetch(`${base}/api/events`, { signal: controller.signal })
+  expect(response.headers.get('content-type')).toBe('text/event-stream')
+  expect(response.headers.get('cache-control')).toBe('no-store')
+  const reader = response.body!.getReader(), decoder = new TextDecoder()
+  const first = decoder.decode((await reader.read()).value)
+  expect(first).toContain('event: snapshot\ndata: ')
+  expect(first).toContain('"health":"disconnected"')
+  const server = servers.at(-1)! as typeof servers[number] & { listeners: Set<(next: Snapshot) => void> }
+  expect(server.listeners.size).toBe(1)
+  for (const listener of server.listeners) listener({ projects: [], health: 'connected', checkedAt: 123, lastSuccessAt: 123, attentionAvailable: true, inventoryLimited: false, message: null })
+  expect(decoder.decode((await reader.read()).value)).toContain('"checkedAt":123')
+  controller.abort()
+  await vi.waitFor(() => expect(server.listeners.size).toBe(0))
+})
+
+it('protects the event stream against cross-origin access and mutations', async () => {
+  const base = await setup()
+  expect((await fetch(`${base}/api/events`, { headers: { Origin: 'https://untrusted.example' } })).status).toBe(403)
+  expect((await fetch(`${base}/api/events`, { method: 'POST' })).status).toBe(405)
 })
