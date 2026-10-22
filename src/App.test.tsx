@@ -18,6 +18,34 @@ const snapshot: Snapshot = {
     ] },
   ],
 }
+it.each(['classic', 'islands'] as const)('marks a project read from its header in %s view, including hidden threads but not other projects', design => {
+  localStorage.setItem('threaddeck:design', JSON.stringify(design))
+  const first = { ...snapshot.projects[0].sessions[0], id: 'alpha-first', threadId: '1561737719133114461', title: 'Visible response', status: 'idle' as const, agentCount: 0, responseAt: now }
+  const second = { ...first, id: 'alpha-second', threadId: '1561737719133114462', title: 'Hidden response' }
+  const mixed: Snapshot = { ...snapshot, projects: [
+    { ...snapshot.projects[0], sessions: [snapshot.projects[0].sessions[0], first, second] },
+    { ...snapshot.projects[1], sessions: [{ ...snapshot.projects[1].sessions[0], responseAt: now }] },
+  ] }
+  const view = render(<Dashboard snapshot={mixed} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: /Alpha/ }))
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Visible response' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Mark all threads as read', description: /Alpha/ }))
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } })
+  expect(screen.getByRole('button', { name: /Alpha/ }).getAttribute('aria-expanded')).toBe('false')
+  expect(screen.queryByRole('button', { name: 'Mark all threads as read', description: /Alpha/ })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Mark all threads as read', description: /Beta/ })).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
+  expect(screen.queryByRole('button', { name: 'Mark Visible response as read', hidden: true })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Mark Hidden response as read', hidden: true })).toBeNull()
+  view.unmount()
+  const restored = render(<Dashboard snapshot={mixed} now={now} />)
+  expect(screen.queryByRole('button', { name: 'Mark all threads as read', description: /Alpha/ })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Mark all threads as read', description: /Beta/ })).toBeTruthy()
+  restored.rerender(<Dashboard snapshot={{ ...mixed, projects: [
+    { ...mixed.projects[0], sessions: [mixed.projects[0].sessions[0], { ...first, responseAt: now + 1 }, second] }, mixed.projects[1],
+  ] }} now={now} />)
+  expect(screen.getByRole('button', { name: 'Mark all threads as read', description: /Alpha/ }).textContent).toBe('1 unread')
+})
 it('tracks the direction of filter changes without changing selection behavior', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
   const filters = screen.getByRole('group', { name: 'Filter sessions' })

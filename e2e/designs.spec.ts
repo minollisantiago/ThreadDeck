@@ -146,10 +146,10 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
           if (index < rails.length - 1) expect(Math.abs(rail.end - rails[index + 1].start)).toBeLessThan(1)
           else expect(Math.abs(rail.end - rail.center)).toBeLessThan(1)
         }
-        await header.locator('button').click()
+        await header.locator('.visual-project-heading').click()
         await expect(header).toHaveAttribute('data-connected', 'false')
         expect(await header.evaluate(element => getComputedStyle(element, '::before').content)).toBe('none')
-        await header.locator('button').click()
+        await header.locator('.visual-project-heading').click()
       }
       await page.mouse.move(0, 0)
       if (width === 390) await page.screenshot({ path: `artifacts/design-${design}-mobile.png`, fullPage: true })

@@ -355,7 +355,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .project-heading .project-channel-icon { grid-column: 2; grid-row: 1; align-self: start; margin-top: 3px; }
 .project-heading .project-name { grid-column: 3; grid-row: 1; align-self: start; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-heading .project-pills { grid-column: 4; grid-row: 1; align-self: start; justify-content: flex-end; max-width: min(46vw, 360px); margin: 0; font-size: 12px; line-height: 20px; }
-.project-heading .project-pills > span { font-size: inherit; line-height: inherit; }
+.project-heading .project-pills > * { font-size: inherit; line-height: inherit; }
 .project-heading .project-summary { grid-column: 3; grid-row: 2; justify-content: flex-start; min-width: 0; max-width: none; margin: 0; gap: 10px; overflow-wrap: anywhere; }
 .project-heading:has(.project-summary) .project-pills { grid-row: 1 / 3; }
 .project-heading[data-connected=true]::after { content: ''; position: absolute; top: calc(var(--project-pad-y) + 25px); bottom: 0; left: calc(var(--project-rail-x) - 1px); width: 2px; background: var(--subtle); opacity: .4; pointer-events: none; }
@@ -363,6 +363,10 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .project-sessions .session-row::before, .project-sessions .session-row::after { left: calc(-1px - var(--project-branch-width)); border-left-width: 2px; }
 .project-sessions .session-row::after { width: calc(var(--project-branch-width) + 1px); border-bottom-width: 2px; }
 .project-sessions .session-attention-marker { display: none; }
+.project-toggle { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: inherit; background: transparent; }
+.project-toggle:focus-visible { outline-offset: -4px; }
+.project-heading > :not(.project-toggle) { pointer-events: none; }
+.project-unread-action { position: relative; z-index: 1; pointer-events: auto; border: 0; font-weight: 500; cursor: pointer; }
 /* Contextual motion: no mount animations or snapshot-driven entrances. */
 .connection-notice-region { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows 160ms var(--motion-ease), opacity var(--motion-fast) ease, visibility 0s 160ms; }
 .connection-notice-region[data-visible=true] { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-delay: 0s; }

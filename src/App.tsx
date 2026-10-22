@@ -7,6 +7,7 @@ import { ConnectionIndicator } from './components/connection-indicator'
 import { ConnectionNotice } from './components/connection-notice'
 import { ThreadOptions } from './components/thread-options'
 import { FilterTabs } from './components/filter-tabs'
+import { ProjectUnreadPill } from './components/project-unread-pill'
 import { SessionRow } from './components/session-row'
 import { ProjectIslands } from './components/project-islands'
 import { ProjectCollapse } from './components/project-collapse'
@@ -25,28 +26,31 @@ function saved<T>(key: string, fallback: T, validate: (value: unknown) => value 
 }
 function persist(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* preferences are optional */ } }
 
-function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markRead }: {
-  project: Project; collapsed: boolean; toggle: () => void; verified: boolean; now: number; unread: ReadonlySet<string>; markRead: (session: Session) => void
+function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markRead, markProjectRead }: {
+  project: Project; collapsed: boolean; toggle: () => void; verified: boolean; now: number; unread: ReadonlySet<string>; markRead: (session: Session) => void; markProjectRead: (projectId: string) => void
 }) {
   const working = workingCount(project.sessions)
   const attention = project.sessions.filter(s => isAttention(s.status)).length
   const unreadCount = project.sessions.filter(s => unread.has(s.id)).length
   const active = unreadCount > 0 || verified && project.sessions.some(isActive)
   return <section className={`project-panel ${active ? 'project-active' : ''}`} aria-labelledby={`heading-${project.id}`}>
-    <button className="project-heading" id={`heading-${project.id}`} onClick={toggle} aria-expanded={!collapsed} aria-controls={`sessions-${project.id}`} data-connected={!collapsed && project.sessions.length > 0}>
+    <div className="project-heading" data-connected={!collapsed && project.sessions.length > 0}>
+      <button className="project-toggle" type="button" title={project.name} onClick={toggle} aria-expanded={!collapsed} aria-controls={`sessions-${project.id}`}>
+        <span className="sr-only">{project.name} {project.sessions.length} {project.sessions.length === 1 ? 'session' : 'sessions'}{verified && attention > 0 ? ` ${attention} ${attention === 1 ? 'needs' : 'need'} attention` : ''}{unreadCount > 0 ? ` ${unreadCount} unread` : ''}{verified && working > 0 ? ` ${working} working` : ''}{!verified ? ' Status unavailable' : !active ? ' No working threads' : ''}</span>
+      </button>
       <ChevronDown className={`chevron ${collapsed ? 'is-closed' : ''}`} aria-hidden="true" />
       <Hash className="project-channel-icon" aria-hidden="true" />
-      <span className="project-name" title={project.name}>{project.name}</span>
+      <span className="project-name" id={`heading-${project.id}`} title={project.name} aria-hidden="true">{project.name}</span>
       <span className="project-pills">
-        <span className="project-total">{project.sessions.length} {project.sessions.length === 1 ? 'session' : 'sessions'}</span>
-        {verified && attention > 0 && <span className="project-attention"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</span>}
-        {unreadCount > 0 && <span className="project-unread" title="Unread responses in this browser, not synced with Discord">{unreadCount} unread</span>}
+        <span className="project-total" aria-hidden="true">{project.sessions.length} {project.sessions.length === 1 ? 'session' : 'sessions'}</span>
+        {verified && attention > 0 && <span className="project-attention" aria-hidden="true"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</span>}
+        <ProjectUnreadPill count={unreadCount} projectName={project.name} describedBy={`heading-${project.id}`} className="project-unread" markRead={() => markProjectRead(project.id)} />
       </span>
-      {(!verified || working > 0 || !active) && <span className="project-summary">
+      {(!verified || working > 0 || !active) && <span className="project-summary" aria-hidden="true">
         {verified && working > 0 && <span className="working-summary"><i />{working} working</span>}
         {(!verified || !active) && <span>{verified ? 'No working threads' : 'Status unavailable'}</span>}
       </span>}
-    </button>
+    </div>
     <ProjectCollapse id={`sessions-${project.id}`} collapsed={collapsed}>
       <div className="project-sessions">
         {project.sessions.length ? sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)
@@ -94,7 +98,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const verified = !transportError && snapshot?.health === 'connected' && !old
   const loading = !transportError && (!snapshot || snapshot.lastSuccessAt === null && snapshot.checkedAt === 0)
   const projects = snapshot?.projects ?? []
-  const { unread, markRead, markAllRead } = useUnread(projects)
+  const { unread, markRead, markAllRead, markProjectRead } = useUnread(projects)
   useEffect(() => {
     if (!snapshot || snapshot.lastSuccessAt === null) return
     setCollapsed(previous => {
@@ -141,11 +145,11 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       <div className="section-caption"><span>{grouping === 'project' ? 'PROJECTS' : 'STATES'} <span className="caption-count">{(grouping === 'project' ? shown.length : groups.length).toString().padStart(2, '0')}</span></span><span>{narrowed ? `${shown.reduce((count, p) => count + p.sessions.length, 0)} matching sessions` : grouping === 'project' ? 'Active projects first' : 'Needs attention first'}</span></div>
       <div className="project-list" ref={results}>
         {grouping === 'state' && <StatePanels groups={groups} verified={verified} now={now} unread={unread} markRead={markRead} graphical={design === 'islands'} />}
-        {grouping === 'project' && design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}
+        {grouping === 'project' && design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} markProjectRead={markProjectRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}
         {grouping === 'project' && design === 'classic' && shown.map(project => {
           const defaultCollapsed = !project.sessions.some(s => unread.has(s.id) || verified && isActive(s))
           const isCollapsed = collapsed[project.id] ?? (narrowed ? false : defaultCollapsed)
-          return <ProjectPanel key={project.id} project={project} verified={verified} now={now} unread={unread} markRead={markRead} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />
+          return <ProjectPanel key={project.id} project={project} verified={verified} now={now} unread={unread} markRead={markRead} markProjectRead={markProjectRead} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />
         })}
         {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button variant="outline" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
       </div>

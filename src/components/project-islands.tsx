@@ -4,10 +4,12 @@ import { sessionOrder, workingCount } from '../lib/view'
 import { SessionRow } from './session-row'
 import { Badge } from './ui/badge'
 import { ProjectCollapse } from './project-collapse'
+import { ProjectUnreadPill } from './project-unread-pill'
 
-export function ProjectIslands({ projects, verified, now, unread, markRead, collapsed, toggle }: {
+export function ProjectIslands({ projects, verified, now, unread, markRead, markProjectRead, collapsed, toggle }: {
   projects: Project[]; verified: boolean; now: number
   unread: ReadonlySet<string>; markRead: (session: Session) => void
+  markProjectRead: (projectId: string) => void
   collapsed: Record<string, boolean>; toggle: (key: string) => void
 }) {
   return <div className="visual-projects projects-islands">
@@ -26,7 +28,7 @@ export function ProjectIslands({ projects, verified, now, unread, markRead, coll
         </button>
         <div className="visual-project-stats">
           {verified ? <><Badge className={`status ${working ? 'status-working' : 'status-idle'}`}><Radio aria-hidden="true" />{working} working</Badge>{attention > 0 && <Badge className="status status-input"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</Badge>}</> : <span>Status unavailable</span>}
-          {unreadCount > 0 && <Badge className="status status-unread visual-unread">{unreadCount} unread</Badge>}
+          <ProjectUnreadPill count={unreadCount} projectName={project.name} describedBy={`visual-heading-${project.id}`} className="status visual-unread" markRead={() => markProjectRead(project.id)} />
         </div>
         </div>
         <ProjectCollapse id={`visual-sessions-${project.id}`} collapsed={closed}>

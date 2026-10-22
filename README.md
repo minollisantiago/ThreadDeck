@@ -26,6 +26,8 @@ with a lightweight Node.js backend. Node 24+ is required.
   not mark its threads read.
 - **Mark all as read** clears unread flags across all loaded projects, including
   sessions hidden by the current search or filter. Subsequent replies become unread again.
+- Click a project's **Unread** pill to mark just that project's unread responses
+  read, including filtered-out threads, without expanding or collapsing the project.
 - Read receipts are local to this browser and persist across reloads. They do not
   sync with Discord. On first use, existing completed responses are unread because
   ThreadDeck has no record of what you have already read elsewhere.

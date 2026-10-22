@@ -29,16 +29,21 @@ export function useUnread(projects: Project[]) {
     setRead(previous => ({ ...previous, [key]: Math.max(previous[key] ?? 0, timestamp) }))
   }
   const unread = unreadSessions(projects, read)
-  function markAllRead() {
+  function markProjectsRead(projectId?: string) {
     setRead(previous => {
       const next = { ...previous }
-      for (const project of projects) for (const session of project.sessions) {
-        if (!unread.has(session.id) || session.responseAt == null) continue
-        const key = readKey(session.projectId, session.threadId)
-        next[key] = Math.max(next[key] ?? 0, session.responseAt)
+      for (const project of projects) {
+        if (projectId !== undefined && project.id !== projectId) continue
+        for (const session of project.sessions) {
+          if (!unread.has(session.id) || session.responseAt == null) continue
+          const key = readKey(session.projectId, session.threadId)
+          next[key] = Math.max(next[key] ?? 0, session.responseAt)
+        }
       }
       return next
     })
   }
-  return { unread, markRead, markAllRead }
+  function markAllRead() { markProjectsRead() }
+  function markProjectRead(projectId: string) { markProjectsRead(projectId) }
+  return { unread, markRead, markAllRead, markProjectRead }
 }
