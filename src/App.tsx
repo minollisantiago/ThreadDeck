@@ -142,7 +142,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       </div>
 
       <ConnectionNotice visible={!verified && !loading} hasSnapshot={Boolean(snapshot?.lastSuccessAt)} />
-      <div className="section-caption"><span>{grouping === 'project' ? 'PROJECTS' : 'STATES'} <span className="caption-count">{(grouping === 'project' ? shown.length : groups.length).toString().padStart(2, '0')}</span></span><span>{narrowed ? `${shown.reduce((count, p) => count + p.sessions.length, 0)} matching sessions` : grouping === 'project' ? 'Active projects first' : 'Needs attention first'}</span></div>
+      <div className="section-caption"><span>{grouping === 'project' ? 'PROJECTS' : 'STATES'} <span className="caption-count">{(grouping === 'project' ? shown.length : groups.length).toString().padStart(2, '0')}</span></span>{(narrowed || grouping === 'state') && <span>{narrowed ? `${shown.reduce((count, p) => count + p.sessions.length, 0)} matching sessions` : 'Needs attention first'}</span>}</div>
       <div className="project-list" ref={results}>
         {grouping === 'state' && <StatePanels groups={groups} verified={verified} now={now} unread={unread} markRead={markRead} graphical={design === 'islands'} />}
         {grouping === 'project' && design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} markProjectRead={markProjectRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}

@@ -56,6 +56,12 @@ it('tracks the direction of filter changes without changing selection behavior',
   fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
   expect(filters.getAttribute('data-motion-direction')).toBe('left')
 })
+it('omits the active-project ordering caption while keeping filtered result counts', () => {
+  render(<Dashboard snapshot={snapshot} now={now} />)
+  expect(screen.queryByText('Active projects first')).toBeNull()
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'switchboard' } })
+  expect(screen.getByText('1 matching sessions')).toBeTruthy()
+})
 it('distinguishes positive, zero and unavailable summary pill counts', () => {
   const { container, rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
   expect(container.querySelector('.overview-pill-working')?.getAttribute('data-count-state')).toBe('positive')
