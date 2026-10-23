@@ -18,6 +18,7 @@ import { useSnapshot } from './hooks/use-snapshot'
 import { useChangeMotion } from './hooks/use-change-motion'
 import { useUnread } from './hooks/use-unread'
 import { DesktopTitlebar } from './components/desktop-titlebar'
+import { ConversationSearch } from './components/conversation-search'
 import { isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
 import { snapshotStaleAfterMs } from '../shared/update-timing'
 import { isGrouping, projectOrder, sessionOrder, stateGroups, visibleProjects, workingCount, type Filter, type Grouping } from './lib/view'
@@ -63,6 +64,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
 
 export function Dashboard({ snapshot, transportError = false, now = Date.now() }: { snapshot: Snapshot | null; transportError?: boolean; now?: number }) {
   const [query, setQuery] = useState('')
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [filter, setFilter] = useState<Filter>('active')
   const [grouping, setGrouping] = useState<Grouping>(() => saved('threaddeck:grouping', 'project', isGrouping))
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => saved('threaddeck:collapsed', {},
@@ -85,8 +87,21 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   useEffect(() => { persist('threaddeck:design', design) }, [design])
   useEffect(() => { persist('threaddeck:grouping', grouping) }, [grouping])
   useEffect(() => {
+    let lastSpace = 0
     function keydown(event: KeyboardEvent) {
       const target = event.target
+      const editable = target instanceof HTMLElement && (target.matches('input,textarea,select') || target.isContentEditable || Boolean(target.closest('[contenteditable="true"],dialog')))
+      if (event.repeat || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || editable) { lastSpace = 0; return }
+      if (event.code === 'Space' || event.key === ' ') {
+        // Preserve native Space activation on controls; only the page background owns this shortcut.
+        if (target instanceof HTMLElement && target.closest('button,a,[role="button"],[role="menuitem"]')) { lastSpace = 0; return }
+        event.preventDefault()
+        const time = Date.now()
+        if (lastSpace && time - lastSpace <= 350) { lastSpace = 0; setHistoryOpen(true) }
+        else lastSpace = time
+        return
+      }
+      lastSpace = 0
       if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.isComposing && !(target instanceof HTMLElement && (target.matches('input,textarea,select') || target.isContentEditable))) {
         event.preventDefault(); search.current?.focus()
       }
@@ -135,7 +150,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
 
     <main>
       <div className="toolbar">
-        <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <kbd>/</kbd>}</div>
+        <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <div className="search-shortcuts"><button type="button" aria-label="Search shortcuts" aria-describedby="search-shortcuts-tooltip" onClick={() => setHistoryOpen(true)}><kbd>/</kbd></button><div className="search-shortcuts-tooltip" id="search-shortcuts-tooltip" role="tooltip"><span><strong>/</strong> — Filter projects or sessions</span><span><strong>Double Space</strong> — Search chat logs</span><span>Outside text fields and controls</span></div></div>}</div>
         <div className="filter-toolbar">
         <FilterTabs filter={filter} setFilter={setFilter} />
         <ThreadOptions grouping={grouping} setGrouping={setGrouping} unreadCount={unread.size} markAllRead={markAllRead} />
@@ -156,7 +171,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       </div>
     </main>
     <footer><span><span className="footer-dot" />LOCAL · READ ONLY</span><span>Titles open Discord app <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span></footer>
-  </div></>
+  </div>{historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} />}</>
 }
 
 export default function App() {

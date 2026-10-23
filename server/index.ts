@@ -5,13 +5,15 @@ import { fileURLToPath } from 'node:url'
 import { Monitor } from './monitor.ts'
 import { source } from './source.ts'
 import { apiHandler } from './http.ts'
+import { createConversationSearch } from './search.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const port = Number(process.env.PORT ?? 43127)
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid PORT')
 const production = process.argv.includes('--production')
 const monitor = new Monitor(source)
-const api = apiHandler(monitor, port)
+const search = createConversationSearch()
+const api = apiHandler(monitor, port, search)
 const vite = production ? null : await (await import('vite')).createServer({
   root, server: { middlewareMode: true, hmr: { port: port + 1, host: '127.0.0.1' } }, appType: 'spa',
 })
@@ -35,7 +37,9 @@ const server = createServer((request, response) => {
 // Loopback only: this dashboard contains private session titles and is not a public service.
 server.listen(port, '127.0.0.1', () => console.log(`ThreadDeck listening on http://localhost:${port}`))
 monitor.start()
+search.start()
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => {
   monitor.stop()
+  void search.stop()
   server.close(); server.closeAllConnections(); void vite?.close()
 })

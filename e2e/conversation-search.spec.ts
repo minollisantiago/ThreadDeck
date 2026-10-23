@@ -1,0 +1,78 @@
+import { expect, test } from './fixtures'
+
+test('search keeps its footer and dialog stable while results are pending or empty', async ({ page }) => {
+  const now = Date.now()
+  await page.route('**/api/snapshot', route => route.fulfill({ json: { projects: [], health: 'connected', lastSuccessAt: now, checkedAt: now, attentionAvailable: true, inventoryLimited: false, message: null } }))
+  let release: (() => void) | undefined
+  await page.route('**/api/search?*', async route => {
+    const query = new URL(route.request().url()).searchParams.get('q')
+    if (query) await new Promise<void>(resolve => { release = resolve })
+    await route.fulfill({ json: { hits: query ? [] : [{ id: 'old', title: 'Buried discussion', project: 'ThreadDeck', threadId: '1561737719133114458', guildId: '1526236793048141935', updatedAt: now, excerpt: 'A long remembered conversation about startup and loading screens.', matches: 1 }], indexing: false, indexed: 1200, error: null } })
+  })
+  await page.goto('/')
+  await page.keyboard.press('Space'); await page.keyboard.press('Space')
+  const dialog = page.getByRole('dialog', { name: 'Search conversations' })
+  await expect(dialog.getByRole('link', { name: 'Buried discussion', exact: true })).toBeVisible()
+  const footer = page.locator('.conversation-search-footer')
+  const originalFooter = await footer.boundingBox(), originalDialog = await dialog.boundingBox()
+  await page.getByRole('textbox', { name: 'Search conversation history' }).fill('no matching phrase')
+  await expect(dialog.getByRole('status')).toContainText('Searching')
+  await expect(dialog.getByRole('link', { name: 'Buried discussion', exact: true })).toBeVisible()
+  expect(await footer.boundingBox()).toEqual(originalFooter)
+  expect(await dialog.boundingBox()).toEqual(originalDialog)
+  await expect.poll(() => Boolean(release)).toBe(true)
+  release!()
+  await expect(dialog.getByText(/No matching conversations/)).toBeVisible()
+  expect(await footer.boundingBox()).toEqual(originalFooter)
+  expect(await dialog.boundingBox()).toEqual(originalDialog)
+})
+
+test('history shortcut is only advertised in the slash indicator tooltip', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('.history-search-trigger')).toHaveCount(0)
+  const shortcut = page.getByRole('button', { name: 'Search shortcuts' })
+  const tooltip = page.getByRole('tooltip', { name: /Double Space/ })
+  await expect(tooltip).not.toBeVisible()
+  await shortcut.hover()
+  await expect(tooltip).toBeVisible()
+  await expect(tooltip).toContainText('Double Space')
+  await shortcut.click()
+  await expect(page.getByRole('dialog', { name: 'Search conversations' })).toBeVisible()
+})
+
+for (const width of [430, 1280]) test(`conversation finder supports double Space and traps focus at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 })
+  const now = Date.now()
+  await page.route('**/api/snapshot', route => route.fulfill({ json: { projects: [], health: 'connected', lastSuccessAt: now, checkedAt: now, attentionAvailable: true, inventoryLimited: false, message: null } }))
+  await page.route('**/api/search?*', route => route.fulfill({ json: {
+    hits: [{ id: 'old', title: 'Buried desktop discussion', project: 'ThreadDeck', threadId: '1561737719133114458', guildId: '1526236793048141935', updatedAt: now - 86400000 * 90, excerpt: 'The electron loading screen should appear before WSL starts.', matches: 2 }],
+    indexing: false, indexed: 1200, error: null,
+  } }))
+  await page.goto('/')
+  await page.locator('body').click({ position: { x: 2, y: 2 } })
+  await page.keyboard.press('Space')
+  await page.keyboard.press('Space')
+  const dialog = page.getByRole('dialog', { name: 'Search conversations' })
+  await expect(dialog).toBeVisible()
+  const input = page.getByRole('textbox', { name: 'Search conversation history' })
+  await expect(input).toBeFocused()
+  await input.fill('electron')
+  await expect(dialog.getByRole('link', { name: 'Buried desktop discussion', exact: true })).toBeVisible()
+  await expect(dialog.locator('mark')).toHaveText('electron')
+  await expect(dialog.getByRole('status')).toContainText('1200 conversations indexed')
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press('Tab')
+    expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true)
+  }
+  expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await page.screenshot({ path: `artifacts/conversation-search-${width}.png` })
+  await page.keyboard.press('Escape')
+  await expect(dialog).not.toBeVisible()
+  const trigger = page.getByRole('button', { name: 'Search shortcuts' })
+  await trigger.click()
+  await page.keyboard.press('Escape')
+  await expect(trigger).toBeFocused()
+  const filter = page.getByRole('searchbox')
+  await filter.fill('two  spaces')
+  await expect(dialog).not.toBeVisible()
+})

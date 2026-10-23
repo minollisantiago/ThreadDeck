@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Monitor } from './monitor.ts'
+import type { ConversationSearch } from './search.ts'
 
 export function trustedRequest(request: IncomingMessage, port: number) {
   const hosts = [`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`]
@@ -9,7 +10,7 @@ export function trustedRequest(request: IncomingMessage, port: number) {
   return !origin || origin === `http://${host}`
 }
 
-export function apiHandler(monitor: Pick<Monitor, 'read' | 'subscribe'>, port: number) {
+export function apiHandler(monitor: Pick<Monitor, 'read' | 'subscribe'>, port: number, search?: Pick<ConversationSearch, 'search'>) {
   return (request: IncomingMessage, response: ServerResponse): boolean => {
     response.setHeader('X-Content-Type-Options', 'nosniff')
     response.setHeader('Referrer-Policy', 'no-referrer')
@@ -24,6 +25,12 @@ export function apiHandler(monitor: Pick<Monitor, 'read' | 'subscribe'>, port: n
       response.writeHead(405).end(JSON.stringify({ error: 'Read-only endpoint' })); return true
     }
     const pathname = request.url.split('?')[0]
+    if (pathname === '/api/search' && search) {
+      const query = new URL(request.url, 'http://localhost').searchParams.get('q') ?? ''
+      try { response.writeHead(200).end(JSON.stringify(search.search(query))) }
+      catch { response.writeHead(503).end(JSON.stringify({ error: 'Search unavailable' })) }
+      return true
+    }
     if (pathname === '/api/events') {
       response.setHeader('Content-Type', 'text/event-stream')
       response.setHeader('X-Accel-Buffering', 'no')

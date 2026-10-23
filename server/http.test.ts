@@ -3,10 +3,11 @@ import type { AddressInfo } from 'node:net'
 import { afterEach, expect, it, vi } from 'vitest'
 import { apiHandler } from './http.ts'
 import type { Snapshot } from '../shared/model.ts'
+import type { ConversationSearch } from './search.ts'
 
 const servers: ReturnType<typeof createServer>[] = []
 afterEach(async () => { await Promise.all(servers.splice(0).map(s => new Promise<void>(resolve => s.close(() => resolve())))) })
-async function setup() {
+async function setup(search?: Pick<ConversationSearch, 'search'>) {
   const snapshot: Snapshot = { projects: [], health: 'disconnected', checkedAt: 0, lastSuccessAt: null, attentionAvailable: false, inventoryLimited: false, message: null }
   const server = createServer()
   servers.push(server)
@@ -16,7 +17,7 @@ async function setup() {
   server.on('request', apiHandler({ read: () => snapshot, subscribe: listener => {
     listeners.add(listener)
     return () => { listeners.delete(listener) }
-  } }, port))
+  } }, port, search))
   Object.assign(server, { listeners })
   return `http://127.0.0.1:${port}`
 }
@@ -28,6 +29,17 @@ it('serves only the sanitized snapshot, without caching', async () => {
 })
 it('rejects mutation requests', async () => {
   expect((await fetch(`${await setup()}/api/snapshot`, { method: 'POST' })).status).toBe(405)
+})
+it('serves encoded history queries with the same local-only, read-only protections', async () => {
+  const search = vi.fn().mockReturnValue({ hits: [], indexed: 400, indexing: false, error: null })
+  const base = await setup({ search })
+  const response = await fetch(`${base}/api/search?q=electron%20loading`)
+  expect(response.status).toBe(200)
+  expect((await response.json()).indexed).toBe(400)
+  expect(search).toHaveBeenCalledWith('electron loading')
+  expect((await fetch(`${base}/api/search?q=secret`, { headers: { Origin: 'https://untrusted.example' } })).status).toBe(403)
+  expect((await fetch(`${base}/api/search`, { method: 'POST' })).status).toBe(405)
+  expect(search).toHaveBeenCalledTimes(1)
 })
 it('rejects cross-origin requests and DNS-rebinding hosts', async () => {
   const base = await setup()

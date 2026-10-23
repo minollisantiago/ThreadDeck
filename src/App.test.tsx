@@ -180,7 +180,7 @@ it('moves update details into the connection tooltip', () => {
   const { container } = render(<Dashboard snapshot={details} now={now} />)
   expect(screen.getByRole('status').textContent).toBe('Connected')
   expect(container.querySelector('.refresh-age')).toBeNull()
-  const tooltip = screen.getByRole('tooltip', { hidden: true })
+  const tooltip = within(container.querySelector('.connection')!).getByRole('tooltip', { hidden: true })
   expect(tooltip.textContent).toContain(`Last successful update: ${new Date(now).toLocaleString()}`)
   expect(tooltip.textContent).toContain('Source connected')
   expect(tooltip.textContent).toContain('Attention status unavailable')

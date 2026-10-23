@@ -10,6 +10,19 @@ with a lightweight Node.js backend. Node 24+ is required.
 
 ## Interface
 
+- Double-tap **Space** within 350 ms outside text fields and controls to open the
+  conversation finder. Hover/focus the searchbar's **/** indicator for shortcut hints,
+  or click it to open the finder. Search historical user/assistant text,
+  fuzzy thread/project titles, and word prefixes; use ↑/↓ and Enter to open Discord.
+  The existing `/` shortcut still focuses the dashboard filter. History search is
+  independent of dashboard filters and its recent-300-session inventory.
+- A private local SQLite FTS5 index lives at `~/.local/share/threaddeck/search.sqlite`
+  (`THREADDECK_DATA_DIR` overrides its directory). The first background sync pages
+  through linked conversation history; results appear progressively. Every minute,
+  changed sessions are reindexed and deleted/unregistered sessions are removed after
+  a successful sweep. Tool output, reasoning and attachments are not indexed. Cached
+  results remain searchable during service outages. No external search service is used.
+
 - One column of project panels, with active projects first and inactive groups
   initially collapsed. Manual collapse, search, filters and scroll survive refresh.
 - **By project / By state** switches grouping and remembers your choice locally.
