@@ -67,12 +67,17 @@ This builds ThreadDeck, then starts the production dashboard and Kimaki together
 Open `http://localhost:43127` in your Windows browser. Ctrl+C stops both; if either
 process exits, the launcher stops the other too. Build failures prevent startup.
 Kimaki's internal bot restarts keep the dashboard running with its parent launcher.
+Before starting owned Kimaki, the launcher reuses an existing OpenCode service or
+starts OpenCode V2 with its inherited environment (including the SSH agent socket).
+On shutdown it waits for owned Kimaki/backend processes to exit, then stops only
+the OpenCode process it started. Pre-existing and replacement services are never
+adopted or stopped. Cancelling startup also cleans up an owned OpenCode process.
 
 Stop a previously launched Kimaki yourself before switching to this command.
 The launcher uses `--if-not-running` so it never replaces an already running bot;
 if one exists, Kimaki exits and the dashboard stops too. No existing bot is
-restarted or reconfigured by installing this launcher. It does not start OpenCode
-directly: Kimaki manages its own service as usual.
+restarted or reconfigured by installing this launcher. If Kimaki is reused, the
+launcher leaves its OpenCode service completely alone as well.
 
 Extra Kimaki options can be passed with `npm run kimaki -- --no-analytics`.
 The launcher adds `~/.kimaki/bin` to PATH for the dashboard's CLI access.
@@ -152,8 +157,8 @@ light, mobile, and disconnected-state screenshots under ignored `artifacts/`.
 
 When starting the dashboard on its own, the existing Kimaki CLI must be on PATH
 and the existing OpenCode V2 service must be running. The dashboard itself never
-starts, stops, or reconfigures either service; the optional shared launcher above
-owns only the processes it starts.
+starts, stops, or reconfigures either service; the optional launchers above manage
+only the processes they start, including OpenCode when no service is already running.
 No Discord token or OpenCode credential is sent to the browser.
 
 ### Live updates

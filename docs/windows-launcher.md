@@ -47,8 +47,13 @@ starts only missing services. It checks the dashboard endpoint and `kimaki statu
 before launching. Existing processes are never replaced, restarted or adopted.
 Closing its Electron window stops only the processes started by that launcher;
 reused services keep running. If a different application occupies the dashboard
-port, startup fails with a diagnostic instead of killing that application. Kimaki
-manages OpenCode in the usual way; the shortcut does not independently manage it.
+port, startup fails with a diagnostic instead of killing that application.
+When starting missing Kimaki, the launcher first reuses an existing OpenCode service
+or starts OpenCode V2 itself. Closing the window waits for owned Kimaki/backend
+processes to exit before stopping the exact OpenCode child it started. Pre-existing
+OpenCode services (including those used by reused Kimaki) and later replacement
+services are left running. Cancellation, startup failures and retry also clean up
+owned OpenCode processes. No service is stopped globally or killed by process name.
 
 The shortcut captures the current WSL distribution, checkout and Node.js path.
 It does not depend on an interactive terminal or fish/bash/nvm startup files.

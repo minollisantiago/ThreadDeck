@@ -3,6 +3,7 @@ import { promisify } from 'node:util'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { OpenCodeService } from './opencode-service.mjs'
 
 // Separate process groups let shutdown reach npm/tsx grandchildren as well.
 export function supervise(commands, { cwd, env = process.env, graceMs = 5_000 } = {}) {
@@ -91,9 +92,11 @@ async function main() {
   const args = process.argv.slice(2)
   const reuse = args[0] === '--desktop' && args.includes('--reuse-existing')
   let active
+  let opencode
+  const startup = new AbortController()
   let interrupted = false
-  const onInterrupt = () => { interrupted = true; active?.stop(130) }
-  const onTerminate = () => { interrupted = true; active?.stop(143) }
+  const onInterrupt = () => { interrupted = true; startup.abort(); active?.stop(130) }
+  const onTerminate = () => { interrupted = true; startup.abort(); active?.stop(143) }
   process.on('SIGINT', onInterrupt)
   process.on('SIGTERM', onTerminate)
   try {
@@ -107,10 +110,22 @@ async function main() {
       if (buildCode !== 0 || interrupted) return buildCode || 130
     } else console.log('Reusing the running ThreadDeck backend; leaving its files and process untouched.')
     if (existing.kimaki) console.log('Reusing running Kimaki; it will not be stopped when this window closes.')
+    else {
+      opencode = new OpenCodeService({ cwd, env })
+      const ownership = await opencode.start(startup.signal)
+      console.log(ownership === 'started' ? 'Started OpenCode; it will stop after owned Kimaki exits.' : 'Reusing running OpenCode; it will be left running.')
+    }
+    if (interrupted) return 130
     console.log('Opening ThreadDeck. Closing the window stops only processes started by this launcher.')
     active = supervise(launchCommands(args, existing), { cwd, env })
     return await active.done
+  } catch (error) {
+    if (interrupted) return 130
+    throw error
   } finally {
+    active?.stop()
+    await active?.done
+    await opencode?.stop()
     process.off('SIGINT', onInterrupt)
     process.off('SIGTERM', onTerminate)
   }

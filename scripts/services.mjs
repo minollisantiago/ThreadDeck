@@ -3,6 +3,7 @@ import path from 'node:path'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { existingServices, kimakiStatus, launchCommands, supervise } from './kimaki.mjs'
+import { OpenCodeService } from './opencode-service.mjs'
 
 const cwd = fileURLToPath(new URL('..', import.meta.url))
 const env = { ...process.env, PATH: `${path.join(homedir(), '.kimaki', 'bin')}:${process.env.PATH ?? ''}` }
@@ -11,9 +12,11 @@ if (!lease) throw new Error('The Windows client must supply a startup lease')
 const port = Number(env.PORT ?? 43127)
 const progress = (phase, state, detail) => console.log(`THREADDECK_STARTUP ${JSON.stringify({ phase, state, detail })}`)
 let active
+let opencode
+const startup = new AbortController()
 let stopped = false
 let finishIdle
-const stop = () => { stopped = true; active?.stop(0); finishIdle?.(0) }
+const stop = () => { stopped = true; startup.abort(); active?.stop(0); finishIdle?.(0) }
 const checkLease = () => {
   try { if (Date.now() - statSync(lease).mtimeMs < 10_000) return } catch { /* client closed */ }
   stop()
@@ -33,6 +36,12 @@ try {
     active = supervise([['npm', 'run', 'build']], { cwd, env })
     const code = await active.done
     if (code !== 0 && !stopped) throw new Error(`Dashboard build failed (${code})`)
+  }
+  if (!stopped && !existing.kimaki) {
+    progress('kimaki', 'working', 'Checking OpenCode before starting Kimaki')
+    opencode = new OpenCodeService({ cwd, env })
+    const ownership = await opencode.start(startup.signal)
+    console.log(ownership === 'started' ? 'Started OpenCode; it will stop after owned Kimaki exits.' : 'Reusing running OpenCode; it will be left running.')
   }
   if (!stopped) {
     progress('backend', existing.backend ? 'ready' : 'working', existing.backend ? 'Connected to the running dashboard' : 'Starting the dashboard backend')
@@ -61,5 +70,15 @@ try {
       process.exitCode = active ? await active.done : await new Promise(resolve => { finishIdle = resolve; if (stopped) resolve(0) })
     } finally { clearInterval(poll) }
   }
-} catch (error) { console.error(error.message); process.exitCode = 1; active?.stop(1); await active?.done }
-finally { clearInterval(watchdog); process.off('SIGINT', stop); process.off('SIGTERM', stop) }
+} catch (error) {
+  if (!stopped) { console.error(error.message); process.exitCode = 1 }
+  active?.stop(stopped ? 0 : 1)
+  await active?.done
+}
+finally {
+  clearInterval(watchdog)
+  active?.stop()
+  await active?.done
+  await opencode?.stop()
+  process.off('SIGINT', stop); process.off('SIGTERM', stop)
+}
