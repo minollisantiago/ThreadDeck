@@ -1,6 +1,7 @@
 // Startup-only fork retries. Never evict a bot, replay prompts, or adopt ownership
 // of a process discovered on the lock port. The parent still owns OpenCode/backend.
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import { promisify } from 'node:util'
 import { access, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
@@ -59,6 +60,17 @@ export async function probeKimaki(env = process.env, signal) {
 function groupAlive(pid) {
   try { process.kill(-pid, 0); return true } catch (error) { if (error.code === 'ESRCH') return false; throw error }
 }
+export async function processGroup(pid, { platform = process.platform, read = readFile, run = promisify(execFile) } = {}) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return null
+  try {
+    let group
+    if (platform === 'linux') {
+      const stat = await read(`/proc/${pid}/stat`, 'utf8')
+      group = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[2])
+    } else group = Number((await run('ps', ['-o', 'pgid=', '-p', String(pid)], { timeout: 1000 })).stdout.trim())
+    return Number.isSafeInteger(group) && group > 0 ? group : null
+  } catch { return null }
+}
 export function spawnKimaki(command, { cwd, env = process.env, graceMs = 2500 } = {}) {
   const [binary, ...args] = command
   const child = spawn(binary, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
@@ -84,12 +96,7 @@ export function spawnKimaki(command, { cwd, env = process.env, graceMs = 2500 } 
   }
   return { done, stop, get result() { return result }, get permanentFailure() {
     return /invalid (?:bot )?token|tokeninvalid|authentication failed|unauthorized|no bot configured|no (?:saved )?credentials|invalid .*config|configuration error/i.test(output)
-  }, async owns(pid) {
-    try {
-      const stat = await readFile(`/proc/${pid}/stat`, 'utf8')
-      return Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[2]) === child.pid
-    } catch { return false }
-  } }
+  }, async owns(pid) { return await processGroup(pid) === child.pid } }
 }
 
 export async function startPreferredKimaki({ cwd, env = process.env, args = [], signal = new AbortController().signal,
@@ -146,8 +153,8 @@ export async function startPreferredKimaki({ cwd, env = process.env, args = [], 
         if (state.running && !await owned.owns(state.pid)) {
           // --if-not-running never evicts a race winner, and neither do we.
           await owned.stop()
-          const running = await waitForExisting(state)
-          if (running) return running
+          const concurrent = await probe(env, signal)
+          if (concurrent.running) { const running = await waitForExisting(concurrent); if (running) return running }
           break
         }
         if (state.ready && (state.mode === candidate.mode || candidate.mode === 'regular') && !owned.result) {

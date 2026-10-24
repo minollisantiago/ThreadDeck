@@ -58,4 +58,4 @@ await promisify(execFile)(process.execPath, ['--check', path.join(fork, 'dist/ma
 await promisify(execFile)(process.execPath, [path.join(fork, 'dist/cli.js'), '--help'], { timeout: 30_000, maxBuffer: 2 * 1024 * 1024 })
 const manifest = { upstreamVersion: version, protocol: 1, cli: path.join(fork, 'dist/cli.js'), hash }
 await writeFile(path.join(data, 'kimaki-fork.json'), JSON.stringify(manifest, null, 2), { mode: 0o600 })
-console.log(`Local fork prepared: ${manifest.cli}\nRunning Kimaki was NOT changed or restarted. Use npm run kimaki:local only after stopping it yourself.`)
+console.log(`Local fork prepared: ${manifest.cli}\nRunning Kimaki was NOT changed or restarted. Launchers prefer this fork when starting a missing bot; existing bots are reused. Stop the current bot yourself only when deliberately switching versions.`)

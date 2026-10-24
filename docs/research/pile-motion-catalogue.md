@@ -2,6 +2,14 @@
 
 Research date: **2026-10-21**. **Research and proposal only; no application behavior changed.**
 
+This is a historical source catalogue at the pinned baseline below, not the current
+feature inventory. ThreadDeck now includes the approved Stream workspace, scoped
+shortcut/command help, and fork-first desktop startup. Existing collapse/popover
+and selective-results motion have their own regression coverage; proposed timings
+here are not claims about today's code. See [current app behavior](../../README.md)
+and [local chat limits](../local-chat.md). The original source observations remain
+unchanged so their citations can still be checked against the research baseline.
+
 Reading order: [recommendation](#recommendation) · [current ThreadDeck surfaces](#threaddeck-baseline) · [implementation map](#proposed-implementation-map) · [motion policy](#motion-vocabulary-and-architecture) · [acceptance checks](#acceptance-checks-for-an-implementation) · [Pile source catalogue](#pile-source-catalogue).
 
 ## Recommendation

@@ -5,6 +5,26 @@ conversations. Group threads by project or state; keep Discord available alongsi
 the desktop conversation. Chat requires the prepared local Kimaki fork: see
 [local chat setup and current limits](docs/local-chat.md).
 
+## Quick start
+
+From your WSL checkout:
+
+```sh
+npm install
+npm run kimaki:prepare  # isolated, pinned fork; does not restart a running bot
+npm run desktop:install # install/refresh the Windows desktop and Start menu shortcuts
+```
+
+Open the **ThreadDeck** shortcut. It reuses a healthy running bot; otherwise it
+tries the prepared fork up to **3 times total**, then regular Kimaki once. Missing
+fork preparation skips directly to regular Kimaki. Fallback preserves the manager
+and Discord access, but disables desktop chat; the native title bar shows
+**REGULAR · CHAT OFF**. Each friend needs their own Kimaki setup and credentials.
+
+Guides: [local chat and limitations](docs/local-chat.md) ·
+[Windows startup, fallback and logs](docs/windows-launcher.md) ·
+[product decisions and remaining work](docs/chat-client-plan.md).
+
 ## Stack
 
 Vite, React, TypeScript, Tailwind CSS and shadcn/ui-style source components,
@@ -19,6 +39,17 @@ with a lightweight Node.js backend. Node 24+ is required.
   The existing history index searches user/assistant text, titles and word prefixes.
   The existing `/` shortcut still focuses the dashboard filter. History search is
   independent of dashboard filters and its recent-300-session inventory.
+- The hamburger's **keyboard icon** opens Keybinds and **Commands & skills**.
+  The searchable catalog comes from the selected conversation's project, includes
+  descriptions and exact slash syntax, and lists only app-invokable commands.
+  Bot-management commands and interaction answers still require Discord. Both
+  help sections keep a stable dialog size; longer content scrolls inside it.
+- Enter adds a newline. **Ctrl+Enter** sends now (interrupting a working turn);
+  **Ctrl+Shift+Enter** queues. On macOS, ⌘ also works for these Ctrl bindings.
+- The conversation initially loads the latest **50 published Discord messages**.
+  **Load earlier messages** pages backward in batches of 50, including messages
+  from before the fork was installed. Only follow live output at the bottom;
+  otherwise use **New messages**. Deleted/ephemeral messages cannot be recovered.
 - A private local SQLite FTS5 index lives at `~/.local/share/threaddeck/search.sqlite`
   (`THREADDECK_DATA_DIR` overrides its directory). The first background sync pages
   through linked conversation history; results appear progressively. Every minute,
@@ -36,8 +67,9 @@ with a lightweight Node.js backend. Node 24+ is required.
 - Working, Attention and Recent activity (last 24 hours) filters work in both views.
 - Active sessions is the default: working threads, requests needing attention and
   locally unread responses stay visible; All sessions also reveals idle threads.
-- Completed assistant responses are marked **Unread** until opened from ThreadDeck
-  or acknowledged with the row's Unread button. Unread counts appear on projects
+- Completed assistant responses are marked **Unread** until viewed at the bottom
+  of the loaded conversation or acknowledged with the row's Unread button. Opening
+  a thread alone does not acknowledge an as-yet-unloaded response. Counts appear on projects
   and unread threads also appear under Attention. Merely expanding a project does
   not mark its threads read.
 - **Mark all as read** clears unread flags across all loaded projects, including
@@ -78,16 +110,23 @@ On shutdown it waits for owned Kimaki/backend processes to exit, then stops only
 the OpenCode process it started. Pre-existing and replacement services are never
 adopted or stopped. Cancelling startup also cleans up an owned OpenCode process.
 
-Stop a previously launched Kimaki yourself before switching to this command.
-The launcher uses `--if-not-running` so it never replaces an already running bot;
-if one exists, Kimaki exits and the dashboard stops too. No existing bot is
-restarted or reconfigured by installing this launcher. If Kimaki is reused, the
-launcher leaves its OpenCode service completely alone as well.
+Bot startup prefers the prepared **Kimaki 1.4.0** fork and verifies both bot and
+chat-bridge readiness. It tries at most three fork starts with 1s/2s backoff, cleans
+up each owned attempt, then tries regular `kimaki@latest` once. Known authentication
+or configuration errors skip repeated fork attempts. A healthy existing bot is
+reused regardless of version; an unready external bot is left untouched, not killed
+to make room. Retries apply only to startup, never to chat submissions or a running
+bot's later crash. See [the startup flow](docs/windows-launcher.md).
+
+Use `npm run kimaki -- --reuse-existing` to reuse an existing backend as well.
+The desktop launcher checks for both services automatically. No existing bot is
+restarted by setup. To deliberately switch an already-running bot, stop its owning
+launcher first. Reused Kimaki and its OpenCode service are left alone on exit.
 
 Extra Kimaki options can be passed with `npm run kimaki -- --no-analytics`.
 The launcher adds `~/.kimaki/bin` to PATH for the dashboard's CLI access.
-Run `npm install` once before first use. This launcher requires Linux/macOS
-(including WSL) for process-group cleanup.
+Run `npm install` once before first use. Shared launchers require Linux/macOS
+(including WSL) for process-group cleanup; the native Windows app runs from WSL.
 
 ## Windows desktop app (from WSL)
 
@@ -108,10 +147,12 @@ npm run kimaki:desktop
 npm run kimaki:desktop -- --no-analytics
 ```
 
-This builds the app and starts the WSL dashboard backend, Kimaki and the Windows
-window together. Closing the window, Ctrl+C, or any owned process exiting stops
-the others. Stop an earlier Kimaki launcher yourself first; this command never
-replaces an existing bot. No Kimaki or OpenCode services are restarted by setup.
+This checks/reuses existing services, builds if needed, and starts the WSL backend,
+fork-first bot startup and Windows window together. Closing the window, Ctrl+C, or
+any owned process exiting stops the other owned processes, not reused services.
+`npm run kimaki:local -- --desktop` also selects the prepared manifest explicitly;
+the usual shortcut and `kimaki:desktop` already prefer it without that extra step.
+No Kimaki or OpenCode services are restarted by setup.
 
 - Opens **430 pixels wide**, filling the primary display's usable height (taskbar
   stays visible), ready to sit beside Discord. The starting width is also its
@@ -120,12 +161,15 @@ replaces an existing bot. No Kimaki or OpenCode services are restarted by setup.
   Maximize fills the desktop; **Restore** returns to narrow, full-height mode on
   the current display. Minimize is the normal Windows taskbar action, not Restore.
 - Discord links open in the Windows Discord app or default browser, never inside
-  the dashboard window. Browser and desktop have separate local preferences and
+  the dashboard window. Explicit Markdown HTTPS links open in the external browser;
+  credentials, unsafe schemes and preview navigation are not allowed. Browser and desktop have separate local preferences and
   unread receipts; these do not migrate or sync.
 - Requires WSL Windows interop and localhost forwarding (the WSL defaults), plus
   Windows PowerShell. The first run downloads the matching Windows Electron
   runtime, verifies its checksum, and caches it in `%LOCALAPPDATA%\ThreadDeck`.
   Only the desktop shell is copied there; the backend and project data stay in WSL.
+  Rerun `npm run desktop:install` after pulling native-shell updates so the installed
+  shortcut picks up the new shell as well as the WSL code.
   No Windows Node.js install is needed. This is a launcher, not an installer/MSI.
 - `PORT` is forwarded to the desktop app. The backend stays loopback-only; do not
   expose it publicly. If Windows cannot reach it, check WSL localhost forwarding.
@@ -168,7 +212,7 @@ No Discord token or OpenCode credential is sent to the browser.
 
 ### Live updates
 
-ThreadDeck subscribes to OpenCode lifecycle, status, form and permission events,
+**Manager state:** ThreadDeck subscribes to OpenCode lifecycle, status, form and permission events,
 coalesces bursts for 150 ms, and pushes full snapshots to dashboard windows over
 server-sent events (`/api/events`). Token deltas do not trigger expensive refreshes.
 One upstream subscription serves all windows; a 30-second reconciliation refresh
@@ -182,6 +226,13 @@ with stale/disconnected status. Both endpoints remain read-only and loopback-onl
 Quiet streams do not imply an outage: the UI allows 75 seconds (two reconciliation
 cycles plus request headroom) before marking a silently frozen snapshot stale.
 Explicit source or dashboard-transport failures are still shown immediately.
+
+**Conversation content:** the fork reads actual Discord REST message pages and
+Gateway message create/update/delete events. The browser follows these through
+bounded long polls on `/api/chat/threads/:threadId/changes`; expired cursors or
+connection epochs cause a fresh snapshot. No raw model token stream is substituted.
+The local backend proxies only supported, validated chat operations and attachment
+reads; it alone handles the lock credential. Details: [local chat](docs/local-chat.md).
 
 ### Troubleshooting: disconnected with existing sessions
 
@@ -207,16 +258,23 @@ ThreadDeck needs restarting; do not restart Kimaki or OpenCode for this issue.
   Native child agents roll up into the owning Discord thread.
 - The latest 300 OpenCode sessions are inventoried every 30 seconds. Projects are
   rediscovered every minute. Only Discord-linked conversations in registered
-  Kimaki projects appear. This is a recent switchboard, not a full history browser.
+  Kimaki projects appear. This is the recent manager inventory, separate from the
+  conversation finder/history index and paginated Discord thread history.
 - Project association prefers the Kimaki channel, so linked worktrees remain under
   their original project. Directory matching is a fallback, not project-ID matching.
 - Forms and permissions supply optional attention badges. Ordinary Discord
   questions/buttons are not inferred. Idle is not completion.
 - A failed source check preserves the previous rows as stale, never as newly idle.
-- The latest assistant message is checked for a completed text response when a
-  thread settles, cached until its session updates. Message bodies are not stored
-  or sent to the browser; only the completion timestamp is exposed for unread tracking.
-- No Git history, database access, or service mutations are used.
+- For manager unread tracking, the latest assistant message is checked for a
+  completed text response when a thread settles; only its completion timestamp is
+  exposed in the manager snapshot. Actual Discord message bodies are fetched
+  separately for the selected chat. The local search index stores searchable
+  user/assistant harness text; search excerpts are not a published transcript.
+- Text drafts, selections, layout preferences, unread receipts and pending-operation
+  guards live in browser storage. Upload staging, the search index and fork receipts
+  live locally on disk. See [limits and maintenance](docs/local-chat.md).
+- Manager endpoints remain read-only. Chat endpoints are explicit writes through
+  Kimaki; ThreadDeck does not directly prompt OpenCode or read Kimaki's database.
 
 The local backend is loopback-only and rejects foreign Host/Origin headers.
 Do not expose it through a public tunnel: session titles are personal data.

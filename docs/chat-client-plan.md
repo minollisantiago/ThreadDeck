@@ -1,10 +1,12 @@
 # ThreadDeck as a keyboard-first Kimaki client
 
-Status: agreed product decisions consolidated on 2026-10-24; implementation pending.
+Status: agreed product decisions consolidated on 2026-10-24; Stream UI and the first
+local bridge slice are implemented. This document includes target behavior beyond
+the current release. See [current behavior and limits](local-chat.md).
 
 ## Feasibility result
 
-The installed Kimaki 1.4.0 does not expose a supported delivered-message history,
+The unmodified Kimaki 1.4.0 baseline does not expose a supported delivered-message history,
 live message-change feed, or interaction-answer interface. Ordinary CLI sends also
 do not necessarily publish a corresponding user message in Discord. Therefore the
 full experience below cannot currently be implemented using existing supported
@@ -12,9 +14,9 @@ interfaces alone. Do not proceed by substituting raw OpenCode messages.
 
 Agreed approach: maintain a local Kimaki fork with a small client bridge for canonical
 input publication, linked-thread snapshots/deltas, typed interaction actions, and
-project-aware command/skill discovery. No Kimaki modification is implemented by
-this document. Dashboard/composer fixture work can be independent,
-but does not resolve the transport gate.
+project-aware command/skill discovery. A pinned, isolated local fork now implements
+published-message history/deltas, canonical input and typed command/skill routing.
+Shared interaction-answer semantics remain follow-up work, not a bypass to OpenCode.
 
 ## Product boundary
 
@@ -26,24 +28,24 @@ but does not resolve the transport gate.
   callouts, and interactive actions; visual styling can differ from Discord.
 - Reuse existing infrastructure through an explicit interface in the local fork.
   Do not have ThreadDeck read Kimaki's database, scrape Discord's UI,
-  expose bot credentials to the browser, or import undocumented internals as a
-  production integration.
+  expose bot credentials to the browser, or import Kimaki internals into ThreadDeck.
+  The version-pinned fork adapter owns its explicit coupling to Kimaki internals.
 - No second model runtime or agent loop. Chat components are presentation only.
 
 See [Kimaki integration research](research/kimaki-chat-integration.md) for the
 receive-side feasibility findings and capability gaps.
 
-The proposed local-fork interface is drafted in
-[Kimaki client bridge design](kimaki-client-bridge-design.md). It is not implemented;
-upstream acceptance is not a requirement.
+The target local-fork interface and its differences from the implemented contract
+are recorded in [Kimaki client bridge design](kimaki-client-bridge-design.md).
+Upstream acceptance is not a requirement.
 
 ## Existing ThreadDeck seams
 
 - `server/source.ts`: authenticated OpenCode discovery, event subscription, and
   session status. This is useful for dashboard status, not Discord message parity.
 - `shared/model.ts`: session identity already includes `threadId` and `guildId`.
-- `server/http.ts`: read-only GET routes and snapshot SSE. Writes require explicit
-  routes, validated bodies, size limits, origin protection, and session allowlists.
+- `server/http.ts`: read-only manager routes and snapshot SSE. `server/chat.ts`
+  provides validated chat writes, history/deltas and restricted attachment reads.
 - `server/index.ts`: loopback-only backend; keep credentials and file fetching here.
 - `src/App.tsx`: dashboard state and global shortcuts. Preserve grouping/filtering
   behavior while introducing a selected conversation and scoped keyboard handling.
@@ -51,12 +53,12 @@ upstream acceptance is not a requirement.
   can be reused conceptually; search results should open the internal conversation
   with a secondary Discord action. Existing history search indexes OpenCode text,
   so its excerpts are not proof of Kimaki-delivered content.
-- `electron/policy.cjs` and `electron/preload.cjs`: external handoffs currently allow
-  Discord links only. General Markdown links and attachment downloads need an
-  explicit safe navigation policy, not a blanket relaxation of Electron security.
+- `electron/policy.cjs` and `electron/preload.cjs`: allow Discord handoffs plus
+  explicitly marked, credential-free HTTPS Markdown links in the external browser.
+  Attachment downloads stay behind the local backend; preview content has no
+  privileged Electron bridge or navigation authority.
 
-These are observations of the current code, not instructions to overwrite current
-uncommitted dashboard work.
+These seams keep the manager/status transport distinct from the published transcript.
 
 ## Conversation UI
 
@@ -69,7 +71,8 @@ Keep the current narrow manager-only view and project/state grouping. Use only o
 conversation pane. In a wide chat workspace, the manager is a collapsible sidebar
 with a draggable divider, capped at 40% of usable app width and further constrained
 by the minimum usable chat width. Remember sidebar width and collapsed preference.
-Exact dimensions/breakpoint will be validated in the prototype.
+Current geometry uses a 430px minimum sidebar and switches to the drawer below
+1080px, preserving the 40% cap in wide mode.
 
 In narrow windows, chat fills the window and the manager opens as an overlay drawer.
 The 40% cap does not apply to this drawer. Selecting a session closes it. Opening
@@ -115,7 +118,9 @@ for presentation without adopting a second agent runtime.
 
 ### Keyboard scopes
 
-Use a central action registry shared by shortcut help and the command palette.
+Target: use a central action registry shared by shortcut help and the command palette.
+Current shortcut help is maintained alongside the handlers; consolidating that
+registry and the remaining navigation actions is follow-up work, not implemented.
 Prioritize focused controls, editor/Vim, modal dialogs, then application shortcuts.
 Ignore composition events, preserve native accessibility, and avoid stealing
 browser/Electron shortcuts. No Vim-style navigation in chat or the manager.
@@ -129,6 +134,13 @@ Agreed bindings:
 | `Ctrl+Tab` | Open fuzzy session finder in desktop |
 | `Ctrl+K` | Open fuzzy session finder in desktop and browser |
 | Double Space | Additional finder shortcut outside editable fields/controls |
+| `Ctrl+Enter` | Send now from composer (interrupt if working) |
+| `Ctrl+Shift+Enter` | Queue from composer |
+
+The hamburger's keyboard icon opens **Keybinds / Commands & skills**. Commands and
+skills are fetched for the selected conversation's project, with searchable
+descriptions and exact invocation syntax. Both sections keep a stable, responsive
+dialog height. Bot-management commands are not app-invokable; use Discord for them.
 
 The composer chord accepts a quick second P with Ctrl either held or released;
 consume it without inserting P. The first press focuses the composer immediately.
@@ -213,7 +225,14 @@ code or access privileged resources.
 
 The approved Stream direction now has a first production slice: see
 [local chat setup and remaining limits](local-chat.md). The local fork has been
-prepared separately; activation and live Discord tests remain explicit gates.
+prepared separately and activated with user approval. A first-prompt publication,
+real model reply and history readback passed in a disposable Discord thread; broader
+live acceptance checks above are not all complete.
 Native interaction answers and queue editing are still deferred, not silently
 implemented through raw harness calls. The earlier
 [fixture prototype](chat-workspace-prototype.md) remains an experimental reference.
+
+The installed Electron launcher now reuses healthy existing bots, otherwise prefers
+the prepared fork for up to three startup attempts before falling back once to
+regular Kimaki. It cleans up owned attempts, verifies bridge readiness, and reports
+fallback visibly without discarding drafts. See [launcher policy](windows-launcher.md).

@@ -2,6 +2,13 @@
 
 Research date: **2026-10-20**. Research only; no application changes.
 
+Historical inspiration for the then-read-only manager. ThreadDeck now also has a
+separately implemented Stream conversation pane, local Kimaki bridge, keybind and
+command help, and fork-first desktop startup. References to a read-only app below
+describe that research baseline, not the current chat feature set. The narrow
+manager's typography, surfaces and grouping remain the visual source of truth;
+see [current app behavior](../../README.md) and [chat limits](../local-chat.md).
+
 ## Recommendation, ranked
 
 1. **Project cockpit cards in a responsive grid.** Keep the charcoal surfaces, pastel state accents, and mono typography. Make each project a distinct visual container with its name/icon, small state-count chips, and **visible titled sessions**, not an accordion that conceals the useful information. Borrow the nested-card hierarchy in reference 1, not its analytics. Two columns on roomy screens, one on narrow screens; prefer predictable reading order over masonry.

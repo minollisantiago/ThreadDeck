@@ -3,7 +3,7 @@ import { createServer } from 'node:http'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { preparedFork, probeKimaki, spawnKimaki, startPreferredKimaki } from './kimaki-launcher.mjs'
+import { preparedFork, probeKimaki, processGroup, spawnKimaki, startPreferredKimaki } from './kimaki-launcher.mjs'
 
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
@@ -89,6 +89,14 @@ describe('fork-first Kimaki startup', () => {
     await expect(startPreferredKimaki(f.options)).rejects.toThrow('Refusing to start a second bot')
     expect(f.commands).toHaveLength(1)
   })
+  it('reprobes a raced or vanished lock holder after cleanup rather than reusing stale readiness', async () => {
+    const f = fixture([{ ready: true }, { ready: true }])
+    const launch = f.options.launch
+    f.options.launch = command => { const child = launch(command); if (f.children.length === 1) child.owns.mockResolvedValue(false); return child }
+    const running = await startPreferredKimaki(f.options)
+    expect(running.reused).toBe(false); expect(f.commands).toHaveLength(2)
+    await running.stop()
+  })
   it('aborts backoff without launching a fallback bot', async () => {
     const f = fixture([{ crash: true }])
     f.options.wait = async () => { f.controller.abort(); f.controller.signal.throwIfAborted() }
@@ -116,6 +124,13 @@ describe('fork-first Kimaki startup', () => {
 })
 
 describe('prepared fork and live probe (fake HTTP only)', () => {
+  it('checks process-group ownership on Linux and macOS without shell interpolation', async () => {
+    expect(await processGroup(123, { platform: 'linux', read: async () => '123 (a name with ) parentheses) S 1 456 0' })).toBe(456)
+    const run = vi.fn(async () => ({ stdout: ' 456\n' }))
+    expect(await processGroup(123, { platform: 'darwin', run })).toBe(456)
+    expect(run).toHaveBeenCalledWith('ps', ['-o', 'pgid=', '-p', '123'], { timeout: 1000 })
+    expect(await processGroup(-1, { platform: 'darwin', run })).toBeNull()
+  })
   async function directory() {
     const root = await mkdtemp(path.join(tmpdir(), 'threaddeck-launcher-'))
     cleanups.push(() => rm(root, { recursive: true, force: true })); return root

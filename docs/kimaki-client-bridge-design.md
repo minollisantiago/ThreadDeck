@@ -1,8 +1,44 @@
 # Kimaki client bridge
 
-Status: proposed interface for a maintained local Kimaki fork. Nothing here is an existing supported interface
-or an implemented feature. No Kimaki fork, installation change, or restart is
-part of this proposal.
+Status: **target design**, not an upstream supported API or a complete description
+of the shipped slice. The local Kimaki 1.4.0 fork now implements published history,
+deltas, typed prompt/command/skill delivery and receipts. Native interaction answers
+remain deferred. The REST/SSE tables below retain the original proposed contract;
+use [local chat setup and limits](local-chat.md) for the current implementation.
+
+## Implemented contract versus this proposal
+
+- Tracked fork code lives in `integrations/kimaki/`; `scripts/prepare-kimaki-fork.mjs`
+  creates a separate, hashed installation. No npx cache is patched and preparing
+  it does not restart the bot. The normal launcher now prefers this prepared fork,
+  with three startup attempts then a visible regular-bot fallback.
+- Current transport is authenticated **POST `/kimaki/client.<operation>`** on the
+  existing lock listener, not the proposed GET/SSE namespace. Operations are
+  `info`, `threads`, `snapshot`, `changes`, `submit`, `operation`, `catalog`, `file`,
+  and `abort`. `info.protocol` is 1; `info.ready` checks Discord/OpenCode readiness.
+- `snapshot` uses 50-message Discord pages. `changes` is a 20s bounded long poll
+  with epoch/cursor resync. `threads` currently returns linked thread/session IDs;
+  the existing manager source still supplies project/title/status information.
+- `submit` accepts typed `prompt`, `command` or `skill` payloads, new-project or
+  linked-thread targets, explicit send/queue delivery and a UUID request ID.
+  Receipts also include `creating`; uncertain side effects become `unknown` and
+  are not automatically replayed. Receipt persistence is a dedicated local SQLite
+  journal; there is currently no automatic receipt expiry/retention pruning.
+- Catalogs list commands and skills only, not agents/models or argument schemas.
+  The help dialog exposes the selected project's catalog. Skills cannot be queued.
+  Forms, buttons, permissions, upload-request continuations, queue editing and
+  actor-scoped private feedback are not advertised as implemented capabilities.
+- The backend uses the existing broad owner lock credential, not the proposed
+  limited-client credential exchange. It never exposes that credential to the
+  browser. Loopback plus Host/Origin checks do not authenticate other local OS
+  processes; use only on a trusted workstation.
+- Browser uploads are bounded raw binary requests to ThreadDeck, not multipart
+  uploads directly to the bot. Opaque staged IDs map to private files with safe
+  media extensions. No automatic upload expiry removes paths an agent may use.
+  Actual limits and maintenance are documented in [local chat](local-chat.md).
+
+The rest of this document records intended guarantees and future seams; it must
+not be read as proof that all proposed actions or acceptance gates have shipped.
 
 ## 1. Decision and scope
 

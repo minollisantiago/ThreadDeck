@@ -2,6 +2,16 @@
 
 Investigated: 2026-10-23. **Installed Kimaki 1.4.0 is the authority for this assessment**, not a hypothetical API or current upstream main. Scope: ThreadDeck is a UX layer over Kimaki, OpenCode remains the harness, and only Kimaki-linked sessions are eligible.
 
+**Historical audit of unmodified upstream 1.4.0.** The limitations/citations below
+still describe that baseline, not the subsequently implemented downstream fork.
+ThreadDeck now has a separately prepared local bridge for published history/deltas,
+canonical input and typed commands/skills; one live first-prompt/reply/readback test
+has passed. Interaction answers remain Discord-only. Startup now prefers the fork
+with bounded retries and explicit regular-bot fallback. See [current setup and
+limits](../local-chat.md) and [launcher policy](../windows-launcher.md). The research
+recommendation to seek an upstream bridge was superseded by the agreed local-fork
+approach; no upstream contribution or approval is required.
+
 ## Decision
 
 **NO-GO for a complete, faithful, interactive chat replacement using only the installed supported Kimaki interfaces.** Kimaki has supported automation commands and a real localhost command IPC, but no exposed Discord-history API, message-change subscription, or client action submission API. `session read`, transcripts, and recorded events are OpenCode data, **not the messages Discord actually shows**. Re-rendering them would violate the requirement. [S1–S5]

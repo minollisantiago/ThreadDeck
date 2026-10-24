@@ -2,6 +2,8 @@
 
 This is the first production slice, on `prototype/kimaki-chat-workspace`.
 The running Kimaki installation is not modified or restarted by preparing it.
+The normal Windows launcher now prefers this fork automatically when it needs to
+start a bot, with bounded retries and an explicit regular-bot fallback.
 
 ## Implemented
 
@@ -11,11 +13,17 @@ The running Kimaki installation is not modified or restarted by preparing it.
   Ctrl+K opens fuzzy session search; desktop also supports Ctrl+Tab. The existing
   history index remains available from the finder. New conversation chooses a
   registered project before the first prompt creates its linked thread/session.
+- The hamburger's keyboard button opens **Keybinds / Commands & skills**. The live
+  project catalog is searchable, shows descriptions and exact invocation syntax,
+  and never advertises unsupported bot-management commands as app actions. Empty,
+  loading and failure states keep the same dialog height as the keybinds section.
 - Versioned, same-origin backend routes. Only the backend reads Kimaki's local
   lock token; the browser never receives bot or lock credentials.
 - Published Discord-message snapshots, pagination, long-polled Gateway changes,
   edits, deletions, Components V2 text/callouts and ordered file attachments.
   No raw OpenCode transcript is substituted when the bridge is unavailable.
+  Opening an existing thread fetches its latest 50 published messages; **Load
+  earlier messages** pages backward by 50, including history predating installation.
 - Plain prompts, native queue submission, native project commands and typed skill
   invocation through Kimaki. Skills that cannot be queued are explicitly rejected.
 - Canonical bot-authored input messages attributed to the local operator, published
@@ -50,7 +58,8 @@ The first version uses Kimaki's existing authenticated POST lock transport, with
 `client.operation`, `client.catalog`, `client.file`, `client.threads`, and
 `client.abort`. This is a concrete local-fork contract, not the hypothetical REST
 route list in the original design proposal. `info.protocol` is 1; capabilities
-never advertise native interaction answers.
+never advertise native interaction answers. Current prepared builds also expose
+`info.ready`, requiring a ready Discord client and connected OpenCode.
 
 ## Prepare without activation
 
@@ -83,26 +92,65 @@ membership only; input remains bot-authored and attributed to the local operator
 Without it, join the new thread in Discord manually if it is absent from your
 sidebar. Membership still depends on Discord/guild permissions.
 
-## Activation is a separate, deliberate step
+## Launch, reuse and fallback
 
-Stop the existing dashboard/Kimaki launcher yourself, then run one of:
+For the installed Windows app, run `npm run desktop:install` to refresh the native
+shell and shortcuts, then open **ThreadDeck** normally. Or launch from the WSL
+project directory:
 
 ```sh
+npm run kimaki:desktop
+# Explicitly select the prepared local manifest:
 npm run kimaki:local
 npm run kimaki:local -- --desktop
 ```
 
-These build the dashboard and start the prepared fork, preserving the existing
-`--if-not-running` safety. They do not evict a running bot. Do not run both old and
-new launchers concurrently. The Windows installed shortcut is not automatically
-rewired by preparation; use the explicit local command until that launcher has
-been updated deliberately. No remote/upstream contribution is required.
+The installed shortcut and shared terminal launchers use the fork-first startup
+wrapper. They reuse a healthy running bot, including a regular one, rather than
+replacing it. The desktop launcher also reuses an existing backend. To deliberately
+switch versions, stop the current bot's owning launcher yourself first, while idle.
 
-Activation changes the bot process and refreshes Kimaki's normal CLI/plugin shim;
-it must not be performed silently during a Discord session. A live Discord smoke
-test (one authorized test project/thread, first prompt, queue, screenshot, and
-continuation from both clients) still needs to be performed after activation.
-Unit/browser fixtures are not evidence of a live model turn.
+If no bot is running, try the prepared fork up to **3 times total**, with 1s/2s
+backoff and owned-process cleanup. Bot and bridge readiness are checked, not just
+process creation. Missing/incompatible preparation skips directly to regular
+Kimaki; known auth/config errors skip redundant fork retries. Regular Kimaki gets
+one startup attempt. If it also fails, startup shows an error. An unready external
+bot is left untouched, not terminated to enable fallback.
+
+The native shortcut shows **Running regular Kimaki—desktop chat unavailable**
+during fallback and **REGULAR · CHAT OFF** in the title bar after handoff. Manager
+and Discord access remain available, as does drafting; no raw OpenCode transcript
+or unmirrored chat submission is substituted. Terminal launchers report the mode
+in their startup output. Full process/readiness details: [Windows launcher](windows-launcher.md).
+
+Preparation never replaces a running fork. Starting a newly selected bot refreshes
+Kimaki's normal CLI/plugin shim. Do not switch a live bot silently during a session.
+No upstream contribution is required, and no credentials are bundled with the fork.
+
+### Roll back to regular Kimaki
+
+Stop the fork's owning launcher while idle, then use the ordinary upstream command:
+
+```sh
+npx --yes kimaki@latest --gateway
+```
+
+Then open ThreadDeck; it reuses that regular bot rather than preferring a second
+fork process. Discord threads, saved drafts and receipt files remain on disk.
+Regular Kimaki does not expose the chat bridge or interpret fork delivery receipts.
+Do not clear an uncertain submission guard without checking its Discord outcome.
+
+### Verification so far
+
+A user-authorized live smoke test created a linked thread, published an attributed
+ThreadDeck prompt, submitted it through Kimaki, received the exact model reply,
+and read that reply back as an actual Discord message:
+[test conversation](https://discord.com/channels/1526236793048141935/1563511148848881844).
+That is evidence of the basic live path, not full interaction parity. Live queue,
+attachment, reconnect, and bidirectional continuation checks remain broader smoke
+test work; questions/buttons/permissions are explicitly still Discord-only.
+Launcher retries/fallback and cancellation are tested offline, not by repeatedly
+restarting the production bot. Unit/browser fixtures do not prove a live model turn.
 
 ## Local limits and maintenance
 
@@ -131,7 +179,9 @@ Unit/browser fixtures are not evidence of a live model turn.
 npm test
 npm run test:desktop
 npm run test:chat:browser
+npm run test:browser
 npm run kimaki:prepare
+npm run kimaki:test
 ```
 
 Browser checks use a static asset server and synthetic HTTP responses, not the
@@ -143,3 +193,5 @@ prompt/skill/queue code against in-memory transports and a private scratch folde
 Legacy dashboard visual checks mount the real Dashboard in a test-only standalone
 entry to preserve its previous wide/narrow component contract. The Stream checks
 exercise the actual production application entry and its compact sidebar context.
+`scripts/kimaki-launcher.test.js` verifies startup retries, race-safe reuse, cleanup,
+fallback, and cancellation, including a synthetic child with a fake lock/bridge.

@@ -2,6 +2,11 @@
 
 Branch: `prototype/kimaki-chat-workspace`. Throwaway, synthetic data only.
 
+This document describes the **fixture prototype**, not the production chat app.
+The approved Stream direction has since been implemented separately, connected to
+the local Kimaki bridge, and tested with a real first prompt/reply. Current setup,
+limitations, shortcuts help and launcher fallback: [local chat](local-chat.md).
+
 **Selected direction: A — Stream.** User approved the restyled Stream layout on
 2026-10-24. Preserve the existing ThreadDeck mobile sidebar and shared visual
 language. B/C remain prototype comparisons, not production requirements.
@@ -16,7 +21,8 @@ The sidebar is the existing narrow/mobile ThreadDeck design, not a new compact
 navigation treatment. It imports the real `styles.css`, uses the existing buttons,
 inputs, filters, session rows, project collapse/unread controls, state panels and
 optional islands view. Production mobile CSS is applied to the sidebar container
-even in a wide desktop window. Production dashboard files remain unchanged.
+even in a wide desktop window. Running this prototype does not mount or modify the
+production workspace; that workspace is implemented in separate `src/chat/` modules.
 
 Typography throughout the prototype uses the existing JetBrains Mono family and
 theme tokens; the experimental sans/serif transcript faces, tiny custom sidebar
@@ -92,12 +98,15 @@ lifecycle is being evaluated. Reset that scratch storage from Shortcuts.
 
 ## Validation and next decision
 
-Existing production build and 136 existing tests pass. Browser smoke exercises
+At the prototype approval checkpoint, the production build and 136 existing tests
+passed. Prototype browser smoke exercises
 cover chord focus/expansion, Vim Escape, fuzzy switching, retained drafts/reload,
 HTML return, uncertain delivery, narrow drawer and horizontal overflow. These are
 prototype checks, not production coverage of a Kimaki integration.
 
-Stream is the approved transcript direction. Validate remaining interaction
-details such as chord timing, then rewrite the chosen rendering for production.
-Do not promote this throwaway file directly or claim that its simulated controls
-prove the bridge works. No Kimaki installation/fork has been modified.
+Stream is the approved transcript direction and was rewritten for production,
+rather than mounting this throwaway file. Do not treat simulated queue editing or
+interaction controls here as evidence of production capabilities. Prototype/export
+commands still make no Kimaki changes; separate, user-authorized preparation and
+activation have since established the local fork. See the current test commands
+and live smoke-test scope in [local chat](local-chat.md).
