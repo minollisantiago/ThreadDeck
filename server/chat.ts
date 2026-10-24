@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { ChatError, submitSchema, threadIdSchema } from '../shared/chat.ts'
 import { trustedRequest } from './http.ts'
+import { inlineImageType } from '../shared/image.ts'
 
 export interface ChatBridge { call(route: string, input: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> }
 export function localChatBridge(): ChatBridge {
@@ -59,8 +60,8 @@ export function chatHandler(port: number, bridge = localChatBridge(), data = pro
           const file = z.object({ name: z.string(), type: z.string(), data: z.string().max(14_000_000) }).parse(await bridge.call('file', { threadId: attachment[1], messageId: attachment[2], attachmentId: attachment[3] }, controller.signal))
           const bytes = Buffer.from(file.data, 'base64')
           if (bytes.length > 10 * 1024 * 1024) throw new ChatError('too_large', 'Attachment is too large')
-          const inline = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)
-          response.setHeader('Content-Type', inline ? file.type : 'application/octet-stream')
+          const inline = inlineImageType(file.name, file.type)
+          response.setHeader('Content-Type', inline || 'application/octet-stream')
           response.setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
           response.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`)
           response.writeHead(200).end(bytes); return

@@ -37,6 +37,26 @@ it('makes unsupported interactions explicit rather than simulating an answer', (
   expect(screen.getByText('Accept Always')).toBeTruthy(); expect(screen.getByRole('link', { name: 'Respond in Discord' }).getAttribute('href')).toBe('https://discord.com/channels/1/2')
   expect(screen.queryByRole('button', { name: 'Accept Always' })).toBeNull()
 })
+it('renders gallery attachments by Discord attachment identity even when signed URLs differ', () => {
+  render(<PublishedMessages threadId={message.channel_id} preview={() => {}} discordUrl="https://discord.com/channels/1/2" messages={[{ ...message, attachments: [{ id: '100000000000000004', filename: 'preview.png', size: 100, content_type: 'image/png', url: 'https://cdn.discordapp.com/attachments/100000000000000001/100000000000000004/preview.png?ex=old' }], components: [{ type: 12, items: [{ media: { url: 'https://media.discordapp.net/attachments/100000000000000001/100000000000000004/preview.png?ex=new' }, description: 'Preview screenshot' }] }] }]} />)
+  expect(screen.getByRole('button', { name: 'Enlarge preview.png' })).toBeTruthy()
+  expect(screen.queryByText('View in Discord')).toBeNull()
+  expect(screen.getAllByRole('img')).toHaveLength(1)
+})
+it('shows image attachments without MIME metadata as thumbnails, not generic downloads', () => {
+  render(<PublishedMessages threadId={message.channel_id} preview={() => {}} messages={[{ ...message, attachments: [{ id: '100000000000000004', filename: 'preview.PNG', size: 100 }] }]} />)
+  expect(screen.getByRole('button', { name: 'Enlarge preview.PNG' })).toBeTruthy()
+})
+it('renders Discord-hosted gallery images without separate attachment metadata', () => {
+  const url = 'https://cdn.discordapp.com/attachments/100000000000000001/100000000000000004/preview.png'
+  render(<PublishedMessages threadId={message.channel_id} preview={() => {}} messages={[{ ...message, components: [{ type: 12, items: [{ media: { url } }] }] }]} />)
+  expect(screen.getByRole('img').getAttribute('src')).toBe(url)
+  expect(screen.getByRole('button', { name: 'Enlarge preview.png' })).toBeTruthy()
+})
+it('does not load arbitrary external media or active formats inline', () => {
+  render(<PublishedMessages threadId={message.channel_id} preview={() => {}} messages={[{ ...message, components: [{ type: 12, items: [{ media: { url: 'https://evil.example/preview.png' } }] }], attachments: [{ id: '100000000000000004', filename: 'unsafe.svg', size: 100, content_type: 'image/svg+xml' }] }]} />)
+  expect(screen.queryByRole('img')).toBeNull()
+})
 it('does not overwrite a draft saved by another editor', () => {
   const id = crypto.randomUUID(), a = renderHook(() => useDraft(id)), b = renderHook(() => useDraft(id))
   act(() => a.result.current.save({ text: 'Saved in first window' }))

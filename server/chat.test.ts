@@ -10,7 +10,7 @@ const servers: ReturnType<typeof createServer>[] = []
 const directories: string[] = []
 afterEach(async () => { await Promise.all(servers.splice(0).map(server => new Promise<void>(resolve => server.close(() => resolve())))); await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true }))) })
 async function setup(data?: string) {
-  const call = vi.fn(async () => ({ protocol: 1 }))
+  const call = vi.fn(async (): Promise<unknown> => ({ protocol: 1 }))
   const server = createServer(); servers.push(server)
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const port = (server.address() as AddressInfo).port
@@ -50,4 +50,16 @@ it('stages private files with safe media extensions and rejects path names', asy
   expect(metadata.path).toBe(`${file.id}.file.png`)
   expect((await stat(path.join(directory, 'uploads', metadata.path))).mode & 0o777).toBe(0o600)
   expect((await fetch(`${url}/api/chat/files?name=${encodeURIComponent('../escape.png')}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: 'x' })).status).toBe(400)
+})
+it('serves raster attachments inline without MIME metadata but keeps active content as downloads', async () => {
+  const { url, call } = await setup()
+  const endpoint = `${url}/api/chat/threads/100000000000000001/messages/100000000000000002/attachments/100000000000000003`
+  for (const [name, type, expected] of [['image.PNG', 'application/octet-stream', 'image/png'], ['unsafe.svg', 'image/svg+xml', 'application/octet-stream'], ['unsafe.png', 'text/html', 'application/octet-stream']]) {
+    call.mockResolvedValueOnce({ name, type, data: Buffer.from('synthetic bytes').toString('base64') })
+    const response = await fetch(endpoint)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe(expected)
+    expect(response.headers.get('content-disposition')).toMatch(expected === 'image/png' ? /^inline;/ : /^attachment;/)
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+  }
 })
