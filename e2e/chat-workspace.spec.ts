@@ -244,6 +244,58 @@ test('recovered pending prompts reconcile to published message identity without 
   await expect(page.locator('.chat-outgoing')).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('')
 })
+for (const expanded of [false, true]) test(`paste clipboard screenshots into the ${expanded ? 'expanded' : 'compact'} prompt`, async ({ page }) => {
+  await fixture(page)
+  const uploaded: string[] = []
+  await page.route('**/api/chat/files?*', route => {
+    const name = new URL(route.request().url()).searchParams.get('name')!
+    uploaded.push(name)
+    return route.fulfill({ status: 201, json: { id: `7c18b13a-6d07-419d-b54f-e8024fc9167${uploaded.length}`, name } })
+  })
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Review this crop')
+  if (expanded) await page.getByRole('button', { name: 'Expand composer', exact: true }).click()
+  const input = expanded ? page.locator('.cm-content') : page.getByRole('textbox', { name: 'Write a prompt' })
+  const prevented = await input.evaluate(element => {
+    const clipboard = new DataTransfer()
+    clipboard.items.add(new File(['synthetic screenshot'], '', { type: 'image/png' }))
+    clipboard.items.add(new File(['another screenshot'], 'crop.png', { type: 'image/png' }))
+    clipboard.setData('text/html', '<img src="https://example.invalid/clipboard.png">')
+    return !element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true }))
+  })
+  expect(prevented).toBe(true)
+  await expect(page.locator('.chat-staged-files > span')).toHaveCount(2)
+  expect(uploaded[0]).toMatch(/^screenshot-\d+-1\.png$/)
+  expect(uploaded[1]).toBe('crop.png')
+  if (expanded) await expect(input).toHaveText('Review this crop')
+  else await expect(input).toHaveValue('Review this crop')
+  // The screenshot handler must not consume normal text-only clipboard events.
+  const textPrevented = await input.evaluate(element => {
+    const clipboard = new DataTransfer(); clipboard.setData('text/plain', 'ordinary pasted text')
+    const event = new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true })
+    // CodeMirror handles text itself; observe cancellation before its target listener.
+    let prevented = false
+    element.addEventListener('paste', value => { prevented = value.defaultPrevented }, { capture: true, once: true })
+    element.dispatchEvent(event)
+    return prevented
+  })
+  expect(textPrevented).toBe(false)
+  expect(uploaded).toHaveLength(2)
+})
+test('pasted screenshots use the same attachment limits and preserve the draft on rejection', async ({ page }) => {
+  await fixture(page)
+  let uploads = 0
+  await page.route('**/api/chat/files?*', route => { uploads++; return route.fulfill({ status: 500, json: { error: 'Should not upload an oversized image' } }) })
+  const input = page.getByRole('textbox', { name: 'Write a prompt' })
+  await input.fill('Keep my draft')
+  await input.evaluate(element => {
+    const clipboard = new DataTransfer()
+    clipboard.items.add(new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' }))
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true }))
+  })
+  await expect(page.getByRole('alert')).toHaveText('Files must be at most 10 MiB')
+  expect(uploads).toBe(0)
+  await expect(input).toHaveValue('Keep my draft')
+})
 for (const expanded of [false, true]) test(`drop files into the ${expanded ? 'expanded' : 'compact'} prompt without replacing its text`, async ({ page }) => {
   await fixture(page)
   const uploaded: string[] = []

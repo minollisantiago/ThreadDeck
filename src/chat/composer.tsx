@@ -46,7 +46,8 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
   const matches = /^\/[^\s]*$/.test(draft.text) ? catalog.entries.filter(entry => `/${entry.name}${entry.kind === 'skill' ? '-skill' : ''}`.startsWith(draft.text)).slice(0, 12) : []
   const ready = enabled && !pending && !uploading && draft.text.length <= 50_000 && !draft.files.some(file => file.available === false) && Boolean(draft.text.trim() || draft.files.length)
   async function uploadFiles(files: File[]) {
-    if (!files.length || uploadLock.current) return
+    if (!files.length) return
+    if (uploadLock.current) { setUploadError('Files are still uploading. Paste or drop again when they finish.'); return }
     if (!enabled) { setUploadError('Wait for the conversation to connect before attaching files.'); return }
     uploadLock.current = true; setUploading(true); setUploadError('')
     try {
@@ -58,7 +59,19 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
       }
     } catch (error) { setUploadError(error instanceof Error ? error.message : 'Upload failed') } finally { uploadLock.current = false; setUploading(false) }
   }
-  return <section className={`chat-composer ${expanded ? 'expanded' : ''} ${dragging ? 'dragging-files' : ''}`} aria-label={expanded ? 'Expanded prompt editor' : 'Prompt composer'} onDragEnter={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); dragDepth.current++; if (enabled && !uploadLock.current) setDragging(true) } }} onDragOver={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); event.dataTransfer.dropEffect = enabled && !uploadLock.current ? 'copy' : 'none' } }} onDragLeave={event => { if (event.dataTransfer.types.includes('Files')) { dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDragging(false) } }} onDropCapture={event => { if (!event.dataTransfer.types.includes('Files')) return; event.preventDefault(); event.stopPropagation(); dragDepth.current = 0; setDragging(false); void uploadFiles([...event.dataTransfer.files]) }}>
+  return <section className={`chat-composer ${expanded ? 'expanded' : ''} ${dragging ? 'dragging-files' : ''}`} aria-label={expanded ? 'Expanded prompt editor' : 'Prompt composer'} onPasteCapture={event => {
+    if (!(event.target instanceof HTMLElement) || !event.target.closest('textarea,.cm-content')) return
+    const items = [...event.clipboardData.items].filter(item => item.kind === 'file' && item.type.startsWith('image/')).map(item => item.getAsFile()).filter((file): file is File => Boolean(file))
+    const images = items.length ? items : [...event.clipboardData.files].filter(file => file.type.startsWith('image/'))
+    if (!images.length) return // Leave ordinary text pastes to the textarea or CodeMirror.
+    event.preventDefault(); event.stopPropagation()
+    const files = images.map((file, index) => {
+      if (file.name) return file
+      const extension = file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1]?.split('+')[0].replace(/[^a-z0-9]/gi, '') || 'png'
+      return new File([file], `screenshot-${Date.now()}-${index + 1}.${extension}`, { type: file.type })
+    })
+    void uploadFiles(files)
+  }} onDragEnter={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); dragDepth.current++; if (enabled && !uploadLock.current) setDragging(true) } }} onDragOver={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); event.dataTransfer.dropEffect = enabled && !uploadLock.current ? 'copy' : 'none' } }} onDragLeave={event => { if (event.dataTransfer.types.includes('Files')) { dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDragging(false) } }} onDropCapture={event => { if (!event.dataTransfer.types.includes('Files')) return; event.preventDefault(); event.stopPropagation(); dragDepth.current = 0; setDragging(false); void uploadFiles([...event.dataTransfer.files]) }}>
     {expanded && <div className="chat-editor-heading"><span>prompt.md</span><button onClick={toggle}>Back to chat <kbd>Ctrl P · P</kbd></button></div>}
     {matches.length > 0 && <div className="chat-command-list" aria-label="Available commands and skills">{matches.map(entry => <button key={`${entry.kind}:${entry.name}`} onClick={() => { const text = `/${entry.name}${entry.kind === 'skill' ? '-skill' : ''} `; change({ text, anchor: text.length, head: text.length }); input.current?.focus() }}><strong>/{entry.name}{entry.kind === 'skill' ? '-skill' : ''}</strong><small>{entry.kind} · {entry.description}</small></button>)}</div>}
     <div className="chat-composer-box">
