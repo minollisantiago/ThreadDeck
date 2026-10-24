@@ -11,6 +11,7 @@ import { HtmlPreview } from './html-preview'
 import { useConversation } from './use-conversation'
 import { ChatState } from './chat-state'
 import { OutgoingMessage } from './outgoing-message'
+import { ConversationSkeleton } from './conversation-skeleton'
 
 export type ChatTarget = { session: Session; project: Project } | { session?: undefined; project: Project }
 const pendingSchema = z.object({ id: z.uuid(), text: z.string(), files: z.array(z.string()), attachments: z.array(chatFileSchema.extend({ available: z.boolean().optional() })).optional(), optimistic: z.boolean().optional(), delivery: z.enum(['send', 'queue']).optional() })
@@ -127,7 +128,7 @@ export function ConversationPane({ target, sidebar, close, created, markRead }: 
     <header className="chat-pane-header"><button aria-label="Toggle session sidebar" onClick={sidebar}><Menu size={18} /></button><div><span className="chat-channel-name" title={`# ${project.name}`}># {project.name}</span><strong>{links && session ? <a className="chat-thread-title" href={links.app} title="Open this thread in Discord">{session.title}</a> : session?.title || 'New conversation'}</strong></div>{links && <a href={links.app}>Discord ↗</a>}<button aria-label="Close conversation" onClick={close}><ArrowLeft size={16} /></button></header>
     {preview ? <HtmlPreview name={preview.name} url={preview.url} close={() => setPreview(null)} /> : <>
       {(!expanded || block || loading) && <div ref={transcript} className={`chat-transcript ${block || loading ? 'chat-transcript-state' : ''}`} tabIndex={0} aria-label="Conversation messages" aria-busy={loading} onScroll={remember}>
-        {block ? <ChatState title="Can’t connect to this conversation" detail={block}><button onClick={() => setRetry(value => value + 1)}>Reconnect</button>{links && <a href={links.app}>Continue in Discord ↗</a>}</ChatState> : loading ? <ChatState loading title={session ? 'Opening your conversation' : 'Preparing your workspace'} detail={session ? 'Retrieving the published messages from Kimaki…' : 'Connecting to Kimaki before your next thread.'} /> : <>
+        {block ? <ChatState title="Can’t connect to this conversation" detail={block}><button onClick={() => setRetry(value => value + 1)}>Reconnect</button>{links && <a href={links.app}>Continue in Discord ↗</a>}</ChatState> : loading ? session ? <ConversationSkeleton /> : <ChatState loading title="Preparing your workspace" detail="Connecting to Kimaki before your next thread." /> : <>
         {conversation.before && <button className="chat-load-earlier" onClick={async () => { const el = transcript.current; if (!el) return; const height = el.scrollHeight; savingPage.current = true; try { await conversation.earlier(); requestAnimationFrame(() => { el.scrollTop += el.scrollHeight - height; savingPage.current = false }) } catch { savingPage.current = false; setOperationError('Could not load earlier messages') } }}>Load earlier messages</button>}
         {!session && <div className="chat-welcome"><h2>Start a conversation</h2><p>Your first prompt creates a linked Kimaki session and Discord thread in {project.name}.</p></div>}
         {session && <PublishedMessages messages={conversation.messages} threadId={session.threadId} discordUrl={links?.browser} preview={(name, url) => { remember(); setPreview({ name, url }) }} />}
