@@ -45,6 +45,8 @@
 .chat-state p { font-size: 12px; line-height: 1.8; color: var(--muted); overflow-wrap: anywhere; }
 .chat-state-actions { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 18px; margin-top: 22px; font-size: 11px; color: var(--accent); }.chat-state-actions button { padding: 7px 0; }
 .chat-message { margin-bottom: 36px; }
+.chat-outgoing { transition: opacity 180ms ease; }.chat-outgoing:not([data-state=submitted]) { opacity: .5; }.chat-restore-prompt { margin-top: 10px; font-size: 11px; color: var(--accent) !important; }
+@media (prefers-reduced-motion: reduce) { .chat-outgoing { transition: none; } }
 .chat-message-meta { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 12px; margin-bottom: 14px; }
 .chat-message-meta strong { font-weight: 500; }
 .chat-message-meta time { margin-left: auto; color: var(--subtle); font-size: 10px; }
