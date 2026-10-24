@@ -46,6 +46,18 @@ test('Stream retains mobile manager styling and keyboard-first drafting', async 
   await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
   await mkdir('artifacts/production-chat', { recursive: true }); await page.screenshot({ path: 'artifacts/production-chat/stream.png', animations: 'disabled' })
 })
+test('connected sidebar indicator pulses to the left of the aligned app menu', async ({ page }) => {
+  await fixture(page)
+  const connection = page.getByRole('button', { name: 'Connected', exact: true })
+  const menu = page.getByRole('button', { name: 'App controls', exact: true })
+  const options = page.locator('.thread-options-toggle')
+  await expect(connection.locator('.connection-dot')).toHaveCSS('animation-name', 'connection-pulse')
+  const dotBox = await connection.boundingBox(), menuBox = await menu.boundingBox(), optionsBox = await options.boundingBox()
+  expect(dotBox!.x + dotBox!.width).toBeLessThanOrEqual(menuBox!.x)
+  expect(Math.abs(menuBox!.x + menuBox!.width / 2 - (optionsBox!.x + optionsBox!.width / 2))).toBeLessThan(1)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect(connection.locator('.connection-dot')).toHaveCSS('animation-name', 'none')
+})
 test('confirms submission through a durable receipt before clearing a draft', async ({ page }) => {
   const submissions = await fixture(page)
   await page.getByRole('textbox', { name: 'Write a prompt' }).fill('A deliberate prompt')

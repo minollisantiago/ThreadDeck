@@ -61,6 +61,7 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
     return () => { panel.removeEventListener('beforetoggle', beforeToggle); panel.removeEventListener('toggle', toggle); media.removeEventListener('change', sync) }
   }, [compact])
   return <div className="header-controls">
+    {compact && connection}
     <Button ref={trigger} variant="outline" size="icon" className="mobile-menu-toggle" popoverTarget="header-controls" aria-label="App controls" aria-controls="header-controls" aria-expanded={open}><Menu aria-hidden="true" /></Button>
     <div ref={controls} className="appearance-controls" id="header-controls" role="group" aria-label="Appearance and links">
       <div className="palette-picker" role="group" aria-label="Accent color">{palettes.map(p => <button key={p} className={`palette-swatch palette-${p}`} aria-label={`${p} accent`} title={`${p} accent`} aria-pressed={palette === p} onClick={() => setPalette(p)}>{palette === p ? '✓' : ''}</button>)}</div>
@@ -77,7 +78,7 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
        }}><Keyboard aria-hidden="true" /></Button>
       </div>
     </div>
-     {connection}
+     {!compact && connection}
      {shortcutsOpen && <KeyboardShortcuts workspace={Boolean(workspace)} threadId={workspace?.threadId} close={() => setShortcutsOpen(false)} restoreFocus={restoreFocus} />}
   </div>
 }

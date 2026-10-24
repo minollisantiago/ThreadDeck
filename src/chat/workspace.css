@@ -5,6 +5,7 @@
 .chat-manager .session-row[data-selected=true] { background: var(--row); box-shadow: inset 2px 0 var(--accent); }
 .chat-manager button.session-title { padding: 0; width: 100%; text-align: left; }
 .chat-manager .appearance-controls[popover] { inset: 76px auto auto 16px; max-width: calc(100cqw - 32px); }
+.chat-manager .mobile-menu-toggle { width: 40px; height: 40px; }
 .chat-manager .thread-list-options[popover] { max-width: calc(100cqw - 32px); }
 .chat-workspace.manager-only .chat-manager { width: 430px; max-width: 100vw; min-width: 0; }
 .chat-manager-new { position: fixed; bottom: 16px; left: 16px; display: flex; align-items: center; gap: 10px; padding: 11px; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); color: var(--muted); font-size: 11px; }
