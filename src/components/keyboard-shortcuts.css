@@ -1,0 +1,16 @@
+.keyboard-shortcuts { width: min(620px, calc(100vw - 32px)); max-height: 85dvh; margin: auto; padding: 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 24px 100px #0006; }
+.keyboard-shortcuts::backdrop { background: #0008; backdrop-filter: blur(4px); }
+.keyboard-shortcuts header { display: flex; align-items: center; gap: 12px; padding: 20px; border-bottom: 1px solid var(--rule); }
+.keyboard-shortcuts header > svg { color: var(--accent); flex-shrink: 0; }
+.keyboard-shortcuts h2 { margin: 0; font: 500 15px var(--font); letter-spacing: -.3px; }
+.keyboard-shortcuts header button { margin-left: auto; padding: 5px; color: var(--muted); }
+.keyboard-shortcuts-body { padding: 0 20px 8px; }
+.keyboard-shortcuts h3 { margin: 22px 0 12px; color: var(--subtle); font: 11px var(--font); text-transform: uppercase; letter-spacing: .8px; }
+.keyboard-shortcuts dl { margin: 0; }
+.keyboard-shortcuts dl > div { display: grid; grid-template-columns: minmax(150px, 2fr) 3fr; gap: 16px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.keyboard-shortcuts dt, .keyboard-shortcuts dd { margin: 0; font-size: 12px; line-height: 1.8; }
+.keyboard-shortcuts dd { color: var(--muted); }
+.keyboard-shortcuts kbd { font: 11px var(--font); color: var(--text); }
+.keyboard-shortcuts footer { margin: 0; padding: 16px 20px; font-size: 11px; line-height: 1.8; color: var(--subtle); }
+.keyboard-shortcuts button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+@media(max-width:480px) { .keyboard-shortcuts dl > div { grid-template-columns: 1fr; gap: 4px; } }

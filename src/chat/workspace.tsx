@@ -85,6 +85,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     const previous = document.activeElement
     manager.current?.querySelector<HTMLElement>('button,input,a')?.focus()
     const key = (event: KeyboardEvent) => {
+      if (document.querySelector('dialog[open]')) return
       if (event.key === 'Escape' && !document.querySelector('[popover]:popover-open')) { event.preventDefault(); setDrawer(false) }
       if (event.key === 'Tab' && manager.current) {
         const controls = [...manager.current.querySelectorAll<HTMLElement>('button,input,a')].filter(el => el.getBoundingClientRect().width > 0)

@@ -1,8 +1,10 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Github, List, Menu, Moon, Network, Sun } from 'lucide-react'
+import { useCallback, useContext, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Github, Keyboard, List, Menu, Moon, Network, Sun } from 'lucide-react'
 import { Button } from './ui/button'
 import type { Design } from '../lib/design'
 import { darkThemes, lightThemes, type DarkTheme, type LightTheme } from '../lib/theme'
+import { WorkspaceControls } from '../chat/navigation'
+import { KeyboardShortcuts } from './keyboard-shortcuts'
 
 export const palettes = ['pink', 'lavender', 'blue', 'green', 'peach'] as const
 export type Palette = typeof palettes[number]
@@ -20,6 +22,11 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
   const trigger = useRef<HTMLButtonElement>(null)
   const theme = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const shortcuts = useRef<HTMLButtonElement>(null)
+  const restoreTo = useRef<HTMLButtonElement | null>(null)
+  const workspace = useContext(WorkspaceControls)
+  const restoreFocus = useCallback(() => restoreTo.current?.focus(), [])
   const themeOptions = appearance === 'light'
     ? lightThemes.map(option => ({ ...option, selected: lightTheme === option.value, swatch: `theme-${option.value}`, select: () => setLightTheme(option.value) }))
     : darkThemes.map(option => ({ ...option, selected: darkTheme === option.value, swatch: `theme-dark-${option.value}`, select: () => setDarkTheme(option.value) }))
@@ -60,10 +67,17 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
       <div className="theme-picker" role="group" aria-label={`${appearance === 'light' ? 'Light' : 'Dark'} theme background`}>{themeOptions.map(option => <button key={option.value} className={`theme-swatch ${option.swatch}`} aria-label={`${option.label} theme`} title={`${option.label} theme`} aria-pressed={option.selected} onClick={option.select}>{option.selected ? '✓' : ''}</button>)}</div>
       <div className="header-actions">
       <Button variant="outline" size="icon" aria-label={`Switch to ${design === 'classic' ? 'islands' : 'list'} view`} title={`Switch to ${design === 'classic' ? 'islands' : 'list'} view`} onClick={() => setDesign(design === 'classic' ? 'islands' : 'classic')}>{design === 'classic' ? <Network aria-hidden="true" /> : <List aria-hidden="true" />}</Button>
-      <Button ref={theme} variant="outline" size="icon" aria-label={`Switch to ${appearance === 'dark' ? 'light' : 'dark'} mode`} onClick={() => setAppearance(appearance === 'dark' ? 'light' : 'dark')}>{appearance === 'dark' ? <Sun /> : <Moon />}</Button>
-      <Button asChild variant="outline" size="icon"><a href="https://github.com/minollisantiago/ThreadDeck" target="_blank" rel="noopener noreferrer" aria-label="ThreadDeck on GitHub" title="View ThreadDeck on GitHub"><Github aria-hidden="true" /></a></Button>
+       <Button ref={theme} variant="outline" size="icon" aria-label={`Switch to ${appearance === 'dark' ? 'light' : 'dark'} mode`} onClick={() => setAppearance(appearance === 'dark' ? 'light' : 'dark')}>{appearance === 'dark' ? <Sun /> : <Moon />}</Button>
+       <Button asChild variant="outline" size="icon"><a href="https://github.com/minollisantiago/ThreadDeck" target="_blank" rel="noopener noreferrer" aria-label="ThreadDeck on GitHub" title="View ThreadDeck on GitHub"><Github aria-hidden="true" /></a></Button>
+       <Button ref={shortcuts} variant="outline" size="icon" aria-label="Keyboard shortcuts" title="Keyboard shortcuts" aria-haspopup="dialog" onClick={() => {
+         const popover = controls.current?.matches(':popover-open')
+         restoreTo.current = popover ? trigger.current : shortcuts.current
+         if (popover) controls.current?.hidePopover()
+         setShortcutsOpen(true)
+       }}><Keyboard aria-hidden="true" /></Button>
       </div>
     </div>
-    {connection}
+     {connection}
+     {shortcutsOpen && <KeyboardShortcuts workspace={Boolean(workspace)} close={() => setShortcutsOpen(false)} restoreFocus={restoreFocus} />}
   </div>
 }
