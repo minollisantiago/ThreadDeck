@@ -5,7 +5,7 @@ import type { Connection, RawSession, Registration, Source } from './source.ts'
 
 function relevantEvent(type: string) {
   return type.startsWith('form.') || type.startsWith('permission.')
-    || /^session\.(created|deleted|forked|moved|renamed|metadata\.updated|status|idle|execution\.(started|succeeded|failed|interrupted))$/.test(type)
+    || /^session\.(created|deleted|forked|moved|renamed|metadata\.updated|model\.selected|agent\.selected|status|idle|execution\.(started|succeeded|failed|interrupted))$/.test(type)
 }
 
 // Limit simultaneous requests without dropping active sessions from the result.
@@ -72,6 +72,7 @@ export function groupSessions(
       id: raw.id, projectId: group.id, title: raw.title || 'Untitled session',
       threadId: raw.metadata!.kimaki!.threadId!, guildId: project.guildId,
       updatedAt: raw.time.updated, agentCount: agents.size,
+      ...(raw.model && { model: raw.model }),
       status: permission ? 'permission' : input ? 'input'
         : agents.size ? 'working' : raw.outcome === 'failed' ? 'error' : 'idle',
     })

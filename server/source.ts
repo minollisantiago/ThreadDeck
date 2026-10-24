@@ -3,6 +3,7 @@ import { promisify } from 'node:util'
 import { OpenCode } from '@opencode/client'
 import { Service } from '@opencode/client/service'
 import { z } from 'zod'
+import { sessionModelSchema } from '../shared/model.ts'
 
 const exec = promisify(execFile)
 export const registrationSchema = z.object({
@@ -11,6 +12,7 @@ export const registrationSchema = z.object({
 export type Registration = z.infer<typeof registrationSchema>
 export const rawSessionSchema = z.object({
   id: z.string(), parentID: z.string().optional(), title: z.string().optional(),
+  model: sessionModelSchema.optional(),
   location: z.object({ directory: z.string() }),
   time: z.object({ updated: z.number(), archived: z.number().optional() }),
   outcome: z.enum(['succeeded', 'failed', 'interrupted']).optional(),

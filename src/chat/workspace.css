@@ -101,6 +101,7 @@
 .chat-composer textarea { font: 13px/1.8 var(--font); width: 100%; display: block; padding: 18px 19px 4px; min-height: 62px; max-height: 180px; resize: none; border: 0; background: transparent; color: var(--text); outline: none !important; }
 .chat-composer textarea::placeholder { color: var(--subtle); }
 .chat-composer-tools { display: flex; align-items: center; gap: 9px; padding: 10px; color: var(--muted); font-size: 11px; }
+.chat-composer-tools .chat-model { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 45%; }.chat-model svg { flex-shrink: 0; }.chat-model-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-composer-tools > button { display: inline-flex; align-items: center; gap: 6px; padding: 7px; flex-shrink: 0; }
 .chat-tool-spacer { flex: 1; }.chat-composer-tools .chat-send { padding: 9px 12px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); }
 .chat-composer-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 10px; font-size: 10px; color: var(--subtle); }

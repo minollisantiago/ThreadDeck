@@ -11,6 +11,11 @@ const raw = (overrides: Partial<RawSession> = {}): RawSession => ({
 })
 
 describe('conversation grouping', () => {
+  it('exposes the root session model without substituting a delegated agent model', () => {
+    const model = { id: 'fixture-model', providerID: 'provider', variant: 'high' }
+    const child = raw({ id: 'ses_child', parentID: 'ses_root', metadata: undefined, model: { id: 'child-model', providerID: 'provider' } })
+    expect(groupSessions([project], [raw({ model }), child], new Set(['ses_child']), new Set(), new Set())[0].sessions[0].model).toEqual(model)
+  })
   it('does not mistake the previous successful outcome for completion while working', () => {
     const groups = groupSessions([project], [raw({ outcome: 'succeeded' })], new Set(['ses_root']), new Set(), new Set())
     expect(groups[0].sessions[0].status).toBe('working')
@@ -184,6 +189,18 @@ describe('live monitoring', () => {
     expect(connection.active).toHaveBeenCalledTimes(2)
   })
 
+  it('refreshes the model indicator immediately when a session model is selected', async () => {
+    vi.useFakeTimers()
+    const { monitor, connection, emit } = liveFixture()
+    vi.mocked(connection.get).mockResolvedValue(raw({ model: { id: 'first-model', providerID: 'provider' } }))
+    monitor.start()
+    await vi.advanceTimersByTimeAsync(150)
+    expect(monitor.read().projects[0].sessions[0].model?.id).toBe('first-model')
+    vi.mocked(connection.get).mockResolvedValue(raw({ model: { id: 'second-model', providerID: 'provider' } }))
+    await emit('session.model.selected')
+    await vi.advanceTimersByTimeAsync(150)
+    expect(monitor.read().projects[0].sessions[0].model?.id).toBe('second-model')
+  })
   it('reconciles periodically even with no events', async () => {
     vi.useFakeTimers()
     const { monitor, connection } = liveFixture()

@@ -2,11 +2,13 @@ import { z } from 'zod'
 
 export const statusSchema = z.enum(['working', 'idle', 'error', 'input', 'permission'])
 export type SessionStatus = z.infer<typeof statusSchema>
+export const sessionModelSchema = z.object({ id: z.string(), providerID: z.string(), variant: z.string().optional() })
 export const sessionSchema = z.object({
   id: z.string(), title: z.string(), projectId: z.string(), threadId: z.string(),
   guildId: z.string().nullable(), status: statusSchema, updatedAt: z.number(),
   agentCount: z.number(),
   responseAt: z.number().nullable().optional(),
+  model: sessionModelSchema.optional(),
 })
 export type Session = z.infer<typeof sessionSchema>
 export const projectSchema = z.object({

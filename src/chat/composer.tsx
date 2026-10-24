@@ -4,14 +4,16 @@ import { EditorView } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { vim, getCM } from '@replit/codemirror-vim'
-import { Expand, Paperclip, Square, ArrowUp } from 'lucide-react'
+import { Cpu, Expand, Paperclip, Square, ArrowUp } from 'lucide-react'
 import { type ChatCatalog, chatFileSchema } from '../../shared/chat'
 import { chatRequest } from './api'
 import type { Draft } from './drafts'
+import type { Session } from '../../shared/model'
 
-export function PromptComposer({ draft, change, expanded, toggle, enabled, busy, pending, catalog, submit, stop }: {
+export function PromptComposer({ draft, change, expanded, toggle, enabled, busy, pending, catalog, submit, stop, model }: {
   draft: Draft; change: (patch: Partial<Draft>) => void; expanded: boolean; toggle: () => void
   enabled: boolean; busy: boolean; pending: boolean; catalog: ChatCatalog; submit: (delivery: 'send' | 'queue') => void; stop: () => void
+  model?: Session['model']
 }) {
   const [vimEnabled, setVim] = useState(() => localStorage.getItem('threaddeck:vim') !== 'false')
   const [mode, setMode] = useState('NORMAL'), [uploadError, setUploadError] = useState(''), [uploading, setUploading] = useState(false)
@@ -80,7 +82,7 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
       {draft.files.length > 0 && <div className="chat-staged-files">{draft.files.map(file => <span key={file.id}>{file.name}{file.available === false && ' · reattach after reload'}<button disabled={uploading} aria-label={`Remove ${file.name}`} onClick={() => change({ files: draft.files.filter(f => f.id !== file.id) })}>×</button></span>)}</div>}
       <div className="chat-composer-tools"><button aria-label="Attach files" disabled={!enabled || uploading || draft.files.length >= 10} onClick={() => fileInput.current?.click()}><Paperclip size={17} /></button><input hidden ref={fileInput} type="file" multiple onChange={async event => {
         const files = [...(event.target.files || [])]; event.target.value = ''; await uploadFiles(files)
-      }} /><span>{uploading ? 'Uploading…' : 'Kimaki'}</span><div className="chat-tool-spacer" />{expanded && <>{vimEnabled && <span className="chat-vim-mode" role="status" aria-label="Vim mode">{mode}</span>}<button className="chat-vim" onClick={() => { localStorage.setItem('threaddeck:vim', String(!vimEnabled)); setVim(value => !value) }}>Vim {vimEnabled ? 'on' : 'off'}</button></>}<button aria-label={expanded ? 'Restore compact composer' : 'Expand composer'} onClick={toggle}><Expand size={16} /></button>{busy && <button onClick={stop}><Square size={12} />Stop</button>}<button className="chat-send" disabled={!ready} onClick={() => submit(busy ? 'queue' : 'send')}>{pending ? 'Pending…' : busy ? 'Queue' : 'Send'}<ArrowUp size={14} /></button></div>
+      }} /><span className="chat-model" role="status" aria-label="Session model" title={model ? `${model.providerID}/${model.id}${model.variant ? ` · ${model.variant}` : ''}` : 'This session has not reported its model yet'}><Cpu size={13} aria-hidden="true" /><span className="chat-model-name">{uploading ? 'Uploading…' : model ? `${model.id}${model.variant ? ` · ${model.variant}` : ''}` : 'Model unavailable'}</span></span><div className="chat-tool-spacer" />{expanded && <>{vimEnabled && <span className="chat-vim-mode" role="status" aria-label="Vim mode">{mode}</span>}<button className="chat-vim" onClick={() => { localStorage.setItem('threaddeck:vim', String(!vimEnabled)); setVim(value => !value) }}>Vim {vimEnabled ? 'on' : 'off'}</button></>}<button aria-label={expanded ? 'Restore compact composer' : 'Expand composer'} onClick={toggle}><Expand size={16} /></button>{busy && <button onClick={stop}><Square size={12} />Stop</button>}<button className="chat-send" disabled={!ready} onClick={() => submit(busy ? 'queue' : 'send')}>{pending ? 'Pending…' : busy ? 'Queue' : 'Send'}<ArrowUp size={14} /></button></div>
     </div>
     <div className="chat-composer-foot">{!expanded && <span><kbd>Ctrl P · P</kbd> expand editor</span>}{busy && <button disabled={!ready} onClick={() => submit('send')}>Send now / interrupt</button>}<span className="chat-composer-feedback" role="status">{draft.text.length > 50_000 ? 'Over the 50,000 character prompt limit' : busy ? <span className="chat-agent-activity"><span className="chat-activity-dots" aria-hidden="true"><i /><i /><i /></span><span>Agent is working…</span></span> : 'Draft kept on this device'}</span></div>
     {uploadError && <p className="chat-error" role="alert">{uploadError}</p>}

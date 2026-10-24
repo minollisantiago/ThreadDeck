@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => { await page.route('**/api/events', route =>
 async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted', bridge = true, historyGate?: Promise<void>, extraSessions = 0) {
   const now = Date.now(), submissions: Record<string, unknown>[] = []
   const snapshot: Snapshot = { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [
-    { id: 'ses_stream', threadId, guildId: '100000000000000099', projectId, title: 'Stream workspace', status: 'input', agentCount: 0, updatedAt: now, responseAt: Date.parse('2026-10-24T00:00:00Z') },
+    { id: 'ses_stream', threadId, guildId: '100000000000000099', projectId, title: 'Stream workspace', status: 'input', agentCount: 0, updatedAt: now, responseAt: Date.parse('2026-10-24T00:00:00Z'), model: { id: 'gpt-6.1-sol', providerID: 'openai', variant: 'high' } },
     { id: 'ses_parallel', threadId: '100000000000000003', guildId: '100000000000000099', projectId, title: 'Parallel agent', status: 'working', agentCount: 1, updatedAt: now - 1000 },
   ] }] }
   snapshot.projects[0].sessions.push(...Array.from({ length: extraSessions }, (_, index) => ({ ...snapshot.projects[0].sessions[0], id: `extra_${index}`, title: `Additional thread ${index}` })))
@@ -113,6 +113,26 @@ for (const width of [430, 1440]) test(`sidebar footer stays anchored while sessi
   const after = await footer.boundingBox()
   expect(after!.y).toBe(before!.y)
   await expect(footer).toBeVisible()
+})
+for (const width of [430, 1440]) test(`composer reports the session model and handles unknown models at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1050 })
+  await fixture(page)
+  const model = page.getByRole('status', { name: 'Session model', exact: true })
+  await expect(model).toHaveText('gpt-6.1-sol · high')
+  await expect(model).toHaveAttribute('title', 'openai/gpt-6.1-sol · high')
+  await expect(model).toBeVisible()
+  await page.getByRole('button', { name: 'Expand composer', exact: true }).click()
+  await expect(model).toHaveText('gpt-6.1-sol · high')
+  await page.keyboard.press('Control+k')
+  await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
+  await page.keyboard.press('Enter')
+  await expect(model).toHaveText('Model unavailable')
+  await page.keyboard.press('Control+k')
+  await page.keyboard.press('Control+Shift+n')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('heading', { name: 'Start a conversation' })).toBeVisible()
+  await expect(model).toHaveText('Model unavailable')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 test('Vim mode sits directly before its toggle and follows editor mode changes', async ({ page }) => {
   await fixture(page)
