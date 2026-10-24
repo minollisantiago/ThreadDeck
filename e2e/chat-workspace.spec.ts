@@ -128,7 +128,7 @@ test('confirms submission through a durable receipt before clearing a draft', as
   await expect.poll(() => submissions.length).toBe(1)
   expect(submissions[0].threadId).toBe(threadId)
   await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('')
-  await expect(page.locator('.chat-operation')).toContainText('submitted')
+  await expect(page.locator('.chat-operation')).toHaveCount(0)
 })
 test('uncertain delivery preserves a draft and never automatically resends', async ({ page }) => {
   const submissions = await fixture(page, 'unknown')
