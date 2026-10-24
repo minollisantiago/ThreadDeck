@@ -163,6 +163,26 @@ test('composer shows live agent activity in place of the local draft hint', asyn
   await page.keyboard.press('Enter')
   await expect(page.locator('.chat-composer-feedback')).toHaveText('Draft kept on this device')
 })
+for (const delivery of ['send', 'queue'] as const) test(`expanded editor returns to compact chat after ${delivery}`, async ({ page }) => {
+  const submissions = await fixture(page)
+  if (delivery === 'queue') {
+    await page.keyboard.press('Control+k')
+    await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.chat-composer-feedback')).toHaveText('Agent is working…')
+  }
+  await page.getByRole('button', { name: 'Expand composer', exact: true }).click()
+  await page.getByRole('button', { name: 'Vim on', exact: true }).click()
+  await page.locator('.cm-content').fill('Submit from expanded editor')
+  if (delivery === 'send') await page.keyboard.press('Control+Enter')
+  else await page.getByRole('button', { name: 'Queue', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toBeVisible()
+  await expect(page.locator('.cm-editor')).toHaveCount(0)
+  await expect.poll(() => submissions.length).toBe(1)
+  expect(submissions[0].delivery).toBe(delivery)
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('')
+  await expect(page.locator('.chat-operation')).toHaveCount(0)
+})
 test('confirms submission through a durable receipt before clearing a draft', async ({ page }) => {
   const submissions = await fixture(page)
   await page.getByRole('textbox', { name: 'Write a prompt' }).fill('A deliberate prompt')

@@ -78,6 +78,7 @@ export function ConversationPane({ target, sidebar, close, created, markRead }: 
         ...(invocation ? { kind: invocation.kind, name: invocation.name, text: current.text.slice(invocation.prefix.length).trimStart() } : { text: current.text }),
         files: current.files.map(({ id, name }) => ({ id, name })), delivery }))
       setReceipt(response)
+      setExpanded(false)
     } catch (error) {
       if (error instanceof ChatRequestError && ['invalid', 'unlinked', 'unsupported'].includes(error.code)) { localStorage.removeItem(pendingKey); setPending(null); setOperationError(error.message) }
       else setOperationError(`${error instanceof Error ? error.message : 'Submission interrupted'} Reconcile this operation; do not automatically resend.`)
