@@ -8,6 +8,7 @@ import { useUnread } from '../hooks/use-unread'
 import { SelectedSession, SessionNavigation, WorkspaceControls } from './navigation'
 import type { ChatTarget } from './pane'
 import { mobileManagerStyle } from './mobile-style'
+import { ChatState } from './chat-state'
 import './workspace.css'
 const ConversationPane = lazy(async () => ({ default: (await import('./pane')).ConversationPane }))
 
@@ -112,7 +113,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
       const stop = () => { element.removeEventListener('pointermove', move); element.removeEventListener('pointerup', stop); element.removeEventListener('pointercancel', stop) }
       element.addEventListener('pointermove', move); element.addEventListener('pointerup', stop); element.addEventListener('pointercancel', stop)
     }} onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(w => Math.max(430, Math.min(innerWidth * .4, w + (e.key === 'ArrowRight' ? 20 : -20)))) } }} />}
-    {selected && <Suspense fallback={<main className="chat-pane"><p className="chat-muted">Loading conversation workspace…</p></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} sidebar={() => narrow ? setDrawer(value => !value) : setSidebar(value => !value)} close={() => setTarget(null)} created={(session, project) => setTarget({ session, project })} markRead={markRead} /></Suspense>}
+    {selected && <Suspense fallback={<main className="chat-pane"><ChatState loading title="Opening your workspace" detail="Preparing the conversation and prompt editor…" /></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} sidebar={() => narrow ? setDrawer(value => !value) : setSidebar(value => !value)} close={() => setTarget(null)} created={(session, project) => setTarget({ session, project })} markRead={markRead} /></Suspense>}
     {!target && <button className="chat-manager-new" onClick={find}><Plus size={15} />New / find conversation <kbd>Ctrl K</kbd></button>}
     {finder && <SessionFinder sessions={sessions} projects={projects} select={open} create={project => { setTarget({ project }); setFinder(false); setDrawer(false) }} close={() => setFinder(false)} history={() => { setFinder(false); setHistoryOpen(true) }} />}
     {historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} onSelect={hit => {

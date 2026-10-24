@@ -29,6 +29,9 @@
 .chat-state-mark { display: grid; place-items: center; position: relative; width: 80px; height: 80px; margin: 0 auto 24px; color: var(--accent); }
 .chat-state-mark::before, .chat-state-mark::after { content: ''; position: absolute; background: var(--rule); }.chat-state-mark::before { width: 1px; height: 110px; }.chat-state-mark::after { height: 1px; width: 110px; }
 .chat-state-mark svg { position: relative; z-index: 1; background: var(--ground); }
+.chat-state.loading .chat-state-mark svg { animation: chat-state-breathe 2.5s ease-in-out infinite; }
+@keyframes chat-state-breathe { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .chat-state.loading .chat-state-mark svg { animation: none; } }
 .chat-state .chat-state-eyebrow { font-size: 9px; letter-spacing: 1.6px; color: var(--subtle); }
 .chat-state h2 { font-size: 20px; line-height: 1.4; letter-spacing: -.6px; font-weight: 500; margin: 10px 0; }
 .chat-state p { font-size: 12px; line-height: 1.8; color: var(--muted); overflow-wrap: anywhere; }

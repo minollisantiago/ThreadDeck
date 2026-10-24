@@ -5,7 +5,7 @@ import type { Snapshot } from '../shared/model'
 const threadId = '100000000000000001', projectId = '100000000000000010'
 test.use({ viewport: { width: 1440, height: 1050 }, colorScheme: 'dark' })
 test.beforeEach(async ({ page }) => { await page.route('**/api/events', route => route.abort()) })
-async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted', bridge = true) {
+async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted', bridge = true, historyGate?: Promise<void>) {
   const now = Date.now(), submissions: Record<string, unknown>[] = []
   const snapshot: Snapshot = { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [
     { id: 'ses_stream', threadId, guildId: '100000000000000099', projectId, title: 'Stream workspace', status: 'input', agentCount: 0, updatedAt: now, responseAt: Date.parse('2026-10-24T00:00:00Z') },
@@ -17,6 +17,7 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
     if (url.pathname === '/api/chat/info') return route.fulfill({ status: bridge ? 200 : 503, json: bridge ? { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort'] } : { code: 'bridge_required', error: 'Activate the local Kimaki fork to chat here' } })
     if (url.pathname.endsWith('/changes')) return // Deliberately pending long poll; never reaches a real backend.
     if (url.pathname.endsWith('/catalog')) return route.fulfill({ json: { entries: [{ kind: 'skill', name: 'research', description: 'Investigate primary sources' }, { kind: 'command', name: 'review', description: 'Review changes' }] } })
+    if (url.pathname.endsWith('/messages') && historyGate) await historyGate
     if (url.pathname.endsWith('/messages')) return route.fulfill({ json: { cursor: 'test:0', before: null, stale: false, messages: [{ id: '100000000000000005', channel_id: threadId, author: { id: 'bot', username: 'Kimaki', bot: true }, timestamp: '2026-10-24T00:00:00Z', content: '## The approved Stream workspace\n\nThis is the **published Discord representation**, not a raw harness transcript.\n\n- Existing ThreadDeck typography and containers\n- One conversation and a durable Markdown draft\n- All execution stays inside Kimaki', attachments: [{ id: '100000000000000006', filename: 'study.html', size: 400, content_type: 'text/html' }], components: [{ type: 17, accent_color: 0xf77c9d, components: [{ type: 10, content: 'A real Components V2 callout' }] }], embeds: [] }] } })
     if (url.pathname.includes('/attachments/')) return route.fulfill({ contentType: 'text/html', body: '<html><head><meta http-equiv="refresh" content="0;url=https://example.invalid/escape"><script>fetch("https://example.invalid/leak")</script><style>body{background:#f4f3f6;color:#25212e;padding:48px;font:20px monospace}</style></head><body><h1>Safe attachment preview</h1><p>This is a synthetic HTML attachment.</p></body></html>' })
     if (url.pathname === '/api/chat/submit') {
@@ -76,6 +77,20 @@ test('connected sidebar indicator pulses to the left of the aligned app menu', a
   expect(Math.abs(menuBox!.x + menuBox!.width / 2 - (optionsBox!.x + optionsBox!.width / 2))).toBeLessThan(1)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await expect(connection.locator('.connection-dot')).toHaveCSS('animation-name', 'none')
+})
+test('centers a borderless loading state until thread history is ready', async ({ page }) => {
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await fixture(page, 'submitted', true, gate)
+  await expect(page.locator('.chat-transcript .chat-state.loading')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Opening your conversation' })).toBeVisible()
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Keep writing while loading')
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled()
+  release()
+  await expect(page.locator('.chat-state')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled()
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('Keep writing while loading')
 })
 test('composer shows live agent activity in place of the local draft hint', async ({ page }) => {
   await fixture(page)

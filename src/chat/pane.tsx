@@ -68,7 +68,7 @@ export function ConversationPane({ target, sidebar, close, created, markRead }: 
     return () => { abort.abort(); clearTimeout(timer) }
   }, [pending?.id])
   async function submit(delivery: 'send' | 'queue') {
-    if (!info || pending || preview || draft.conflict || conversation.stale || draft.current.current.files.some(file => file.available === false) || !draft.current.current.text.trim() && !draft.current.current.files.length) return
+    if (!info || bridgeError || conversation.error || conversation.loading || pending || preview || draft.conflict || conversation.stale || draft.current.current.files.some(file => file.available === false) || !draft.current.current.text.trim() && !draft.current.current.files.length) return
     const current = draft.current.current, id = crypto.randomUUID(), operation = { id, text: current.text, files: current.files.map(file => file.id) }
     try { localStorage.setItem(pendingKey, JSON.stringify(operation)) } catch { setOperationError('Cannot durably record delivery status. Enable local storage before sending.'); return }
     setPending(operation); setReceipt(null); setOperationError('')
@@ -87,34 +87,34 @@ export function ConversationPane({ target, sidebar, close, created, markRead }: 
     const handler = (event: Event) => { void submit((event as CustomEvent<'send' | 'queue'>).detail) }
     window.addEventListener('threaddeck:composer-submit', handler)
     return () => window.removeEventListener('threaddeck:composer-submit', handler)
-  }, [info, pending, draft.conflict, conversation.stale, preview, catalog])
+  }, [info, bridgeError, pending, draft.conflict, conversation.stale, conversation.error, conversation.loading, preview, catalog])
   useLayoutEffect(() => {
     const node = transcript.current
     if (node && !expanded && !preview && scrolls.has(key)) { node.scrollTop = scrolls.get(key)!; following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80 }
   }, [expanded, preview])
   useLayoutEffect(() => {
     const node = transcript.current
-    if (!node) return
+    if (!node || !info || bridgeError || conversation.loading || conversation.error) return
     if (!initialized.current && conversation.messages.length) { node.scrollTop = scrolls.get(key) ?? node.scrollHeight; following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; initialized.current = true }
     else if (!savingPage.current && following.current) node.scrollTop = node.scrollHeight
     else if (conversation.messages.length > count.current && !following.current) setNewMessages(true)
     count.current = conversation.messages.length
     if (following.current && !preview && session && deliveredReply) markRead(session)
-  }, [conversation.messages, expanded, preview, session?.responseAt])
+  }, [conversation.messages, expanded, preview, session?.responseAt, info, bridgeError, conversation.loading, conversation.error])
   function remember() {
     const node = transcript.current
     if (!node) return
     scrolls.set(key, node.scrollTop); following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80
-    if (following.current) { setNewMessages(false); if (session && deliveredReply) markRead(session) }
+    if (following.current) { setNewMessages(false); if (session && deliveredReply && info && !bridgeError && !conversation.loading && !conversation.error) markRead(session) }
   }
   const block = bridgeError || conversation.error
+  const loading = !block && (!info || conversation.loading)
   return <main className="chat-pane" data-chat-ready>
     <header className="chat-pane-header"><button aria-label="Toggle session sidebar" onClick={sidebar}><Menu size={18} /></button><div><span>{project.name} / {preview ? 'HTML preview' : expanded ? 'Draft editor' : 'Conversation'}</span><strong>{session?.title || 'New conversation'}</strong></div>{links && <a href={links.app}>Discord ↗</a>}<button aria-label="Close conversation" onClick={close}><ArrowLeft size={16} /></button></header>
     {preview ? <HtmlPreview name={preview.name} url={preview.url} close={() => setPreview(null)} /> : <>
-      {(!expanded || block) && <div ref={transcript} className={`chat-transcript ${block ? 'chat-transcript-state' : ''}`} tabIndex={0} aria-label="Conversation messages" onScroll={remember}>
-        {block ? <ChatState title="Can’t connect to this conversation" detail={block}><button onClick={() => setRetry(value => value + 1)}>Reconnect</button>{links && <a href={links.app}>Continue in Discord ↗</a>}</ChatState> : <>
+      {(!expanded || block || loading) && <div ref={transcript} className={`chat-transcript ${block || loading ? 'chat-transcript-state' : ''}`} tabIndex={0} aria-label="Conversation messages" aria-busy={loading} onScroll={remember}>
+        {block ? <ChatState title="Can’t connect to this conversation" detail={block}><button onClick={() => setRetry(value => value + 1)}>Reconnect</button>{links && <a href={links.app}>Continue in Discord ↗</a>}</ChatState> : loading ? <ChatState loading title={session ? 'Opening your conversation' : 'Preparing your workspace'} detail={session ? 'Retrieving the published messages from Kimaki…' : 'Connecting to Kimaki before your next thread.'} /> : <>
         {conversation.before && <button className="chat-load-earlier" onClick={async () => { const el = transcript.current; if (!el) return; const height = el.scrollHeight; savingPage.current = true; try { await conversation.earlier(); requestAnimationFrame(() => { el.scrollTop += el.scrollHeight - height; savingPage.current = false }) } catch { savingPage.current = false; setOperationError('Could not load earlier messages') } }}>Load earlier messages</button>}
-        {conversation.loading && <p className="chat-muted">Loading Kimaki’s published conversation…</p>}
         {!session && <div className="chat-welcome"><h2>Start a conversation</h2><p>Your first prompt creates a linked Kimaki session and Discord thread in {project.name}.</p></div>}
         {session && <PublishedMessages messages={conversation.messages} threadId={session.threadId} discordUrl={links?.browser} preview={(name, url) => { remember(); setPreview({ name, url }) }} />}
         {newMessages && <button className="chat-new-messages" onClick={() => { if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight; setNewMessages(false) }}>New messages <ArrowDown size={13} /></button>}
@@ -122,7 +122,7 @@ export function ConversationPane({ target, sidebar, close, created, markRead }: 
       {!block && conversation.stale && <p className="chat-error">Discord connection is stale. The transcript may be incomplete.</p>}
       {draft.conflict && <div className="chat-error" role="alert">This draft changed in another window. <button onClick={draft.keep}>Keep my draft</button><button onClick={draft.reload}>Load saved draft</button></div>}
       {draft.storageError && <p className="chat-error">Draft is in memory only: browser storage is unavailable.</p>}
-      <PromptComposer draft={draft.draft} change={draft.save} expanded={expanded && !block} toggle={() => { remember(); setExpanded(value => !value) }} enabled={Boolean(info) && !block && !conversation.stale && !draft.conflict} busy={busy && Boolean(info) && !block && !conversation.stale} pending={Boolean(pending)} catalog={catalog} submit={submit} stop={() => { if (session && confirm('Stop the current turn and clear its queued prompts?')) void chatRequest(`threads/${session.threadId}/abort`, z.object({ stopped: z.boolean() }), jsonRequest({})).catch(error => setOperationError(error.message)) }} />
+      <PromptComposer draft={draft.draft} change={draft.save} expanded={expanded && !block && !loading} toggle={() => { remember(); setExpanded(value => !value) }} enabled={!loading && !block && !conversation.stale && !draft.conflict} busy={busy && !loading && !block && !conversation.stale} pending={Boolean(pending)} catalog={catalog} submit={submit} stop={() => { if (session && confirm('Stop the current turn and clear its queued prompts?')) void chatRequest(`threads/${session.threadId}/abort`, z.object({ stopped: z.boolean() }), jsonRequest({})).catch(error => setOperationError(error.message)) }} />
       {(pending || receipt || operationError) && <div className="chat-operation" role="status"><strong>{receipt?.state || (pending ? 'Reconciling submission' : '')}</strong>{receipt?.state === 'unknown' && <span>Delivery uncertain. Your draft was kept. Inspect Discord before deciding to send again.</span>}{operationError && <span>{operationError}</span>}{pending && <small>Operation {pending.id}</small>}{receipt?.messageIds.length ? <small>{receipt.messageIds.length} Discord message(s) published</small> : null}{pending && (operationError || ['unknown', 'failed'].includes(receipt?.state || '')) && <button onClick={() => { if (confirm('This does not undo the submission. Only clear the delivery guard after checking Discord and confirming it is safe to submit again.')) { localStorage.removeItem(pendingKey); setPending(null); setReceipt(null) } }}>Resolve delivery guard…</button>}</div>}
     </>}
   </main>

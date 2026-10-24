@@ -17,7 +17,7 @@ export function useConversation(threadId?: string, retry = 0) {
   const controller = useRef<AbortController | null>(null)
   useEffect(() => {
     if (!threadId) return
-    setError('')
+    setError(''); setLoading(true)
     const abort = new AbortController(); controller.current = abort
     let cursor = '', retries = 0
     void (async () => {
