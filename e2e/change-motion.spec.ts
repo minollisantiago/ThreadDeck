@@ -45,6 +45,7 @@ test('explicit view and filter changes animate only results; search and identica
   await expect(page.getByRole('button', { name: 'By state', exact: true })).toBeFocused()
   await expect(page.locator('.state-panel')).toHaveCount(1)
   expect(await events(page)).toEqual(['project-list'])
+  expect(await page.locator('.project-list').evaluate(node => node.getAnimations()[0]?.effect?.getTiming().duration)).toBe(450)
   await page.getByRole('button', { name: 'Switch to islands view', exact: true }).click()
   expect(await events(page)).toEqual(['project-list', 'project-list'])
   await page.getByRole('button', { name: 'All sessions', exact: true }).click()

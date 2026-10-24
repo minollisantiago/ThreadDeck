@@ -2,6 +2,24 @@ import { mkdir } from 'node:fs/promises'
 import { expect, test } from './fixtures'
 import type { Snapshot, Session } from '../shared/model'
 
+for (const width of [390, 1280]) test(`right click keeps thread actions open until marking that thread read at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 844 })
+  const now = Date.now()
+  const snapshot: Snapshot = { health: 'connected', lastSuccessAt: now, checkedAt: now,
+    attentionAvailable: true, inventoryLimited: false, message: null,
+    projects: [{ id: 'alpha', name: 'Alpha', directory: '/alpha', sessions: [
+      { id: 'reply', projectId: 'alpha', title: 'Unread reply', threadId: '1561737719133114458', guildId: '1526236793048141935',
+        status: 'idle', agentCount: 0, updatedAt: now, responseAt: now - 1 },
+    ] }] }
+  await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Unread reply', exact: true }).click({ button: 'right' })
+  await expect(page.getByRole('menu', { name: 'Thread actions' })).toBeVisible()
+  await page.getByRole('menuitem', { name: 'Mark as read', exact: true }).click()
+  await expect(page.getByRole('menu')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Mark Unread reply as read' })).toHaveCount(0)
+})
+
 test('filter underline slides in either direction and respects reduced motion', async ({ page }) => {
   const now = Date.now()
   await page.route('**/api/snapshot', route => route.fulfill({ json: { projects: [], health: 'connected', lastSuccessAt: now, checkedAt: now, attentionAvailable: true, inventoryLimited: false, message: null } }))
