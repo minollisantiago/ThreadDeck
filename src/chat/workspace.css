@@ -19,6 +19,7 @@
 .chat-pane-header > div { flex: 1; min-width: 0; }
 .chat-pane-header strong { display: block; font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-pane-header span { display: block; color: var(--subtle); font-size: 11px; margin-bottom: 6px; }
+.chat-pane-header .chat-channel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-pane-header > button { padding: 6px; color: var(--muted); }
 .chat-pane-header a { font-size: 11px; color: var(--subtle); }
 .chat-transcript { flex: 1; min-height: 0; overflow: auto; padding: 32px max(24px, calc((100% - 800px) / 2)); position: relative; }
