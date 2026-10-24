@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, screen, shell, dialog, nativeTheme, net } = require('electron')
 const path = require('node:path')
-const { externalLink, mobileBounds } = require('./policy.cjs')
+const { externalLink, chatExternalLink, mobileBounds } = require('./policy.cjs')
 const { appId, taskbarDetails } = require('./taskbar.cjs')
 const { startupController } = require('./startup.cjs')
 const { readFileSync } = require('node:fs')
@@ -103,6 +103,9 @@ app.whenReady().then(async () => {
   const openExternal = url => { if (externalLink(url)) void shell.openExternal(url).catch(console.error) }
   ipcMain.on('open-discord', (event, url) => {
     if (event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame && typeof url === 'string') openExternal(url)
+  })
+  ipcMain.on('open-chat-link', (event, url) => {
+    if (event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame && typeof url === 'string' && chatExternalLink(url)) void shell.openExternal(url).catch(console.error)
   })
   window.webContents.setWindowOpenHandler(({ url }) => { openExternal(url); return { action: 'deny' } })
   window.webContents.on('will-navigate', (event, url) => {

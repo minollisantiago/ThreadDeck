@@ -3,7 +3,8 @@ import { CheckCheck, Settings2 } from 'lucide-react'
 import { Button } from './ui/button'
 import type { Grouping } from '../lib/view'
 
-export function ThreadOptions({ grouping, setGrouping, unreadCount, markAllRead }: {
+export function ThreadOptions({ grouping, setGrouping, unreadCount, markAllRead, compact = false }: {
+  compact?: boolean
   grouping: Grouping; setGrouping: (value: Grouping) => void; unreadCount: number; markAllRead: () => void
 }) {
   const trigger = useRef<HTMLButtonElement>(null)
@@ -15,7 +16,7 @@ export function ThreadOptions({ grouping, setGrouping, unreadCount, markAllRead 
     if (!media || !panel) return
     const position = () => {
       const button = trigger.current
-      if (!button || !media.matches) return
+      if (!button || !(compact || media.matches)) return
       const rect = button.getBoundingClientRect()
       const width = panel.offsetWidth || 260
       const height = panel.offsetHeight
@@ -28,7 +29,7 @@ export function ThreadOptions({ grouping, setGrouping, unreadCount, markAllRead 
       const focused = panel.contains(document.activeElement)
       if (panel.matches(':popover-open')) panel.hidePopover()
       setOpen(false)
-      if (media.matches) {
+      if (compact || media.matches) {
         panel.setAttribute('popover', 'auto')
         if (focused) trigger.current?.focus()
       } else {
@@ -54,7 +55,7 @@ export function ThreadOptions({ grouping, setGrouping, unreadCount, markAllRead 
       media.removeEventListener('change', sync)
       window.removeEventListener('resize', reposition); window.removeEventListener('scroll', reposition, true)
     }
-  }, [])
+  }, [compact])
   return <>
     <Button ref={trigger} variant="outline" size="icon" className="thread-options-toggle" popoverTarget="thread-list-options" aria-label="Thread list options" aria-controls="thread-list-options" aria-expanded={open} title={`Thread list options · grouped by ${grouping}`}><Settings2 aria-hidden="true" /></Button>
     <div ref={controls} className="thread-list-options" id="thread-list-options" role="group" aria-label="Thread list options">

@@ -6,12 +6,15 @@ import { useChangeMotion } from '../hooks/use-change-motion'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { SessionContextMenu } from './session-context-menu'
+import { useSelectedSession, useSessionNavigation } from '../chat/navigation'
 
 const labels = { working: 'Working', idle: 'Idle', error: 'Error', input: 'Input requested', permission: 'Permission needed' }
 
 export function SessionRow({ session, verified, now, unread, markRead, graphical = false, projectName }: {
   session: Session; verified: boolean; now: number; unread: boolean; markRead: (session: Session) => void; graphical?: boolean; projectName?: string
 }) {
+  const openSession = useSessionNavigation()
+  const selected = useSelectedSession() === session.id
   const row = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const closeMenu = useCallback((restoreFocus = false) => {
@@ -24,8 +27,9 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
   const flags = useRef<HTMLDivElement>(null)
   useChangeMotion(flags, `${status}:${unread}:${unread ? session.responseAt ?? '' : ''}`, 120, 2)
   const Icon = status === 'working' ? LoaderCircle : status === 'idle' ? CirclePause : status === 'permission' ? ShieldQuestion : CircleAlert
-  return <div ref={row} tabIndex={0} aria-haspopup="menu" className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''} ${graphical ? 'session-tile' : ''}`} data-state={status} title={`Updated ${relativeTime(session.updatedAt, now)} · ${new Date(session.updatedAt).toLocaleString()}`} onContextMenu={event => {
+  return <div ref={row} tabIndex={0} aria-haspopup="menu" className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''} ${graphical ? 'session-tile' : ''}`} data-state={status} data-selected={selected} title={`Updated ${relativeTime(session.updatedAt, now)} · ${new Date(session.updatedAt).toLocaleString()}`} onContextMenu={event => {
     event.preventDefault()
+    event.stopPropagation()
     setMenu({ x: event.clientX, y: event.clientY })
   }} onKeyDown={event => {
     if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
@@ -37,8 +41,8 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
     {(attention || unread) && <span className="session-attention-marker" aria-hidden="true" />}
     {graphical && <span className={`session-glyph glyph-${status}`} aria-hidden="true"><Icon /></span>}
     <div className="session-copy">
-      {links ? <a className="session-title" href={links.app} title={session.title} onClick={() => markRead(session)} onAuxClick={event => { if (event.button === 1) markRead(session) }}>{session.title}</a>
-         : <span className="session-title">{session.title}</span>}
+      {links ? <a className="session-title" href={links.app} title={session.title} onClick={event => { if (openSession && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); openSession(session); return } markRead(session) }} onAuxClick={event => { if (event.button === 1) markRead(session) }}>{session.title}</a>
+         : openSession ? <button className="session-title" title={session.title} onClick={() => openSession(session)}>{session.title}</button> : <span className="session-title">{session.title}</span>}
       {projectName && <span className="session-project" title={`Project: ${projectName}`}>{projectName}</span>}
     </div>
     <div className="session-flags" ref={flags}>

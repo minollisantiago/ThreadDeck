@@ -1,7 +1,9 @@
 # ThreadDeck
 
-A personal, local, read-only switchboard for Kimaki/OpenCode conversations.
-Discord remains the conversation interface. Group threads by project or by state.
+A personal, local switchboard and Stream chat workspace for Kimaki/OpenCode
+conversations. Group threads by project or state; keep Discord available alongside
+the desktop conversation. Chat requires the prepared local Kimaki fork: see
+[local chat setup and current limits](docs/local-chat.md).
 
 ## Stack
 
@@ -10,10 +12,11 @@ with a lightweight Node.js backend. Node 24+ is required.
 
 ## Interface
 
-- Double-tap **Space** within 350 ms outside text fields and controls to open the
-  conversation finder. Hover/focus the searchbar's **/** indicator for shortcut hints,
-  or click it to open the finder. Search historical user/assistant text,
-  fuzzy thread/project titles, and word prefixes; use ↑/↓ and Enter to open Discord.
+- **Ctrl+K** (desktop also **Ctrl+Tab**) or double-tap **Space** outside text fields
+  and controls opens fuzzy session search. Use ↑/↓ and Enter to open a conversation.
+  The finder also provides **New linked conversation** and **Search conversation
+  history**. **Ctrl+P** focuses drafting; **Ctrl+P, then P** expands/restores Vim editing.
+  The existing history index searches user/assistant text, titles and word prefixes.
   The existing `/` shortcut still focuses the dashboard filter. History search is
   independent of dashboard filters and its recent-300-session inventory.
 - A private local SQLite FTS5 index lives at `~/.local/share/threaddeck/search.sqlite`
@@ -44,8 +47,10 @@ with a lightweight Node.js backend. Node 24+ is required.
 - Read receipts are local to this browser and persist across reloads. They do not
   sync with Discord. On first use, existing completed responses are unread because
   ThreadDeck has no record of what you have already read elsewhere.
-- Session titles open `discord://` app links; the external-link icon opens Discord
-  in the browser instead. Windows may ask permission for the first app handoff.
+- Session titles open the internal Stream pane. Its messages come from Kimaki's
+  actual Discord publication, not the raw harness transcript. Without the local
+  bridge, drafting remains available and the app offers Discord rather than fake
+  history or unmirrored prompts. The external-link icon still opens Discord.
 - Local light/dark, accent palette and collapse preferences; no account or cloud sync.
 - Each mode has four independently saved backgrounds: dark **Original, Charcoal,
   Midnight, Graphite**, and light **Original, Porcelain, Warm paper, Cool slate**.

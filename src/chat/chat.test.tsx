@@ -1,0 +1,69 @@
+// @vitest-environment jsdom
+import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
+import { afterEach, expect, it, vi } from 'vitest'
+import { safePreview } from './html-preview'
+import { PublishedMessages } from './messages'
+import { publishedMessageSchema } from '../../shared/chat'
+import { useDraft } from './drafts'
+import { mergeMessages } from './use-conversation'
+import { useUnread } from '../hooks/use-unread'
+import type { Project } from '../../shared/model'
+import { ChatMarkdown } from './markdown'
+import { SessionRow } from '../components/session-row'
+import { SessionNavigation } from './navigation'
+
+afterEach(() => { cleanup(); localStorage.clear() })
+const message = publishedMessageSchema.parse({ id: '100000000000000002', channel_id: '100000000000000001', timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: 'Discord-visible text' })
+it('displays literal HTML as text without executing or dropping it', () => {
+  const { container } = render(<ChatMarkdown text={'<script>window.unsafe = true</script>'} />)
+  expect(container.textContent).toContain('<script>window.unsafe = true</script>')
+  expect(container.querySelector('script')).toBeNull()
+})
+it('keeps previews inert, removes active navigation and places restrictive CSP first', () => {
+  const html = safePreview('<html><head><meta http-equiv="refresh" content="0;url=https://evil.example"><script>fetch("https://evil.example")</script><base href="https://evil.example"></head><body onload="alert(1)"><iframe src="https://evil.example"></iframe><h1>Safe heading</h1></body></html>')
+  expect(html).not.toContain('<script'); expect(html).not.toContain('<iframe'); expect(html).not.toContain('<base'); expect(html).not.toContain('http-equiv="refresh"'); expect(html).not.toContain('onload')
+  expect(html).toContain("default-src 'none'"); expect(html).toContain('Safe heading')
+})
+it('preserves Components V2 file/text order without rendering the attachment twice', () => {
+  render(<PublishedMessages threadId={message.channel_id} preview={() => {}} discordUrl="https://discord.com/channels/1/2" messages={[{ ...message, content: '', attachments: [{ id: '100000000000000004', filename: 'study.html', size: 100, url: 'https://cdn.discordapp.com/study.html' }], components: [
+    { type: 10, content: 'Before file' }, { type: 13, file: { url: 'attachment://study.html' } }, { type: 10, content: 'After file' },
+  ] }]} />)
+  expect(screen.getAllByText('study.html')).toHaveLength(1)
+  expect(screen.getByText('Before file').compareDocumentPosition(screen.getByText('study.html')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(screen.getByText('study.html').compareDocumentPosition(screen.getByText('After file')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
+it('makes unsupported interactions explicit rather than simulating an answer', () => {
+  render(<PublishedMessages messages={[{ ...message, components: [{ type: 2, label: 'Accept Always', custom_id: 'secret' }] }]} threadId={message.channel_id} discordUrl="https://discord.com/channels/1/2" preview={() => {}} />)
+  expect(screen.getByText('Accept Always')).toBeTruthy(); expect(screen.getByRole('link', { name: 'Respond in Discord' }).getAttribute('href')).toBe('https://discord.com/channels/1/2')
+  expect(screen.queryByRole('button', { name: 'Accept Always' })).toBeNull()
+})
+it('does not overwrite a draft saved by another editor', () => {
+  const id = crypto.randomUUID(), a = renderHook(() => useDraft(id)), b = renderHook(() => useDraft(id))
+  act(() => a.result.current.save({ text: 'Saved in first window' }))
+  act(() => b.result.current.save({ text: 'Unfinished in second window' }))
+  expect(b.result.current.conflict).toBe(true)
+  expect(localStorage.getItem(`threaddeck:chat-draft:v1:${id}`)).toContain('Saved in first window')
+  expect(b.result.current.draft.text).toBe('Unfinished in second window')
+  act(() => b.result.current.keep())
+  expect(localStorage.getItem(`threaddeck:chat-draft:v1:${id}`)).toContain('Unfinished in second window')
+})
+it('updates read receipts across manager and conversation hooks in one window', () => {
+  const session = { id: 'ses_1', threadId: '100000000000000001', projectId: 'p', guildId: null, title: 'Test', status: 'idle' as const, updatedAt: 1, agentCount: 0, responseAt: 50 }
+  const projects: Project[] = [{ id: 'p', name: 'Project', directory: '/fixture', sessions: [session] }]
+  const manager = renderHook(() => useUnread(projects)), pane = renderHook(() => useUnread(projects))
+  expect(manager.result.current.unread.has(session.id)).toBe(true)
+  act(() => pane.result.current.markRead(session))
+  expect(manager.result.current.unread.has(session.id)).toBe(false)
+})
+it('opens linked sessions without prematurely acknowledging an unseen reply', () => {
+  const session = { id: 'ses_test', title: 'Read after delivery', threadId: '100000000000000001', guildId: '100000000000000002', projectId: 'p', status: 'idle' as const, agentCount: 0, updatedAt: 1, responseAt: 50 }
+  const open = vi.fn(), markRead = vi.fn()
+  render(<SessionNavigation.Provider value={open}><SessionRow session={session} verified now={100} unread markRead={markRead} /></SessionNavigation.Provider>)
+  fireEvent.click(screen.getByRole('link', { name: session.title }))
+  expect(open).toHaveBeenCalledWith(session); expect(markRead).not.toHaveBeenCalled()
+})
+it('merges live revisions and deletes by Discord identity, not text', () => {
+  const other = { ...message, id: '100000000000000003', content: message.content }
+  const updated = { ...message, content: 'Edited text' }
+  expect(mergeMessages([message, other], [updated], [other.id])).toEqual([updated])
+})

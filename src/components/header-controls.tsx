@@ -7,7 +7,8 @@ import { darkThemes, lightThemes, type DarkTheme, type LightTheme } from '../lib
 export const palettes = ['pink', 'lavender', 'blue', 'green', 'peach'] as const
 export type Palette = typeof palettes[number]
 
-export function HeaderControls({ appearance, palette, setAppearance, setPalette, lightTheme, setLightTheme, darkTheme, setDarkTheme, design, setDesign, connection }: {
+export function HeaderControls({ appearance, palette, setAppearance, setPalette, lightTheme, setLightTheme, darkTheme, setDarkTheme, design, setDesign, connection, compact = false }: {
+  compact?: boolean
   appearance: 'dark' | 'light'; palette: Palette
   setAppearance: (value: 'dark' | 'light') => void; setPalette: (value: Palette) => void
   design: Design; setDesign: (value: Design) => void
@@ -30,7 +31,7 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
       const focused = panel.contains(document.activeElement)
       if (panel.matches(':popover-open')) panel.hidePopover()
       setOpen(false)
-      if (media.matches) {
+      if (compact || media.matches) {
         panel.setAttribute('popover', 'auto')
         if (focused) trigger.current?.focus()
       } else {
@@ -39,11 +40,19 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
       }
     }
     function toggle(event: ToggleEvent) { setOpen(event.newState === 'open') }
+    const position = () => {
+      if (!compact || !trigger.current) return
+      const rect = trigger.current.getBoundingClientRect()
+      panel.style.left = `${Math.max(16, rect.right - Math.min(340, rect.right - 16))}px`
+      panel.style.top = `${rect.bottom + 8}px`
+    }
+    const beforeToggle = (event: ToggleEvent) => { if (event.newState === 'open') position() }
+    panel.addEventListener('beforetoggle', beforeToggle)
     panel.addEventListener('toggle', toggle)
     media.addEventListener('change', sync)
     sync()
-    return () => { panel.removeEventListener('toggle', toggle); media.removeEventListener('change', sync) }
-  }, [])
+    return () => { panel.removeEventListener('beforetoggle', beforeToggle); panel.removeEventListener('toggle', toggle); media.removeEventListener('change', sync) }
+  }, [compact])
   return <div className="header-controls">
     <Button ref={trigger} variant="outline" size="icon" className="mobile-menu-toggle" popoverTarget="header-controls" aria-label="App controls" aria-controls="header-controls" aria-expanded={open}><Menu aria-hidden="true" /></Button>
     <div ref={controls} className="appearance-controls" id="header-controls" role="group" aria-label="Appearance and links">

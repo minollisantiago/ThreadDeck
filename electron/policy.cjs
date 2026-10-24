@@ -8,4 +8,7 @@ function externalLink(value) {
 function mobileBounds(area) {
   return { x: area.x, y: area.y, width: Math.min(430, area.width), height: area.height }
 }
-module.exports = { externalLink, mobileBounds }
+function chatExternalLink(value) {
+  try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password } catch { return false }
+}
+module.exports = { externalLink, chatExternalLink, mobileBounds }

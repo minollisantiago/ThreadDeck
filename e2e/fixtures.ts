@@ -1,10 +1,11 @@
 import { test as base, expect } from '@playwright/test'
 
-// Existing visual checks supply synthetic HTTP snapshots and exercise fallback.
-// Live transport checks use Playwright directly instead of this fixture.
+// Dashboard component regression checks run the actual standalone Dashboard.
+// Production workspace and transport checks use Playwright directly.
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.route('**/api/events', route => route.abort())
+    await page.route(/^http:\/\/127\.0\.0\.1:\d+\/(?:\?.*)?$/, route => route.fulfill({ path: 'artifacts/dashboard-fixture/e2e/dashboard-fixture.html', contentType: 'text/html' }))
     await use(page)
   },
 })

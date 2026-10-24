@@ -82,7 +82,9 @@ export function launchCommands(args, existing = { backend: false, kimaki: false 
   return [
     ...(!existing.backend ? [[process.execPath, '--import', 'tsx', 'server/index.ts', '--production']] : []),
     ...(desktop ? [[process.execPath, 'scripts/desktop.mjs']] : []),
-    ...(!existing.kimaki ? [['npx', '--yes', 'kimaki@latest', '--gateway', '--if-not-running', ...kimakiArgs]] : []),
+    ...(!existing.kimaki ? [process.env.THREADDECK_KIMAKI_CLI
+      ? [process.execPath, process.env.THREADDECK_KIMAKI_CLI, '--gateway', '--if-not-running', ...kimakiArgs]
+      : ['npx', '--yes', 'kimaki@latest', '--gateway', '--if-not-running', ...kimakiArgs]] : []),
   ]
 }
 

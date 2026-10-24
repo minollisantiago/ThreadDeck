@@ -11,7 +11,7 @@ export default defineConfig({
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {},
   },
   webServer: {
-    command: 'npm start', url: 'http://127.0.0.1:5188',
+    command: 'node scripts/serve-chat-tests.mjs', url: 'http://127.0.0.1:5188',
     env: { PORT: '5188' }, reuseExistingServer: false,
   },
 })

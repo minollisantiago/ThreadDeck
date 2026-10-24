@@ -1,0 +1,95 @@
+import { mkdir } from 'node:fs/promises'
+import { test, expect, type Page } from '@playwright/test'
+import type { Snapshot } from '../shared/model'
+
+const threadId = '100000000000000001', projectId = '100000000000000010'
+test.use({ viewport: { width: 1440, height: 1050 }, colorScheme: 'dark' })
+test.beforeEach(async ({ page }) => { await page.route('**/api/events', route => route.abort()) })
+async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted', bridge = true) {
+  const now = Date.now(), submissions: Record<string, unknown>[] = []
+  const snapshot: Snapshot = { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [
+    { id: 'ses_stream', threadId, guildId: '100000000000000099', projectId, title: 'Stream workspace', status: 'input', agentCount: 0, updatedAt: now, responseAt: Date.parse('2026-10-24T00:00:00Z') },
+    { id: 'ses_parallel', threadId: '100000000000000003', guildId: '100000000000000099', projectId, title: 'Parallel agent', status: 'working', agentCount: 1, updatedAt: now - 1000 },
+  ] }] }
+  await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
+  await page.route('**/api/chat/**', async route => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/api/chat/info') return route.fulfill({ status: bridge ? 200 : 503, json: bridge ? { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort'] } : { code: 'bridge_required', error: 'Activate the local Kimaki fork to chat here' } })
+    if (url.pathname.endsWith('/changes')) return // Deliberately pending long poll; never reaches a real backend.
+    if (url.pathname.endsWith('/catalog')) return route.fulfill({ json: { entries: [{ kind: 'skill', name: 'research', description: 'Investigate primary sources' }, { kind: 'command', name: 'review', description: 'Review changes' }] } })
+    if (url.pathname.endsWith('/messages')) return route.fulfill({ json: { cursor: 'test:0', before: null, stale: false, messages: [{ id: '100000000000000005', channel_id: threadId, author: { id: 'bot', username: 'Kimaki', bot: true }, timestamp: '2026-10-24T00:00:00Z', content: '## The approved Stream workspace\n\nThis is the **published Discord representation**, not a raw harness transcript.\n\n- Existing ThreadDeck typography and containers\n- One conversation and a durable Markdown draft\n- All execution stays inside Kimaki', attachments: [{ id: '100000000000000006', filename: 'study.html', size: 400, content_type: 'text/html' }], components: [{ type: 17, accent_color: 0xf77c9d, components: [{ type: 10, content: 'A real Components V2 callout' }] }], embeds: [] }] } })
+    if (url.pathname.includes('/attachments/')) return route.fulfill({ contentType: 'text/html', body: '<html><head><meta http-equiv="refresh" content="0;url=https://example.invalid/escape"><script>fetch("https://example.invalid/leak")</script><style>body{background:#f4f3f6;color:#25212e;padding:48px;font:20px monospace}</style></head><body><h1>Safe attachment preview</h1><p>This is a synthetic HTML attachment.</p></body></html>' })
+    if (url.pathname === '/api/chat/submit') {
+      const input = route.request().postDataJSON(); submissions.push(input)
+      return route.fulfill({ status: 202, json: { id: input.requestId, state: 'accepted', messageIds: [], updatedAt: now } })
+    }
+    if (url.pathname.includes('/operations/')) return route.fulfill({ json: { id: url.pathname.split('/').at(-1), state, messageIds: ['100000000000000007'], updatedAt: now, threadId, sessionId: 'ses_created' } })
+    return route.fulfill({ status: 404, json: { error: 'Unexpected test endpoint' } })
+  })
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toBeVisible()
+  return submissions
+}
+test('Stream retains mobile manager styling and keyboard-first drafting', async ({ page }) => {
+  await fixture(page)
+  await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
+  await expect(page.locator('.chat-manager .session-title').first()).toHaveCSS('font-size', '13px')
+  await page.keyboard.press('Control+p'); await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toBeFocused()
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('An unfinished prompt worth preserving')
+  await page.keyboard.press('Control+p'); await page.keyboard.press('p')
+  await expect(page.locator('.cm-editor')).toBeVisible(); await page.keyboard.press('Escape'); await expect(page.locator('.cm-editor')).toBeVisible()
+  await page.keyboard.press('Control+k'); await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel'); await page.keyboard.press('Enter')
+  await expect(page.locator('.chat-pane-header strong')).toHaveText('Parallel agent')
+  await page.keyboard.press('Control+k'); await page.getByRole('textbox', { name: 'Find a session' }).fill('stream'); await page.keyboard.press('Enter')
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('An unfinished prompt worth preserving')
+  await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
+  await mkdir('artifacts/production-chat', { recursive: true }); await page.screenshot({ path: 'artifacts/production-chat/stream.png', animations: 'disabled' })
+})
+test('confirms submission through a durable receipt before clearing a draft', async ({ page }) => {
+  const submissions = await fixture(page)
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('A deliberate prompt')
+  await page.keyboard.press('Control+Enter')
+  await expect.poll(() => submissions.length).toBe(1)
+  expect(submissions[0].threadId).toBe(threadId)
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('')
+  await expect(page.locator('.chat-operation')).toContainText('submitted')
+})
+test('uncertain delivery preserves a draft and never automatically resends', async ({ page }) => {
+  const submissions = await fixture(page, 'unknown')
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Keep this uncertain prompt')
+  await page.keyboard.press('Control+Enter')
+  await expect(page.locator('.chat-operation')).toContainText('Delivery uncertain')
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('Keep this uncertain prompt')
+  await expect(page.getByRole('button', { name: 'Pending…', exact: true })).toBeDisabled()
+  expect(submissions).toHaveLength(1)
+})
+test('HTML occupies the chat pane without executing or navigating, then restores the draft', async ({ page }) => {
+  let unsafeRequests = 0
+  await page.route('https://example.invalid/**', route => { unsafeRequests++; return route.abort() })
+  await fixture(page)
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Still writing')
+  await page.getByRole('button', { name: 'Preview HTML', exact: true }).click()
+  await expect(page.locator('.chat-html-preview')).toBeVisible()
+  await expect(page.locator('.chat-manager')).toBeVisible()
+  await expect(page.locator('iframe')).toHaveAttribute('sandbox', '')
+  await page.frameLocator('iframe').getByRole('heading', { name: 'Safe attachment preview' }).waitFor()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('Still writing')
+  expect(unsafeRequests).toBe(0)
+})
+test('narrow chat uses a dismissible mobile sidebar without horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 1000 }); await fixture(page)
+  await expect(page.locator('.chat-manager')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Toggle session sidebar' }).click()
+  await expect(page.getByRole('dialog', { name: 'Session manager' })).toBeVisible()
+  await page.keyboard.press('Escape'); await expect(page.locator('.chat-manager')).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+test('an unmodified Kimaki remains a clear unavailable state, never fake chat', async ({ page }) => {
+  await fixture(page, 'submitted', false)
+  await expect(page.getByRole('alert')).toContainText('Activate the local Kimaki fork')
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled()
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Can still prepare a draft')
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('Can still prepare a draft')
+})

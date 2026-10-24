@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 const require = createRequire(import.meta.url)
-const { externalLink, mobileBounds } = require('../electron/policy.cjs')
+const { externalLink, chatExternalLink, mobileBounds } = require('../electron/policy.cjs')
 const { appId, taskbarDetails } = require('../electron/taskbar.cjs')
 const { colors, parseAppearance } = require('../electron/appearance.cjs')
 
@@ -40,4 +40,8 @@ test('narrow default fills available height without covering the taskbar', () =>
 test('only Discord thread links can leave the desktop shell', () => {
   for (const url of ['https://discord.com/channels/123/456', 'discord://-/channels/123/456']) assert.equal(externalLink(url), true)
   for (const url of ['file:///etc/passwd', 'javascript:alert(1)', 'https://discord.com.evil.test/channels/123', 'https://example.com', 'http://discord.com/channels/123', 'discord://settings', 'not a URL']) assert.equal(externalLink(url), false, url)
+})
+test('explicit chat links open only credential-free HTTPS in the external browser', () => {
+  for (const url of ['https://github.com/example/project', 'https://opencode.ai/v2/docs/']) assert.equal(chatExternalLink(url), true)
+  for (const url of ['file:///etc/passwd', 'javascript:alert(1)', 'http://localhost', 'https://user:secret@example.com', 'discord://settings', 'not a URL']) assert.equal(chatExternalLink(url), false)
 })

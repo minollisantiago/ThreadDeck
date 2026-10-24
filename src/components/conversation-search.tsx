@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { discordLinks } from '../../shared/model'
-import { searchResponseSchema, type SearchResponse } from '../../shared/search'
+import { searchResponseSchema, type SearchHit, type SearchResponse } from '../../shared/search'
 
 function Highlight({ text, query }: { text: string; query: string }) {
   const tokens = query.match(/[\p{L}\p{N}_]+/gu)
@@ -10,7 +10,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   return <>{text.split(pattern).map((part, i) => i % 2 ? <mark key={i}>{part}</mark> : part)}</>
 }
 
-export function ConversationSearch({ close }: { close: () => void }) {
+export function ConversationSearch({ close, onSelect }: { close: () => void; onSelect?: (hit: SearchHit) => boolean }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
@@ -73,13 +73,13 @@ export function ConversationSearch({ close }: { close: () => void }) {
       {hits.map((hit, index) => {
         const links = discordLinks(hit)
         return <article key={hit.id} data-index={index} data-selected={selected === index} onMouseMove={() => setSelected(index)}>
-          <div className="conversation-search-result-title">{links ? <a href={links.app}><Highlight text={hit.title} query={resultQuery} /></a> : <strong><Highlight text={hit.title} query={resultQuery} /></strong>}{links && <a className="conversation-search-browser" href={links.browser} target="_blank" rel="noreferrer" aria-label={`Open ${hit.title} in browser`}>↗</a>}</div>
+          <div className="conversation-search-result-title">{links ? <a href={links.app} onClick={event => { if (onSelect && !event.ctrlKey && !event.metaKey && !event.shiftKey && onSelect(hit)) event.preventDefault() }}><Highlight text={hit.title} query={resultQuery} /></a> : <strong><Highlight text={hit.title} query={resultQuery} /></strong>}{links && <a className="conversation-search-browser" href={links.browser} target="_blank" rel="noreferrer" aria-label={`Open ${hit.title} in browser`}>↗</a>}</div>
           <p className="conversation-search-meta">{hit.project} · {new Date(hit.updatedAt).toLocaleDateString()}{hit.matches > 0 ? ` · ${hit.matches} matching messages` : ''}</p>
           {hit.excerpt && <p className="conversation-search-excerpt"><Highlight text={hit.excerpt} query={resultQuery} /></p>}
         </article>
       })}
       {!loading && !error && !hits.length && <p className="conversation-search-status">{data?.indexing ? 'Building your history index. Results appear as conversations are indexed.' : 'No matching conversations. Try different words or a shorter phrase.'}</p>}
     </div>
-    <div className="conversation-search-footer">↑ ↓ select · Enter opens Discord · searches all history</div>
+    <div className="conversation-search-footer">↑ ↓ select · Enter opens {onSelect ? 'conversation' : 'Discord'} · searches all history</div>
   </dialog>
 }

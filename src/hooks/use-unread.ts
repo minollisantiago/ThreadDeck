@@ -15,12 +15,19 @@ function load(): ReadResponses {
 export function useUnread(projects: Project[]) {
   const [read, setRead] = useState(load)
   useEffect(() => {
-    try { localStorage.setItem(storageKey, JSON.stringify(read)) } catch { /* Storage may be unavailable. */ }
+    try {
+      const merged = { ...load() }
+      for (const [key, value] of Object.entries(read)) merged[key] = Math.max(merged[key] ?? 0, value)
+      localStorage.setItem(storageKey, JSON.stringify(merged))
+      window.dispatchEvent(new Event('threaddeck:read-receipts'))
+    } catch { /* Storage may be unavailable. */ }
   }, [read])
   useEffect(() => {
     function storage(event: StorageEvent) { if (event.key === storageKey || event.key === null) setRead(load()) }
+    function local() { const next = load(); setRead(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next) }
     window.addEventListener('storage', storage)
-    return () => window.removeEventListener('storage', storage)
+    window.addEventListener('threaddeck:read-receipts', local)
+    return () => { window.removeEventListener('storage', storage); window.removeEventListener('threaddeck:read-receipts', local) }
   }, [])
   function markRead(session: Session) {
     if (session.responseAt == null) return

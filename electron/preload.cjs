@@ -8,7 +8,7 @@ function openLink(event) {
   const url = new URL(anchor.href)
   if (url.origin === location.origin) return
   event.preventDefault()
-  ipcRenderer.send('open-discord', url.href)
+  ipcRenderer.send(anchor.hasAttribute('data-chat-external') ? 'open-chat-link' : 'open-discord', url.href)
 }
 window.addEventListener('click', openLink, true)
 window.addEventListener('auxclick', openLink, true)

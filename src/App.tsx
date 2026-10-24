@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, Hash, Layers2, Search, X } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
@@ -21,6 +21,8 @@ import { DesktopTitlebar } from './components/desktop-titlebar'
 import { ConversationSearch } from './components/conversation-search'
 import { isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
 import { snapshotStaleAfterMs } from '../shared/update-timing'
+import { WorkspaceControls } from './chat/navigation'
+import { ChatWorkspace } from './chat/workspace'
 import { isGrouping, projectOrder, sessionOrder, stateGroups, visibleProjects, workingCount, type Filter, type Grouping } from './lib/view'
 
 function saved<T>(key: string, fallback: T, validate: (value: unknown) => value is T): T {
@@ -63,6 +65,8 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
 }
 
 export function Dashboard({ snapshot, transportError = false, now = Date.now() }: { snapshot: Snapshot | null; transportError?: boolean; now?: number }) {
+  const workspace = useContext(WorkspaceControls)
+  const openFinder = () => workspace ? workspace.find() : setHistoryOpen(true)
   const [query, setQuery] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [filter, setFilter] = useState<Filter>('active')
@@ -78,7 +82,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const [visualCollapsed, setVisualCollapsed] = useState<Record<string, boolean>>({})
   const search = useRef<HTMLInputElement>(null)
   const results = useRef<HTMLDivElement>(null)
-  useChangeMotion(results, `${grouping}:${design}:${filter}`)
+  useChangeMotion(results, `${grouping}:${design}:${filter}`, 450)
   useEffect(() => { document.documentElement.dataset.appearance = appearance; persist('threaddeck:appearance', appearance) }, [appearance])
   useEffect(() => { document.documentElement.dataset.palette = palette; persist('threaddeck:palette', palette) }, [palette])
   useEffect(() => { document.documentElement.dataset.lightTheme = lightTheme; persist('threaddeck:light-theme', lightTheme) }, [lightTheme])
@@ -97,7 +101,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         if (target instanceof HTMLElement && target.closest('button,a,[role="button"],[role="menuitem"]')) { lastSpace = 0; return }
         event.preventDefault()
         const time = Date.now()
-        if (lastSpace && time - lastSpace <= 350) { lastSpace = 0; setHistoryOpen(true) }
+        if (lastSpace && time - lastSpace <= 350) { lastSpace = 0; openFinder() }
         else lastSpace = time
         return
       }
@@ -134,10 +138,10 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const groups = stateGroups(shown, verified, unread)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
-  return <><DesktopTitlebar /><div className="app-shell" data-design={design}>
+  return <>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design={design}>
     <header className="page-header">
       <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><div><p className="eyebrow">YOUR AGENT SWITCHBOARD</p><h1>ThreadDeck<span className="live-label">LIVE</span></h1></div></div>
-      <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
+      <HeaderControls compact={workspace?.compact} appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
     </header>
 
     <div className="overview">
@@ -150,10 +154,10 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
 
     <main>
       <div className="toolbar">
-        <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <div className="search-shortcuts"><button type="button" aria-label="Search shortcuts" aria-describedby="search-shortcuts-tooltip" onClick={() => setHistoryOpen(true)}><kbd>/</kbd></button><div className="search-shortcuts-tooltip" id="search-shortcuts-tooltip" role="tooltip"><span><strong>/</strong> — Filter projects or sessions</span><span><strong>Double Space</strong> — Search chat logs</span><span>Outside text fields and controls</span></div></div>}</div>
+        <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <div className="search-shortcuts"><button type="button" aria-label="Search shortcuts" aria-describedby="search-shortcuts-tooltip" onClick={openFinder}><kbd>/</kbd></button><div className="search-shortcuts-tooltip" id="search-shortcuts-tooltip" role="tooltip"><span><strong>/</strong> — Filter projects or sessions</span><span><strong>Double Space</strong> — {workspace ? 'Find sessions' : 'Search chat logs'}</span><span>Outside text fields and controls</span></div></div>}</div>
         <div className="filter-toolbar">
         <FilterTabs filter={filter} setFilter={setFilter} />
-        <ThreadOptions grouping={grouping} setGrouping={setGrouping} unreadCount={unread.size} markAllRead={markAllRead} />
+         <ThreadOptions compact={workspace?.compact} grouping={grouping} setGrouping={setGrouping} unreadCount={unread.size} markAllRead={markAllRead} />
         </div>
       </div>
 
@@ -170,7 +174,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button variant="outline" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
       </div>
     </main>
-    <footer><span><span className="footer-dot" />LOCAL · READ ONLY</span><span>Titles open Discord app <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span></footer>
+    <footer><span><span className="footer-dot" />{workspace ? 'LOCAL · KIMAKI' : 'LOCAL · READ ONLY'}</span><span>{workspace ? 'Titles open chat' : 'Titles open Discord app'} <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span></footer>
   </div>{historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} />}</>
 }
 
@@ -178,5 +182,5 @@ export default function App() {
   const { snapshot, transportError } = useSnapshot()
   const [now, setNow] = useState(Date.now)
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer) }, [])
-  return <Dashboard snapshot={snapshot} transportError={transportError} now={now} />
+  return <ChatWorkspace snapshot={snapshot}><Dashboard snapshot={snapshot} transportError={transportError} now={now} /></ChatWorkspace>
 }
