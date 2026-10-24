@@ -135,8 +135,15 @@ test('narrow chat uses a dismissible mobile sidebar without horizontal overflow'
 test('an unmodified Kimaki remains a clear unavailable state, never fake chat', async ({ page }) => {
   await fixture(page, 'submitted', false)
   await expect(page.getByRole('alert')).toContainText('Activate the local Kimaki fork')
+  await expect(page.locator('.chat-transcript .chat-state')).toBeVisible()
+  await expect(page.locator('.chat-pane > .chat-error')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled()
   await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Can still prepare a draft')
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('Can still prepare a draft')
+  await page.route('**/api/chat/info', route => route.fulfill({ json: { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['history', 'prompt'] } }))
+  await page.getByRole('button', { name: 'Reconnect', exact: true }).click()
+  await expect(page.locator('.chat-state')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled()
   await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('Can still prepare a draft')
 })
 for (const width of [430, 1440]) test(`keyboard shortcuts open from app controls and restore focus at ${width}px`, async ({ page }) => {

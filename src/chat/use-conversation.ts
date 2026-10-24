@@ -11,12 +11,13 @@ export function mergeMessages(previous: PublishedMessage[], messages: PublishedM
 function delay(ms: number, signal: AbortSignal) {
   return new Promise<void>(resolve => { const done = () => { clearTimeout(timer); signal.removeEventListener('abort', done); resolve() }; const timer = setTimeout(done, ms); signal.addEventListener('abort', done, { once: true }); if (signal.aborted) done() })
 }
-export function useConversation(threadId?: string) {
+export function useConversation(threadId?: string, retry = 0) {
   const [messages, setMessages] = useState<PublishedMessage[]>([])
   const [before, setBefore] = useState<string | null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(Boolean(threadId)), [stale, setStale] = useState(false)
   const controller = useRef<AbortController | null>(null)
   useEffect(() => {
     if (!threadId) return
+    setError('')
     const abort = new AbortController(); controller.current = abort
     let cursor = '', retries = 0
     void (async () => {
@@ -25,7 +26,7 @@ export function useConversation(threadId?: string) {
           if (!cursor) {
             const page = await chatRequest(`threads/${threadId}/messages`, historySchema, { signal: abort.signal })
             if (abort.signal.aborted) return
-            setMessages(page.messages); setBefore(page.before); setStale(page.stale); cursor = page.cursor; setLoading(false)
+            setMessages(page.messages); setBefore(page.before); setStale(page.stale); cursor = page.cursor; setError(''); setLoading(false)
           }
           const delta = await chatRequest(`threads/${threadId}/changes?cursor=${encodeURIComponent(cursor)}`, changesSchema, { signal: abort.signal })
           if (abort.signal.aborted) return
@@ -41,7 +42,7 @@ export function useConversation(threadId?: string) {
       }
     })()
     return () => abort.abort()
-  }, [threadId])
+  }, [threadId, retry])
   async function earlier() {
     if (!threadId || !before) return
     const page = await chatRequest(`threads/${threadId}/messages?before=${before}`, historySchema, { signal: controller.current?.signal })
