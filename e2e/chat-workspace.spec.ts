@@ -108,6 +108,18 @@ test('Vim mode sits directly before its toggle and follows editor mode changes',
   await expect(mode).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Vim off', exact: true })).toBeVisible()
 })
+test('chat header title links to the active Discord thread', async ({ page }) => {
+  await fixture(page)
+  const title = page.locator('.chat-pane-header').getByRole('link', { name: 'Stream workspace', exact: true })
+  await expect(title).toHaveAttribute('href', `discord://-/channels/100000000000000099/${threadId}`)
+  await title.focus()
+  await expect(title).toBeFocused()
+  await page.keyboard.press('Control+k')
+  await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.chat-thread-title')).toHaveText('Parallel agent')
+  await expect(page.locator('.chat-thread-title')).toHaveAttribute('href', 'discord://-/channels/100000000000000099/100000000000000003')
+})
 test('header keeps the project channel name in chat, editor, and preview', async ({ page }) => {
   await fixture(page)
   const channel = page.locator('.chat-pane-header .chat-channel-name')
