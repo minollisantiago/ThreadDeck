@@ -78,6 +78,6 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
       </div>
     </div>
      {connection}
-     {shortcutsOpen && <KeyboardShortcuts workspace={Boolean(workspace)} close={() => setShortcutsOpen(false)} restoreFocus={restoreFocus} />}
+     {shortcutsOpen && <KeyboardShortcuts workspace={Boolean(workspace)} threadId={workspace?.threadId} close={() => setShortcutsOpen(false)} restoreFocus={restoreFocus} />}
   </div>
 }

@@ -1,5 +1,8 @@
 .keyboard-shortcuts { width: min(620px, calc(100vw - 32px)); max-height: 85dvh; margin: auto; padding: 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 24px 100px #0006; }
 .keyboard-shortcuts::backdrop { background: #0008; backdrop-filter: blur(4px); }
+.keyboard-shortcuts[open] { display: flex; flex-direction: column; height: min(800px, 85dvh); overflow: hidden; }
+.keyboard-shortcuts > header, .keyboard-reference-sections { flex-shrink: 0; }
+.keyboard-reference-content { flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
 .keyboard-shortcuts header { display: flex; align-items: center; gap: 12px; padding: 20px; border-bottom: 1px solid var(--rule); }
 .keyboard-shortcuts header > svg { color: var(--accent); flex-shrink: 0; }
 .keyboard-shortcuts h2 { margin: 0; font: 500 15px var(--font); letter-spacing: -.3px; }
@@ -13,4 +16,13 @@
 .keyboard-shortcuts kbd { font: 11px var(--font); color: var(--text); }
 .keyboard-shortcuts footer { margin: 0; padding: 16px 20px; font-size: 11px; line-height: 1.8; color: var(--subtle); }
 .keyboard-shortcuts button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.keyboard-reference-sections { display: flex; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--rule); }
+.keyboard-reference-sections button { padding: 8px 10px; border-radius: 8px; color: var(--muted); font-size: 12px; }
+.keyboard-reference-sections button[aria-pressed=true] { color: var(--accent); background: var(--row); }
+.command-reference p { font-size: 12px; line-height: 1.85; color: var(--muted); margin: 16px 0; }
+.command-reference input { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--ground); color: var(--text); font: 12px var(--font); }
+.command-reference input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.command-reference code { font: 11px var(--font); overflow-wrap: anywhere; color: var(--accent); }
+.command-reference .command-reference-note { border-top: 1px solid var(--rule); padding-top: 16px; color: var(--subtle); }
+.command-reference p button { color: var(--accent); padding: 4px 8px; }
 @media(max-width:480px) { .keyboard-shortcuts dl > div { grid-template-columns: 1fr; gap: 4px; } }

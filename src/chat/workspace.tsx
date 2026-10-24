@@ -99,7 +99,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   }, [drawer, narrow])
   const active = target?.session ? sessions.find(s => s.id === target.session!.id) || target.session : undefined
   const selected = target ? { ...target, ...(active && { session: active }) } : null
-  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${Math.max(430, Math.min(width, innerWidth * .4))}px` } as React.CSSProperties}>
+  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, threadId: active?.threadId }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${Math.max(430, Math.min(width, innerWidth * .4))}px` } as React.CSSProperties}>
     <style>{mobileManagerStyle}</style>
     {target && narrow && drawer && <button className="chat-drawer-backdrop" aria-label="Close sidebar" onClick={() => setDrawer(false)} />}
     {(!target || !narrow && sidebar || narrow && drawer) && <aside ref={manager} className={`chat-manager ${target && narrow ? 'drawer' : ''}`} aria-label="Session manager" {...(target && narrow ? { role: 'dialog', 'aria-modal': true } : {})}>{children}</aside>}
