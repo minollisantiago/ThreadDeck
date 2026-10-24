@@ -5,12 +5,13 @@ import type { Snapshot } from '../shared/model'
 const threadId = '100000000000000001', projectId = '100000000000000010'
 test.use({ viewport: { width: 1440, height: 1050 }, colorScheme: 'dark' })
 test.beforeEach(async ({ page }) => { await page.route('**/api/events', route => route.abort()) })
-async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted', bridge = true, historyGate?: Promise<void>) {
+async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted', bridge = true, historyGate?: Promise<void>, extraSessions = 0) {
   const now = Date.now(), submissions: Record<string, unknown>[] = []
   const snapshot: Snapshot = { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [
     { id: 'ses_stream', threadId, guildId: '100000000000000099', projectId, title: 'Stream workspace', status: 'input', agentCount: 0, updatedAt: now, responseAt: Date.parse('2026-10-24T00:00:00Z') },
     { id: 'ses_parallel', threadId: '100000000000000003', guildId: '100000000000000099', projectId, title: 'Parallel agent', status: 'working', agentCount: 1, updatedAt: now - 1000 },
   ] }] }
+  snapshot.projects[0].sessions.push(...Array.from({ length: extraSessions }, (_, index) => ({ ...snapshot.projects[0].sessions[0], id: `extra_${index}`, title: `Additional thread ${index}` })))
   await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
   await page.route('**/api/chat/**', async route => {
     const url = new URL(route.request().url())
@@ -77,6 +78,20 @@ test('connected sidebar indicator pulses to the left of the aligned app menu', a
   expect(Math.abs(menuBox!.x + menuBox!.width / 2 - (optionsBox!.x + optionsBox!.width / 2))).toBeLessThan(1)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await expect(connection.locator('.connection-dot')).toHaveCSS('animation-name', 'none')
+})
+for (const width of [430, 1440]) test(`sidebar footer stays anchored while sessions scroll at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 850 })
+  await fixture(page, 'submitted', true, undefined, 40)
+  if (width === 430) await page.getByRole('button', { name: 'Toggle session sidebar' }).click()
+  const sidebar = page.locator('.chat-manager'), footer = sidebar.locator('footer'), list = sidebar.locator('.project-list')
+  const before = await footer.boundingBox(), sidebarBox = await sidebar.boundingBox()
+  expect(Math.abs(before!.y + before!.height - (sidebarBox!.y + sidebarBox!.height))).toBeLessThan(1)
+  expect(await list.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true)
+  await list.evaluate(el => { el.scrollTop = el.scrollHeight })
+  expect(await list.evaluate(el => el.scrollTop)).toBeGreaterThan(0)
+  const after = await footer.boundingBox()
+  expect(after!.y).toBe(before!.y)
+  await expect(footer).toBeVisible()
 })
 test('Vim mode sits directly before its toggle and follows editor mode changes', async ({ page }) => {
   await fixture(page)

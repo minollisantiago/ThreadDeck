@@ -1,7 +1,13 @@
 /* Stream layout; all colors, type and manager content inherit existing ThreadDeck tokens. */
 .chat-workspace { display: flex; min-height: 0; overflow: hidden; background: var(--ground); }
-.chat-manager { flex-shrink: 0; width: var(--chat-sidebar-width); min-width: 430px; overflow: auto; border-right: 1px solid var(--rule); container: threaddeck-manager / inline-size; }
-.chat-manager .app-shell { width: 100%; max-width: none; margin: 0; padding: 26px 16px 72px; }
+.chat-manager { flex-shrink: 0; width: var(--chat-sidebar-width); min-width: 430px; overflow: hidden; border-right: 1px solid var(--rule); container: threaddeck-manager / inline-size; }
+.chat-manager .app-shell { display: flex; flex-direction: column; height: 100%; min-height: 0; width: 100%; max-width: none; margin: 0; padding: 26px 16px 0; }
+.chat-manager .app-shell > :is(.page-header, .overview) { flex-shrink: 0; }
+.chat-manager .app-shell > main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.chat-manager main > :not(.project-list) { flex-shrink: 0; }
+.chat-manager .project-list { flex: 1; min-height: 0; overflow-y: auto; align-content: start; scrollbar-gutter: stable; padding-bottom: 16px; }
+.chat-manager .app-shell > footer { flex-shrink: 0; margin-top: 0; padding: 16px 0; border-top: 1px solid var(--rule); background: var(--ground); }
+.chat-workspace.manager-only .app-shell > footer { padding-bottom: 68px; }
 .chat-manager .session-row[data-selected=true] { background: var(--row); box-shadow: inset 2px 0 var(--accent); }
 .chat-manager button.session-title { padding: 0; width: 100%; text-align: left; }
 .chat-manager .appearance-controls[popover] { inset: 76px auto auto 16px; max-width: calc(100cqw - 32px); }
