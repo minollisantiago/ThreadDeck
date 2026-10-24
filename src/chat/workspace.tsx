@@ -11,6 +11,7 @@ import { mobileManagerStyle } from './mobile-style'
 import { ConversationSkeleton } from './conversation-skeleton'
 import './workspace.css'
 const ConversationPane = lazy(async () => ({ default: (await import('./pane')).ConversationPane }))
+const sidebarMinWidth = 430, sidebarMaxRatio = .3
 
 export function SessionFinder({ sessions, projects, select, create, close, history }: { sessions: Session[]; projects: Project[]; select: (session: Session) => void; create: (project: Project) => void; close: () => void; history: () => void }) {
   const [query, setQuery] = useState(''), [index, setIndex] = useState(0), [newThread, setNewThread] = useState(false)
@@ -32,7 +33,8 @@ export function SessionFinder({ sessions, projects, select, create, close, histo
 export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | null; children: ReactNode }) {
   const [target, setTarget] = useState<ChatTarget | null>(null), [finder, setFinder] = useState(false), [drawer, setDrawer] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [narrow, setNarrow] = useState(innerWidth < 1080), [sidebar, setSidebar] = useState(() => localStorage.getItem('threaddeck:chat-sidebar') !== 'false')
+  const [viewportWidth, setViewportWidth] = useState(innerWidth), [sidebar, setSidebar] = useState(() => localStorage.getItem('threaddeck:chat-sidebar') !== 'false')
+  const narrow = viewportWidth < Math.ceil(sidebarMinWidth / sidebarMaxRatio)
   const [width, setWidth] = useState(() => Number(localStorage.getItem('threaddeck:chat-sidebar-width')) || 430)
   const projects = snapshot?.projects || [], sessions = projects.flatMap(project => project.sessions), manager = useRef<HTMLElement>(null)
   const { markRead } = useUnread(projects)
@@ -45,7 +47,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   }, [])
   const find = useCallback(() => setFinder(true), [])
   useEffect(() => {
-    const resize = () => setNarrow(innerWidth < 1080)
+    const resize = () => setViewportWidth(innerWidth)
     window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize)
   }, [])
   useEffect(() => setDrawer(false), [narrow])
@@ -103,16 +105,17 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   }, [drawer, narrow])
   const active = target?.session ? sessions.find(s => s.id === target.session!.id) || target.session : undefined
   const selected = target ? { ...target, ...(active && { session: active }) } : null
-  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, threadId: active?.threadId }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${Math.max(430, Math.min(width, innerWidth * .4))}px` } as React.CSSProperties}>
+  const maxWidth = Math.floor(viewportWidth * sidebarMaxRatio), sidebarWidth = Math.max(sidebarMinWidth, Math.min(width, maxWidth))
+  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, threadId: active?.threadId }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
     <style>{mobileManagerStyle}</style>
     {target && narrow && drawer && <button className="chat-drawer-backdrop" aria-label="Close sidebar" onClick={() => setDrawer(false)} />}
     {(!target || !narrow && sidebar || narrow && drawer) && <aside ref={manager} className={`chat-manager ${target && narrow ? 'drawer' : ''}`} aria-label="Session manager" {...(target && narrow ? { role: 'dialog', 'aria-modal': true } : {})}>{children}</aside>}
-    {target && !narrow && sidebar && <div className="chat-resizer" role="separator" tabIndex={0} aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin={430} aria-valuemax={Math.floor(innerWidth * .4)} aria-valuenow={Math.min(width, innerWidth * .4)} onPointerDown={event => {
+    {target && !narrow && sidebar && <div className="chat-resizer" role="separator" tabIndex={0} aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin={sidebarMinWidth} aria-valuemax={maxWidth} aria-valuenow={sidebarWidth} onPointerDown={event => {
       const element = event.currentTarget; element.setPointerCapture(event.pointerId)
-      const move = (e: PointerEvent) => setWidth(Math.max(430, Math.min(innerWidth * .4, e.clientX)))
+      const move = (e: PointerEvent) => setWidth(Math.max(sidebarMinWidth, Math.min(maxWidth, e.clientX)))
       const stop = () => { element.removeEventListener('pointermove', move); element.removeEventListener('pointerup', stop); element.removeEventListener('pointercancel', stop) }
       element.addEventListener('pointermove', move); element.addEventListener('pointerup', stop); element.addEventListener('pointercancel', stop)
-    }} onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(w => Math.max(430, Math.min(innerWidth * .4, w + (e.key === 'ArrowRight' ? 20 : -20)))) } }} />}
+    }} onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(Math.max(sidebarMinWidth, Math.min(maxWidth, sidebarWidth + (e.key === 'ArrowRight' ? 20 : -20)))) } }} />}
     {selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} sidebar={() => narrow ? setDrawer(value => !value) : setSidebar(value => !value)} close={() => setTarget(null)} created={(session, project) => setTarget({ session, project })} markRead={markRead} /></Suspense>}
     {!target && <button className="chat-manager-new" onClick={find}><Plus size={15} />New / find conversation <kbd>Ctrl K</kbd></button>}
     {finder && <SessionFinder sessions={sessions} projects={projects} select={open} create={project => { setTarget({ project }); setFinder(false); setDrawer(false) }} close={() => setFinder(false)} history={() => { setFinder(false); setHistoryOpen(true) }} />}
