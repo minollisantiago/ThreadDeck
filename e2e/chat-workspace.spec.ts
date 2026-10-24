@@ -5,7 +5,7 @@ import type { Snapshot } from '../shared/model'
 const threadId = '100000000000000001', projectId = '100000000000000010'
 test.use({ viewport: { width: 1440, height: 1050 }, colorScheme: 'dark' })
 test.beforeEach(async ({ page }) => { await page.route('**/api/events', route => route.abort()) })
-async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted', bridge = true, historyGate?: Promise<void>, extraSessions = 0) {
+async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted', bridge = true, historyGate?: Promise<void>, extraSessions = 0, openChat = true) {
   const now = Date.now(), submissions: Record<string, unknown>[] = []
   const snapshot: Snapshot = { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [
     { id: 'ses_stream', threadId, guildId: '100000000000000099', projectId, title: 'Stream workspace', status: 'input', agentCount: 0, updatedAt: now, responseAt: Date.parse('2026-10-24T00:00:00Z'), model: { id: 'gpt-6.1-sol', providerID: 'openai', variant: 'high' } },
@@ -29,10 +29,37 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
     return route.fulfill({ status: 404, json: { error: 'Unexpected test endpoint' } })
   })
   await page.goto('/')
-  await page.getByRole('link', { name: 'Stream workspace', exact: true }).click()
-  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toBeVisible()
+  if (openChat) {
+    await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+    await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toBeVisible()
+  }
   return submissions
 }
+test('startup restores the last opened session without opening Discord', async ({ page }) => {
+  await fixture(page)
+  await page.keyboard.press('Control+k')
+  await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.chat-pane-header strong')).toHaveText('Parallel agent')
+  await page.reload()
+  await expect(page.locator('.chat-pane-header strong')).toHaveText('Parallel agent')
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toBeVisible()
+})
+test('startup shows an actionable empty state when the remembered session is unavailable', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('threaddeck:chat-last-session', 'ses_removed'))
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  await expect(page.getByRole('heading', { name: 'Your last thread is unavailable' })).toBeVisible()
+  await expect(page.locator('.chat-pane-header')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Find or start a thread', exact: false }).click()
+  await page.getByRole('textbox', { name: 'Find a session' }).fill('stream')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.chat-pane-header strong')).toHaveText('Stream workspace')
+})
+test('startup without a remembered session offers the session manager', async ({ page }) => {
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  await expect(page.getByRole('heading', { name: 'Pick up a conversation' })).toBeVisible()
+  await expect(page.locator('.chat-manager')).toBeVisible()
+})
 test('Stream retains mobile manager styling and keyboard-first drafting', async ({ page }) => {
   await fixture(page)
   await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
@@ -280,7 +307,7 @@ test('recovered pending prompts reconcile to published message identity without 
   await page.route('**/api/chat/operations/*', route => route.fulfill({ json: { id: route.request().url().split('/').at(-1), state: 'submitted', messageIds: ['100000000000000007'], updatedAt: Date.now() } }))
   await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'recovered:0', before: null, stale: false, messages: [{ id: '100000000000000007', channel_id: threadId, timestamp: '2026-10-24T00:00:00Z', author: { id: 'operator', username: 'Local operator' }, content: 'Recovered prompt', attachments: [], components: [], embeds: [] }] } }))
   await page.reload()
-  await page.getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await expect(page.locator('.chat-pane-header strong')).toHaveText('Stream workspace')
   await expect(page.getByText('Recovered prompt', { exact: true })).toHaveCount(1)
   await expect(page.locator('.chat-outgoing')).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('')

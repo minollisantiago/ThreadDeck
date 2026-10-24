@@ -18,6 +18,8 @@
 .chat-resizer { width: 7px; margin: 0 -3px; flex-shrink: 0; cursor: col-resize; z-index: 3; touch-action: none; }
 .chat-resizer:hover, .chat-resizer:focus-visible { background: color-mix(in srgb, var(--accent) 20%, transparent); }
 .chat-pane { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.chat-empty-workspace { display: grid; place-items: center; padding: 40px; text-align: center; }.chat-empty-workspace > div { max-width: 380px; }.chat-empty-workspace svg { margin: 0 auto 24px; color: var(--subtle); }.chat-empty-workspace h2 { font-size: 20px; font-weight: 500; letter-spacing: -.5px; }.chat-empty-workspace p { color: var(--muted); font-size: 12px; line-height: 1.9; margin: 12px 0 24px; }.chat-empty-workspace button { color: var(--accent) !important; font-size: 12px; }.chat-empty-workspace kbd { margin-left: 8px; }
+@media(max-width:760px) { .chat-empty-workspace { display: none; } }
 .chat-pane button { color: inherit; border-radius: 8px; }
 .chat-pane button:disabled { opacity: .45; cursor: default; }
 .chat-pane :is(button, textarea, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
