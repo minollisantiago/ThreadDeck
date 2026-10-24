@@ -15,6 +15,7 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
 }) {
   const [vimEnabled, setVim] = useState(() => localStorage.getItem('threaddeck:vim') !== 'false')
   const [mode, setMode] = useState('NORMAL'), [uploadError, setUploadError] = useState(''), [uploading, setUploading] = useState(false)
+  const [dragging, setDragging] = useState(false), dragDepth = useRef(0), uploadLock = useRef(false)
   const input = useRef<HTMLTextAreaElement>(null), mount = useRef<HTMLDivElement>(null), view = useRef<EditorView | null>(null), fileInput = useRef<HTMLInputElement>(null)
   const latest = useRef({ draft, change, toggle, submit }); latest.current = { draft, change, toggle, submit }
   useLayoutEffect(() => {
@@ -44,24 +45,28 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
   }, [])
   const matches = /^\/[^\s]*$/.test(draft.text) ? catalog.entries.filter(entry => `/${entry.name}${entry.kind === 'skill' ? '-skill' : ''}`.startsWith(draft.text)).slice(0, 12) : []
   const ready = enabled && !pending && !uploading && draft.text.length <= 50_000 && !draft.files.some(file => file.available === false) && Boolean(draft.text.trim() || draft.files.length)
-  return <section className={`chat-composer ${expanded ? 'expanded' : ''}`} aria-label={expanded ? 'Expanded prompt editor' : 'Prompt composer'}>
+  async function uploadFiles(files: File[]) {
+    if (!files.length || uploadLock.current) return
+    if (!enabled) { setUploadError('Wait for the conversation to connect before attaching files.'); return }
+    uploadLock.current = true; setUploading(true); setUploadError('')
+    try {
+      if (files.length + latest.current.draft.files.length > 10) throw new Error('Attach at most 10 files')
+      if (files.some(file => file.size > 10 * 1024 * 1024)) throw new Error('Files must be at most 10 MiB')
+      for (const file of files) {
+        const uploaded = await chatRequest(`files?name=${encodeURIComponent(file.name)}`, chatFileSchema, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file })
+        latest.current.change({ files: [...latest.current.draft.files, { ...uploaded, available: true }] })
+      }
+    } catch (error) { setUploadError(error instanceof Error ? error.message : 'Upload failed') } finally { uploadLock.current = false; setUploading(false) }
+  }
+  return <section className={`chat-composer ${expanded ? 'expanded' : ''} ${dragging ? 'dragging-files' : ''}`} aria-label={expanded ? 'Expanded prompt editor' : 'Prompt composer'} onDragEnter={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); dragDepth.current++; if (enabled && !uploadLock.current) setDragging(true) } }} onDragOver={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); event.dataTransfer.dropEffect = enabled && !uploadLock.current ? 'copy' : 'none' } }} onDragLeave={event => { if (event.dataTransfer.types.includes('Files')) { dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDragging(false) } }} onDropCapture={event => { if (!event.dataTransfer.types.includes('Files')) return; event.preventDefault(); event.stopPropagation(); dragDepth.current = 0; setDragging(false); void uploadFiles([...event.dataTransfer.files]) }}>
     {expanded && <div className="chat-editor-heading"><span>prompt.md</span><button onClick={toggle}>Back to chat <kbd>Ctrl P · P</kbd></button></div>}
     {matches.length > 0 && <div className="chat-command-list" aria-label="Available commands and skills">{matches.map(entry => <button key={`${entry.kind}:${entry.name}`} onClick={() => { const text = `/${entry.name}${entry.kind === 'skill' ? '-skill' : ''} `; change({ text, anchor: text.length, head: text.length }); input.current?.focus() }}><strong>/{entry.name}{entry.kind === 'skill' ? '-skill' : ''}</strong><small>{entry.kind} · {entry.description}</small></button>)}</div>}
     <div className="chat-composer-box">
+      {dragging && <div className="chat-drop-hint" aria-hidden="true"><Paperclip size={22} /><strong>Drop files to attach</strong><span>Up to 10 files · 10 MiB each</span></div>}
       {expanded ? <div ref={mount} className="chat-editor-mount" /> : <textarea ref={input} aria-label="Write a prompt" value={draft.text} placeholder="A thought, a question, a next step…" onChange={event => change({ text: event.target.value, anchor: event.target.selectionStart, head: event.target.selectionEnd })} onSelect={event => { const el = event.currentTarget, anchor = el.selectionDirection === 'backward' ? el.selectionEnd : el.selectionStart, head = el.selectionDirection === 'backward' ? el.selectionStart : el.selectionEnd; if (anchor !== latest.current.draft.anchor || head !== latest.current.draft.head) change({ anchor, head }) }} />}
       {draft.files.length > 0 && <div className="chat-staged-files">{draft.files.map(file => <span key={file.id}>{file.name}{file.available === false && ' · reattach after reload'}<button disabled={uploading} aria-label={`Remove ${file.name}`} onClick={() => change({ files: draft.files.filter(f => f.id !== file.id) })}>×</button></span>)}</div>}
       <div className="chat-composer-tools"><button aria-label="Attach files" disabled={!enabled || uploading || draft.files.length >= 10} onClick={() => fileInput.current?.click()}><Paperclip size={17} /></button><input hidden ref={fileInput} type="file" multiple onChange={async event => {
-        const files = [...(event.target.files || [])]; event.target.value = ''; setUploading(true); setUploadError('')
-        try {
-          if (files.length + latest.current.draft.files.length > 10) throw new Error('Attach at most 10 files')
-          let staged = latest.current.draft.files
-          for (const file of files) {
-            if (file.size > 10 * 1024 * 1024) throw new Error('Files must be at most 10 MiB')
-            const uploaded = await chatRequest(`files?name=${encodeURIComponent(file.name)}`, chatFileSchema, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file })
-            staged = [...staged, { ...uploaded, available: true }]
-            latest.current.change({ files: staged })
-          }
-        } catch (error) { setUploadError(error instanceof Error ? error.message : 'Upload failed') } finally { setUploading(false) }
+        const files = [...(event.target.files || [])]; event.target.value = ''; await uploadFiles(files)
       }} /><span>{uploading ? 'Uploading…' : 'Kimaki'}</span><div className="chat-tool-spacer" />{expanded && <>{vimEnabled && <span className="chat-vim-mode" role="status" aria-label="Vim mode">{mode}</span>}<button className="chat-vim" onClick={() => { localStorage.setItem('threaddeck:vim', String(!vimEnabled)); setVim(value => !value) }}>Vim {vimEnabled ? 'on' : 'off'}</button></>}<button aria-label={expanded ? 'Restore compact composer' : 'Expand composer'} onClick={toggle}><Expand size={16} /></button>{busy && <button onClick={stop}><Square size={12} />Stop</button>}<button className="chat-send" disabled={!ready} onClick={() => submit(busy ? 'queue' : 'send')}>{pending ? 'Pending…' : busy ? 'Queue' : 'Send'}<ArrowUp size={14} /></button></div>
     </div>
     <div className="chat-composer-foot">{!expanded && <span><kbd>Ctrl P · P</kbd> expand editor</span>}{busy && <button disabled={!ready} onClick={() => submit('send')}>Send now / interrupt</button>}<span className="chat-composer-feedback" role="status">{draft.text.length > 50_000 ? 'Over the 50,000 character prompt limit' : busy ? <span className="chat-agent-activity"><span className="chat-activity-dots" aria-hidden="true"><i /><i /><i /></span><span>Agent is working…</span></span> : 'Draft kept on this device'}</span></div>

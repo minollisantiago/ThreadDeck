@@ -201,6 +201,33 @@ test('uncertain delivery preserves a draft and never automatically resends', asy
   await expect(page.getByRole('button', { name: 'Pending…', exact: true })).toBeDisabled()
   expect(submissions).toHaveLength(1)
 })
+for (const expanded of [false, true]) test(`drop files into the ${expanded ? 'expanded' : 'compact'} prompt without replacing its text`, async ({ page }) => {
+  await fixture(page)
+  const uploaded: string[] = []
+  await page.route('**/api/chat/files?*', route => {
+    const name = new URL(route.request().url()).searchParams.get('name')!
+    uploaded.push(name)
+    return route.fulfill({ status: 201, json: { id: `7c18b13a-6d07-419d-b54f-e8024fc9167${uploaded.length}`, name } })
+  })
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Review these files')
+  if (expanded) await page.getByRole('button', { name: 'Expand composer', exact: true }).click()
+  const files = await page.evaluateHandle(() => {
+    const transfer = new DataTransfer()
+    transfer.items.add(new File(['notes'], 'notes.txt', { type: 'text/plain' }))
+    transfer.items.add(new File(['%PDF-synthetic'], 'report.pdf', { type: 'application/pdf' }))
+    return transfer
+  })
+  const input = expanded ? page.locator('.cm-content') : page.getByRole('textbox', { name: 'Write a prompt' })
+  await input.dispatchEvent('dragenter', { dataTransfer: files })
+  await expect(page.getByText('Drop files to attach', { exact: true })).toBeVisible()
+  await input.dispatchEvent('drop', { dataTransfer: files })
+  await expect(page.getByText('Drop files to attach', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Remove notes.txt', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Remove report.pdf', exact: true })).toBeVisible()
+  expect(uploaded).toEqual(['notes.txt', 'report.pdf'])
+  if (expanded) await expect(input).toHaveText('Review these files')
+  else await expect(input).toHaveValue('Review these files')
+})
 test('agent gallery images render thumbnails and enlarge without leaving chat', async ({ page }) => {
   await fixture(page)
   const imageId = '100000000000000008'

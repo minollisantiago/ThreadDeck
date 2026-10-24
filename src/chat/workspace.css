@@ -83,7 +83,9 @@
 .chat-load-earlier { display: block; margin: 0 auto 24px; color: var(--accent) !important; font-size: 12px; }
 .chat-new-messages { display: flex; gap: 8px; align-items: center; position: sticky; bottom: 0; margin: 0 auto; padding: 10px 14px; background: var(--row); color: var(--accent) !important; font-size: 12px; }
 .chat-composer { width: 100%; max-width: 930px; margin: 0 auto; padding: 0 34px 14px; flex-shrink: 0; position: relative; }
-.chat-composer-box { background: var(--surface); border: 1px solid var(--rule); border-radius: 15px; overflow: hidden; }
+.chat-composer-box { position: relative; background: var(--surface); border: 1px solid var(--rule); border-radius: 15px; overflow: hidden; }
+.dragging-files .chat-composer-box { border-color: var(--accent); outline: 1px dashed var(--accent); outline-offset: 4px; }
+.chat-drop-hint { position: absolute; z-index: 5; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; pointer-events: none; background: color-mix(in srgb, var(--surface) 94%, transparent); color: var(--accent); }.chat-drop-hint strong { font-size: 13px; font-weight: 500; }.chat-drop-hint span { font-size: 10px; color: var(--muted); }
 .chat-composer-box:focus-within { border-color: color-mix(in srgb, var(--accent) 35%, var(--rule)); }
 .chat-composer textarea { font: 13px/1.8 var(--font); width: 100%; display: block; padding: 18px 19px 4px; min-height: 62px; max-height: 180px; resize: none; border: 0; background: transparent; color: var(--text); outline: none !important; }
 .chat-composer textarea::placeholder { color: var(--subtle); }
