@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { type PublishedMessage } from '../../shared/chat'
 import { ChatMarkdown } from './markdown'
 import { inlineImageType } from '../../shared/image'
+import { ImagePreview } from './image-preview'
 
 export function attachmentUrl(threadId: string, messageId: string, id: string) { return `/api/chat/threads/${threadId}/messages/${messageId}/attachments/${id}` }
 const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().optional(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
@@ -18,17 +19,17 @@ function discordMediaUrl(value?: string) {
 function ImageViewer({ src, name, opener, close }: { src: string; name: string; opener: HTMLElement; close: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   useLayoutEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => { dialog?.close(); if (opener.isConnected) opener.focus() } }, [opener])
-  return <dialog className="chat-image-dialog" ref={ref} aria-label={name} onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === ref.current) close() }}><button autoFocus onClick={close}>Close image</button><img src={src} alt={name} referrerPolicy="no-referrer" /></dialog>
+  return <dialog className="chat-image-dialog" ref={ref} aria-label={name} onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === ref.current) close() }}><button autoFocus onClick={close}>Close image</button><ImagePreview key={src} src={src} name={name} /></dialog>
 }
 export function PublishedMessages({ messages, threadId, discordUrl, preview }: { messages: PublishedMessage[]; threadId: string; discordUrl?: string; preview: (name: string, url: string) => void }) {
   const [image, setImage] = useState<{ src: string; name: string; opener: HTMLElement } | null>(null)
-  function imageView(url: string, name: string, key: string): ReactNode {
-    return <div key={key} className="chat-image"><button aria-label={`Enlarge ${name}`} onClick={event => setImage({ src: url, name, opener: event.currentTarget })}><img src={url} alt={name} loading="lazy" referrerPolicy="no-referrer" /></button><span>{name}<a href={url} download={name}>Download</a></span></div>
+  function imageView(url: string, name: string, key: string, width?: number | null, height?: number | null): ReactNode {
+    return <div key={key} className="chat-image"><button aria-label={`Enlarge ${name}`} onClick={event => setImage({ src: url, name, opener: event.currentTarget })}><ImagePreview key={url} src={url} name={name} lazy width={width} height={height} /></button><span>{name}<a href={url} download={name}>Download</a></span></div>
   }
   function fileView(message: PublishedMessage, file: PublishedMessage['attachments'][number]): ReactNode {
     const url = attachmentUrl(threadId, message.id, file.id)
     const html = /\.html?$/i.test(file.filename) || file.content_type === 'text/html'
-    return inlineImageType(file.filename, file.content_type) ? imageView(url, file.filename, file.id) : <div key={file.id} className="chat-file">{html ? <FileCode size={20} /> : <FileText size={20} />}<strong>{file.filename}</strong><small>{Math.ceil(file.size / 1024)} KiB</small>{html && <button onClick={() => preview(file.filename, url)}>Preview HTML</button>}<a href={url} download={file.filename}>Download</a></div>
+    return inlineImageType(file.filename, file.content_type) ? imageView(url, file.filename, file.id, file.width, file.height) : <div key={file.id} className="chat-file">{html ? <FileCode size={20} /> : <FileText size={20} />}<strong>{file.filename}</strong><small>{Math.ceil(file.size / 1024)} KiB</small>{html && <button onClick={() => preview(file.filename, url)}>Preview HTML</button>}<a href={url} download={file.filename}>Download</a></div>
   }
   function mediaView(value: unknown, key: string, message: PublishedMessage, used: Set<string>, description?: string): ReactNode {
     const parsed = mediaSchema.safeParse(value)

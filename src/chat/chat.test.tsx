@@ -11,8 +11,20 @@ import type { Project } from '../../shared/model'
 import { ChatMarkdown } from './markdown'
 import { SessionRow } from '../components/session-row'
 import { SessionNavigation } from './navigation'
+import { ImagePreview } from './image-preview'
 
 afterEach(() => { cleanup(); localStorage.clear() })
+it('replaces image loading skeletons with the decoded preview or an explicit failure state', () => {
+  const { rerender } = render(<ImagePreview src="/first.png" name="First image" />)
+  expect(screen.getByRole('status', { name: 'Loading First image' })).toBeTruthy()
+  fireEvent.load(screen.getByRole('img'))
+  expect(screen.queryByRole('status')).toBeNull()
+  rerender(<ImagePreview src="/second.png" name="Second image" />)
+  expect(screen.getByRole('status', { name: 'Loading Second image' })).toBeTruthy()
+  fireEvent.error(screen.getByRole('img'))
+  expect(screen.getByText('Image preview unavailable')).toBeTruthy()
+  expect(screen.queryByRole('status', { name: 'Loading Second image' })).toBeNull()
+})
 const message = publishedMessageSchema.parse({ id: '100000000000000002', channel_id: '100000000000000001', timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: 'Discord-visible text' })
 it('displays literal HTML as text without executing or dropping it', () => {
   const { container } = render(<ChatMarkdown text={'<script>window.unsafe = true</script>'} />)
