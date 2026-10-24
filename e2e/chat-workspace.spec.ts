@@ -149,3 +149,13 @@ test('command reference surfaces catalog failures and supports retry', async ({ 
   await expect(dialog).toContainText('No commands or skills are available for this project.')
   expect(await dialog.boundingBox()).toEqual(keybindBounds)
 })
+test('desktop regular-bot fallback remains visible after the startup screen', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 1000 })
+  await page.addInitScript(() => {
+    window.threaddeckDesktop = { control: () => {}, onMaximized: () => () => {}, botMode: async () => 'regular', onBotMode: () => () => {} }
+  })
+  await fixture(page, 'submitted', false)
+  await expect(page.locator('.desktop-chat-off')).toHaveText('REGULAR · CHAT OFF')
+  await expect(page.locator('.desktop-chat-off')).toHaveAttribute('title', /Running regular Kimaki/)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})

@@ -65,6 +65,7 @@ export function attachThreadDeckBridge(bot) {
   }
   const actor = () => ({ id: bot.discord.user.id, username: 'ThreadDeck local operator' })
   const bridge = createClientBridge({
+    ready: () => bot.discord.isReady() && bot.opencode.connected,
     linked,
     async threads() { return { threads: Object.entries(bot.store.getState().roots).map(([threadId, sessionId]) => ({ threadId, sessionId })) } },
     async history(threadId, before) {

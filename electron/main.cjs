@@ -96,7 +96,11 @@ app.whenReady().then(async () => {
         void loadSplash().then(notifyStartup).catch(() => {})
       }
     }
-    else startupState.stages[event.phase] = { state: event.state, detail: String(event.detail ?? '') }
+    else {
+      startupState.stages[event.phase] = { state: event.state, detail: String(event.detail ?? ''),
+        ...(event.phase === 'kimaki' && event.state === 'ready' && ['fork', 'regular'].includes(event.mode) ? { mode: event.mode } : {}) }
+      if (event.phase === 'kimaki' && event.state === 'ready') window.webContents.send('bot-mode', startupState.stages.kimaki.mode ?? null)
+    }
     notifyStartup()
   })
   window.setMenu(null)
@@ -128,6 +132,8 @@ app.whenReady().then(async () => {
   })
   const isSplash = event => event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame && event.senderFrame.url.startsWith('file:')
   ipcMain.handle('startup-state', event => isSplash(event) ? startupState : null)
+  ipcMain.handle('bot-mode', event => event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
+    && event.senderFrame.url.startsWith(`${origin}/`) ? startupState.stages.kimaki.mode ?? null : null)
   ipcMain.on('startup-action', (event, action) => {
     if (!isSplash(event)) return
     if (action === 'retry' && startupState.error) void beginStartup()

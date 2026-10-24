@@ -79,6 +79,7 @@ body { margin: 0; background: var(--ground); color: var(--text); font: 15px/1.55
 .desktop-drag { -webkit-app-region: drag; flex: 1; display: flex; align-items: center; gap: 8px; padding-left: 14px; font-size: 10px; color: var(--muted); }
 .desktop-drag svg { width: 14px; height: 14px; color: var(--accent); }
 .desktop-local { color: var(--subtle); font-size: 8px; letter-spacing: 1px; margin-left: 4px; }
+.desktop-local.desktop-chat-off { color: var(--warning); letter-spacing: .3px; }
 .desktop-window-controls { display: flex; -webkit-app-region: no-drag; }
 .desktop-window-controls button { display: grid; place-items: center; width: 42px; border: 0; background: transparent; color: var(--muted); }
 .desktop-window-controls button:hover { background: var(--hover); color: var(--text); }

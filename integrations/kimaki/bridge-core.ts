@@ -6,6 +6,7 @@ import { ChatError, submitSchema, publishedMessageSchema, threadIdSchema, type C
 export { ChatError }
 
 export interface BridgeAdapter {
+  ready?(): boolean
   linked(threadId: string): boolean
   threads(): Promise<unknown>
   history(threadId: string, before?: string): Promise<unknown[]>
@@ -131,7 +132,7 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
     try {
       let value: unknown
       switch (route) {
-        case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort'] }; break
+        case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', ready: adapter.ready?.() ?? false, capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort'] }; break
         case 'threads': value = await adapter.threads(); break
         case 'snapshot': {
           const id = target(input.threadId), p = projection(id)

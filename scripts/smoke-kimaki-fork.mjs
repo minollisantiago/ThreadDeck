@@ -18,6 +18,7 @@ const id = '100000000000000001', sessionId = 'ses_synthetic', sent = [], receive
 let sequence = 100000000000000010n
 const discord = new EventEmitter()
 discord.user = { id: '100000000000000099' }
+discord.isReady = () => true
 discord.channels = { fetch: async () => ({ id, name: 'Synthetic test', isThread: () => true, isSendable: () => true,
   send: async payload => { sent.push(payload); return { id: String(sequence++) } },
 }) }
@@ -32,7 +33,7 @@ const client = {
   },
 }
 const bridge = attachThreadDeckBridge({ discord, store: { getState: () => ({ roots: { [id]: sessionId }, threads: {} }) }, dataDir: scratch,
-  opencode: { endpoint: { client } }, eventLoop: { dispatch: () => {} },
+  opencode: { connected: true, endpoint: { client } }, eventLoop: { dispatch: () => {} },
 })
 const call = async (route, input = {}) => {
   const result = await bridge.handle(route, input, new AbortController().signal)
@@ -53,6 +54,7 @@ async function submit(input) {
 }
 try {
   assert.equal((await call('info')).protocol, 1)
+  assert.equal((await call('info')).ready, true)
   const snapshot = await call('snapshot', { threadId: id })
   assert.equal(snapshot.messages[0].content, 'Published Discord payload')
   discord.emit('raw', { t: 'MESSAGE_UPDATE', d: { id: snapshot.messages[0].id, channel_id: id, content: 'Gateway edit' } })

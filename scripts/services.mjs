@@ -45,8 +45,12 @@ try {
   }
   if (!stopped) {
     progress('backend', existing.backend ? 'ready' : 'working', existing.backend ? 'Connected to the running dashboard' : 'Starting the dashboard backend')
-    progress('kimaki', existing.kimaki ? 'ready' : 'working', existing.kimaki ? 'Connected to running Kimaki' : 'Starting Kimaki')
-    const commands = launchCommands(['--reuse-existing'], existing)
+    // New bots report readiness only after both Kimaki and the bridge are checked
+    // by the fork-first launcher. A running external bot is never replaced.
+    progress('kimaki', 'working', existing.kimaki ? 'Checking running Kimaki' : 'Starting Kimaki fork')
+    // Always run the bot startup wrapper, even for reuse: it verifies readiness,
+    // reports the actual bot mode, and owns no external bot's lifetime.
+    const commands = launchCommands(['--reuse-existing'], { ...existing, kimaki: false })
     active = commands.length ? supervise(commands, { cwd, env }) : null
     let checking = false
     const check = async () => {
@@ -59,9 +63,7 @@ try {
             if (response.ok) { existing.backend = true; progress('backend', 'ready', 'Dashboard backend is ready') }
           } catch { /* still starting */ }
         }
-        if (!existing.kimaki) {
-          try { if ((await kimakiStatus({ cwd, env })).running) { existing.kimaki = true; progress('kimaki', 'ready', 'Kimaki is ready') } } catch { /* still starting */ }
-        }
+        // Bot readiness/mode comes exclusively from the fork-first wrapper.
       } finally { checking = false }
     }
     const poll = setInterval(() => { void check() }, 1500)

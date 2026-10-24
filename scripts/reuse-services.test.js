@@ -35,7 +35,7 @@ describe('Windows launcher with existing services', () => {
     expect(commands.flat()).not.toContain('npx')
     const cold = launchCommands(['--desktop', '--reuse-existing', '--no-analytics'], { backend: false, kimaki: false })
     expect(cold).toHaveLength(3)
-    expect(cold[2]).toEqual(['npx', '--yes', 'kimaki@latest', '--gateway', '--if-not-running', '--no-analytics'])
+    expect(cold[2]).toEqual([process.execPath, 'scripts/kimaki-launcher.mjs', '--no-analytics'])
   })
 
   it('does not mistake an unrelated HTTP service for ThreadDeck', async () => {

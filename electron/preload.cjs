@@ -22,6 +22,12 @@ window.addEventListener('DOMContentLoaded', () => {
   new MutationObserver(syncAppearance).observe(document.documentElement, { attributes: true, attributeFilter: ['data-appearance'] })
 })
 contextBridge.exposeInMainWorld('threaddeckDesktop', {
+  botMode: () => ipcRenderer.invoke('bot-mode'),
+  onBotMode: callback => {
+    const listener = (_event, mode) => callback(mode)
+    ipcRenderer.on('bot-mode', listener)
+    return () => ipcRenderer.removeListener('bot-mode', listener)
+  },
   startupState: () => ipcRenderer.invoke('startup-state'),
   startupAction: action => { if (['retry', 'logs'].includes(action)) ipcRenderer.send('startup-action', action) },
   onStartup: callback => {

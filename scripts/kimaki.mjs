@@ -82,9 +82,7 @@ export function launchCommands(args, existing = { backend: false, kimaki: false 
   return [
     ...(!existing.backend ? [[process.execPath, '--import', 'tsx', 'server/index.ts', '--production']] : []),
     ...(desktop ? [[process.execPath, 'scripts/desktop.mjs']] : []),
-    ...(!existing.kimaki ? [process.env.THREADDECK_KIMAKI_CLI
-      ? [process.execPath, process.env.THREADDECK_KIMAKI_CLI, '--gateway', '--if-not-running', ...kimakiArgs]
-      : ['npx', '--yes', 'kimaki@latest', '--gateway', '--if-not-running', ...kimakiArgs]] : []),
+    ...(!existing.kimaki ? [[process.execPath, 'scripts/kimaki-launcher.mjs', ...kimakiArgs]] : []),
   ]
 }
 
@@ -92,7 +90,7 @@ async function main() {
   const cwd = fileURLToPath(new URL('..', import.meta.url))
   const env = { ...process.env, PATH: `${path.join(homedir(), '.kimaki', 'bin')}${path.delimiter}${process.env.PATH ?? ''}` }
   const args = process.argv.slice(2)
-  const reuse = args[0] === '--desktop' && args.includes('--reuse-existing')
+  const reuse = args[0] === '--desktop' || args.includes('--reuse-existing')
   let active
   let opencode
   const startup = new AbortController()
