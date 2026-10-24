@@ -46,6 +46,25 @@ test('Stream retains mobile manager styling and keyboard-first drafting', async 
   await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
   await mkdir('artifacts/production-chat', { recursive: true }); await page.screenshot({ path: 'artifacts/production-chat/stream.png', animations: 'disabled' })
 })
+for (const width of [430, 1440]) test(`project tree rail joins the channel header to its thread branches at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1050 })
+  await fixture(page)
+  if (width === 430) await page.getByRole('button', { name: 'Toggle session sidebar' }).click()
+  const geometry = await page.locator('.chat-manager .project-panel').first().evaluate(panel => {
+    const heading = panel.querySelector('.project-heading')!, icon = panel.querySelector('.project-channel-icon')!, row = panel.querySelector('.session-row')!
+    const headerRail = getComputedStyle(heading, '::after'), branch = getComputedStyle(row, '::after')
+    return {
+      headerX: heading.getBoundingClientRect().left + parseFloat(headerRail.left),
+      branchX: row.getBoundingClientRect().left + parseFloat(branch.left),
+      iconX: icon.getBoundingClientRect().left + icon.getBoundingClientRect().width / 2 - 1,
+      headerBottom: heading.getBoundingClientRect().bottom,
+      rowTop: row.getBoundingClientRect().top,
+    }
+  })
+  expect(Math.abs(geometry.headerX - geometry.branchX)).toBeLessThan(1)
+  expect(Math.abs(geometry.headerX - geometry.iconX)).toBeLessThan(1)
+  expect(Math.abs(geometry.headerBottom - geometry.rowTop)).toBeLessThan(1)
+})
 test('connected sidebar indicator pulses to the left of the aligned app menu', async ({ page }) => {
   await fixture(page)
   const connection = page.getByRole('button', { name: 'Connected', exact: true })

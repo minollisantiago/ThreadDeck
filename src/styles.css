@@ -363,7 +363,8 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .project-heading .project-summary { grid-column: 3; grid-row: 2; justify-content: flex-start; min-width: 0; max-width: none; margin: 0; gap: 10px; overflow-wrap: anywhere; }
 .project-heading:has(.project-summary) .project-pills { grid-row: 1 / 3; }
 .project-heading[data-connected=true]::after { content: ''; position: absolute; top: calc(var(--project-pad-y) + 25px); bottom: 0; left: calc(var(--project-rail-x) - 1px); width: 2px; background: var(--subtle); opacity: .4; pointer-events: none; }
-.project-sessions { margin-left: calc(var(--project-rail-x) + var(--project-branch-width)); margin-right: var(--project-pad-x); }
+/* Keep the tree geometry authoritative when mobile rules are replayed in the chat sidebar. */
+.project-panel .project-sessions { margin-left: calc(var(--project-rail-x) + var(--project-branch-width)); margin-right: var(--project-pad-x); }
 .project-sessions .session-row::before, .project-sessions .session-row::after { left: calc(-1px - var(--project-branch-width)); border-left-width: 2px; }
 .project-sessions .session-row::after { width: calc(var(--project-branch-width) + 1px); border-bottom-width: 2px; }
 .project-sessions .session-attention-marker { display: none; }
