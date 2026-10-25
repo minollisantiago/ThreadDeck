@@ -519,7 +519,8 @@ for (const expanded of [false, true]) test(`drop files into the ${expanded ? 'ex
   if (expanded) await expect(input).toHaveText('Review these files')
   else await expect(input).toHaveValue('Review these files')
 })
-test('agent gallery images render thumbnails and enlarge without leaving chat', async ({ page }) => {
+for (const width of [430, 1440]) test(`agent image previews stay centered while loading and after decoding at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1050 })
   await fixture(page)
   const imageId = '100000000000000008'
   let thumbnailReady!: () => void
@@ -539,10 +540,20 @@ test('agent gallery images render thumbnails and enlarge without leaving chat', 
   await thumbnail.click()
   const viewer = page.getByRole('dialog', { name: 'preview.png' })
   await expect(viewer).toBeVisible()
+  async function expectCentered() {
+    await expect.poll(async () => {
+      const box = await viewer.boundingBox(), viewport = page.viewportSize()!
+      return box ? Math.max(Math.abs(box.x + box.width / 2 - viewport.width / 2), Math.abs(box.y + box.height / 2 - viewport.height / 2)) : Infinity
+    }).toBeLessThan(2)
+  }
+  await expectCentered()
   await expect(viewer.getByRole('status', { name: 'Loading preview.png' })).toBeVisible()
   thumbnailReady()
   await expect(viewer.locator('.chat-image-skeleton')).toHaveCount(0)
   await expect(viewer.locator('img')).toBeVisible()
+  await expectCentered()
+  await page.setViewportSize({ width: width === 430 ? 720 : 1024, height: 800 })
+  await expectCentered()
   await page.keyboard.press('Escape')
   await expect(viewer).toHaveCount(0)
   await expect(thumbnail).toBeFocused()

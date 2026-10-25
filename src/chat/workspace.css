@@ -95,8 +95,8 @@
 .chat-file > svg, .chat-file :is(a,button) { color: var(--accent-ink); }.chat-file strong { font-size: 12px; }.chat-file small, .chat-file :is(a,button) { font-size: 11px; }
 .chat-image-overlay { position: fixed; inset: 0; z-index: 100; background: #000d; display: grid; place-items: center; padding: 50px 20px 20px; }
 .chat-image-overlay > button { position: absolute; top: 15px; right: 20px; color: white; }.chat-image-overlay img { max-width: 100%; max-height: 85dvh; }
-.chat-image-dialog { max-width: 96vw; max-height: 94dvh; padding: 44px 18px 18px; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; color: var(--text); }
-.chat-image-dialog::backdrop { background: #000b; }.chat-image-dialog button { position: absolute; top: 10px; right: 14px; font-size: 12px; }.chat-image-dialog img { max-height: 80dvh; max-width: 90vw; }
+.chat-image-dialog { position: fixed; inset: 0; margin: auto; width: fit-content; height: fit-content; min-width: min(180px, 96vw); max-width: 96vw; max-height: 94dvh; padding: 44px 18px 18px; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; color: var(--text); }
+.chat-image-dialog::backdrop { background: #000b; }.chat-image-dialog button { position: absolute; top: 10px; right: 14px; font-size: 12px; }.chat-image-dialog .chat-image-preview { display: grid; place-items: center; }.chat-image-dialog img { max-height: min(80dvh, calc(94dvh - 64px)); max-width: min(90vw, calc(96vw - 38px)); }
 .chat-load-earlier { display: block; margin: 0 auto 24px; color: var(--accent-ink) !important; font-size: 12px; }
 .chat-new-messages { display: flex; gap: 8px; align-items: center; position: sticky; bottom: 0; margin: 0 auto; padding: 10px 14px; background: var(--row); color: var(--accent-ink) !important; font-size: 12px; }
 .chat-composer { width: 100%; max-width: 930px; margin: 0 auto; padding: 0 34px 14px; flex-shrink: 0; position: relative; }
