@@ -9,7 +9,7 @@ import { discordAttachmentUrl, publishedAttachments } from '../../shared/discord
 
 export function attachmentUrl(threadId: string, messageId: string, id: string) { return `/api/chat/threads/${threadId}/messages/${messageId}/attachments/${id}` }
 const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().optional(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
-const mediaSchema = z.object({ url: z.string().optional(), proxy_url: z.string().optional(), attachment_id: z.string().optional(), content_type: z.string().optional() })
+const mediaSchema = z.object({ url: z.string().nullish(), proxy_url: z.string().nullish(), attachment_id: z.string().nullish(), content_type: z.string().nullish() })
 const embedSchema = z.object({ title: z.string().optional(), description: z.string().optional(), image: mediaSchema.optional(), thumbnail: mediaSchema.optional(), fields: z.array(z.object({ name: z.string(), value: z.string() })).optional() })
 function ImageViewer({ src, name, opener, close }: { src: string; name: string; opener: HTMLElement; close: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -46,8 +46,8 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview }: {
     if ([12, 13, 11].includes(item.type)) {
       const media = item.type === 12 ? item.items || [] : [{ media: item.media || item.file }]
       return <div className="chat-attachments" key={key}>{media.map((raw, i) => {
-        const parsed = z.object({ media: z.unknown(), description: z.string().optional() }).safeParse(raw)
-        return mediaView(parsed.success ? parsed.data.media : undefined, `${key}-${i}`, message, used, parsed.success ? parsed.data.description : undefined)
+        const parsed = z.object({ media: z.unknown(), description: z.string().nullish() }).safeParse(raw)
+        return mediaView(parsed.success ? parsed.data.media : undefined, `${key}-${i}`, message, used, parsed.success ? parsed.data.description || undefined : undefined)
       })}</div>
     }
     return <div key={key} className="chat-action-unavailable"><span>{item.label || 'Discord interaction'}</span>{discordUrl ? <a href={discordUrl}>Respond in Discord</a> : <span>Not available in this client yet</span>}</div>

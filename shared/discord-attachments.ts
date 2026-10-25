@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { PublishedMessage } from './chat'
 
-const resourceSchema = z.object({ url: z.string().optional(), proxy_url: z.string().optional(), attachment_id: z.string().optional(), content_type: z.string().nullish(), width: z.number().nullish(), height: z.number().nullish() })
+const resourceSchema = z.object({ url: z.string().nullish(), proxy_url: z.string().nullish(), attachment_id: z.string().nullish(), content_type: z.string().nullish(), width: z.number().nullish(), height: z.number().nullish() })
 const componentSchema = z.object({ type: z.number(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional(), name: z.string().optional(), size: z.number().nonnegative().optional() })
 
 export function discordAttachmentUrl(value: unknown) {

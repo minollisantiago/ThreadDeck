@@ -36,6 +36,13 @@ it('keeps previews inert, removes active navigation and places restrictive CSP f
   expect(html).not.toContain('<script'); expect(html).not.toContain('<iframe'); expect(html).not.toContain('<base'); expect(html).not.toContain('http-equiv="refresh"'); expect(html).not.toContain('onload')
   expect(html).toContain("default-src 'none'"); expect(html).toContain('Safe heading')
 })
+it('preserves real Tailwind stylesheets containing CSS property type syntax in HTML previews', () => {
+  const html = safePreview('<!doctype html><html><head><style>@property --progress { syntax: "<percentage>"; inherits: false; initial-value: 100%; } body { font: 20px monospace; background: #e8ebee; }</style></head><body><h1>Styled attachment</h1></body></html>')
+  expect(html).toContain('font: 20px monospace')
+  expect(html).toContain('syntax: "<percentage>"')
+  expect(html).toContain('<!doctype html>')
+  expect(html).not.toContain('<script')
+})
 it('preserves Components V2 file/text order without rendering the attachment twice', () => {
   render(<PublishedMessages threadId={message.channel_id} preview={() => {}} discordUrl="https://discord.com/channels/1/2" messages={[{ ...message, content: '', attachments: [{ id: '100000000000000004', filename: 'study.html', size: 100, url: 'https://cdn.discordapp.com/study.html' }], components: [
     { type: 10, content: 'Before file' }, { type: 13, file: { url: 'attachment://study.html' } }, { type: 10, content: 'After file' },
@@ -61,9 +68,10 @@ it('shows image attachments without MIME metadata as thumbnails, not generic dow
 })
 it('renders Discord-hosted gallery images without separate attachment metadata', () => {
   const url = 'https://cdn.discordapp.com/attachments/100000000000000001/100000000000000004/preview.png'
-  render(<PublishedMessages threadId={message.channel_id} preview={() => {}} messages={[{ ...message, components: [{ type: 12, items: [{ media: { url } }] }] }]} />)
+  render(<PublishedMessages threadId={message.channel_id} preview={() => {}} discordUrl="https://discord.com/channels/1/2" messages={[{ ...message, components: [{ type: 12, items: [{ media: { url }, description: null }] }] }]} />)
   expect(screen.getByRole('img').getAttribute('src')).toBe(`/api/chat/threads/${message.channel_id}/messages/${message.id}/attachments/100000000000000004`)
   expect(screen.getByRole('button', { name: 'Enlarge preview.png' })).toBeTruthy()
+  expect(screen.queryByText('View in Discord')).toBeNull()
 })
 it('renders actual Components V2 file resources even when Discord returns no top-level attachments', () => {
   const preview = vi.fn()
