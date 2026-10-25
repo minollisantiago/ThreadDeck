@@ -494,7 +494,7 @@ test('agent gallery images render thumbnails and enlarge without leaving chat', 
   const imageId = '100000000000000008'
   let thumbnailReady!: () => void
   const thumbnailGate = new Promise<void>(resolve => { thumbnailReady = resolve })
-  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'image:0', before: null, stale: false, messages: [{ id: '100000000000000005', channel_id: '100000000000000003', timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: 'Here is the screenshot.', attachments: [{ id: imageId, filename: 'preview.png', size: 68, url: `https://cdn.discordapp.com/attachments/${threadId}/${imageId}/preview.png?ex=old` }], components: [{ type: 12, items: [{ media: { url: `https://media.discordapp.net/attachments/${threadId}/${imageId}/preview.png?ex=new` } }] }], embeds: [] }] } }))
+  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'image:0', before: null, stale: false, messages: [{ id: '100000000000000005', channel_id: '100000000000000003', timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: 'Here is the screenshot.', attachments: [], components: [{ type: 12, items: [{ media: { id: '100000000000000099', attachment_id: imageId, content_type: 'image/png', url: `https://media.discordapp.net/attachments/${threadId}/${imageId}/preview.png?ex=new` } }] }], embeds: [] }] } }))
   await page.route(`**/attachments/${imageId}`, async route => {
     await thumbnailGate
     return route.fulfill({ contentType: 'image/png', headers: { 'Cache-Control': 'no-store' }, body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64') })
@@ -518,6 +518,18 @@ test('agent gallery images render thumbnails and enlarge without leaving chat', 
   await expect(thumbnail).toBeFocused()
   await expect(thumbnail.locator('.chat-image-skeleton')).toHaveCount(0)
   await expect.poll(() => thumbnail.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0)
+})
+test('component-only HTML files expose the same safe preview as ordinary attachments', async ({ page }) => {
+  await fixture(page)
+  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'component-file:0', before: null, stale: false, messages: [{ id: '100000000000000005', channel_id: '100000000000000003', timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: '', attachments: [], components: [{ type: 17, components: [{ type: 13, name: 'study.html', size: 400, file: { id: '100000000000000099', attachment_id: '100000000000000006', content_type: 'text/html; charset=utf-8', url: `https://cdn.discordapp.com/attachments/${threadId}/100000000000000006/study.html?ex=signed` } }] }], embeds: [] }] } }))
+  await page.keyboard.press('Control+k')
+  await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('button', { name: 'Preview HTML', exact: true })).toHaveCount(1)
+  await expect(page.getByText('View in Discord', { exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Preview HTML', exact: true }).click()
+  await expect(page.frameLocator('iframe').getByRole('heading', { name: 'Safe attachment preview' })).toBeVisible()
+  await expect(page.locator('iframe')).toHaveAttribute('sandbox', '')
 })
 test('HTML occupies the chat pane without executing or navigating, then restores the draft', async ({ page }) => {
   let unsafeRequests = 0

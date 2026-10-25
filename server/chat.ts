@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { ChatError, submitSchema, threadIdSchema } from '../shared/chat.ts'
 import { trustedRequest } from './http.ts'
 import { inlineImageType } from '../shared/image.ts'
+import { readDiscordAttachment } from './attachments.ts'
 
 export interface ChatBridge { call(route: string, input: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> }
 export function localChatBridge(): ChatBridge {
@@ -34,7 +35,7 @@ async function body(request: IncomingMessage, limit: number) {
   for await (const chunk of request.iterator({ destroyOnReturn: false })) { size += chunk.length; if (size > limit) { request.resume(); throw new ChatError('too_large', 'Request is too large') } chunks.push(Buffer.from(chunk)) }
   return Buffer.concat(chunks)
 }
-export function chatHandler(port: number, bridge = localChatBridge(), data = process.env.THREADDECK_DATA_DIR || path.join(homedir(), '.local/share/threaddeck')) {
+export function chatHandler(port: number, bridge = localChatBridge(), data = process.env.THREADDECK_DATA_DIR || path.join(homedir(), '.local/share/threaddeck'), download: typeof fetch = fetch) {
   return (request: IncomingMessage, response: ServerResponse): boolean => {
     if (!request.url?.startsWith('/api/chat/')) return false
     response.setHeader('Cache-Control', 'no-store'); response.setHeader('X-Content-Type-Options', 'nosniff'); response.setHeader('Referrer-Policy', 'no-referrer')
@@ -57,14 +58,12 @@ export function chatHandler(port: number, bridge = localChatBridge(), data = pro
           return json(200, await bridge.call(thread[2] === 'messages' ? 'snapshot' : thread[2], input, controller.signal))
         }
         if (attachment) {
-          const file = z.object({ name: z.string(), type: z.string(), data: z.string().max(14_000_000) }).parse(await bridge.call('file', { threadId: attachment[1], messageId: attachment[2], attachmentId: attachment[3] }, controller.signal))
-          const bytes = Buffer.from(file.data, 'base64')
-          if (bytes.length > 10 * 1024 * 1024) throw new ChatError('too_large', 'Attachment is too large')
+          const file = await readDiscordAttachment(bridge, attachment[1], attachment[2], attachment[3], controller.signal, download)
           const inline = inlineImageType(file.name, file.type)
           response.setHeader('Content-Type', inline || 'application/octet-stream')
           response.setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
           response.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`)
-          response.writeHead(200).end(bytes); return
+          response.writeHead(200).end(file.bytes); return
         }
       }
       if (request.method === 'POST') {

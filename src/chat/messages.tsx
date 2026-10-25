@@ -5,17 +5,12 @@ import { type PublishedMessage } from '../../shared/chat'
 import { ChatMarkdown } from './markdown'
 import { inlineImageType } from '../../shared/image'
 import { ImagePreview } from './image-preview'
+import { discordAttachmentUrl, publishedAttachments } from '../../shared/discord-attachments'
 
 export function attachmentUrl(threadId: string, messageId: string, id: string) { return `/api/chat/threads/${threadId}/messages/${messageId}/attachments/${id}` }
 const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().optional(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
 const mediaSchema = z.object({ url: z.string().optional(), proxy_url: z.string().optional(), attachment_id: z.string().optional(), content_type: z.string().optional() })
 const embedSchema = z.object({ title: z.string().optional(), description: z.string().optional(), image: mediaSchema.optional(), thumbnail: mediaSchema.optional(), fields: z.array(z.object({ name: z.string(), value: z.string() })).optional() })
-function discordMediaUrl(value?: string) {
-  try {
-    const url = new URL(value || '')
-    return url.protocol === 'https:' && ['cdn.discordapp.com', 'media.discordapp.net'].includes(url.hostname) && !url.username && !url.password && (!url.port || url.port === '443') && /^\/attachments\/\d{17,20}\/\d{17,20}\//.test(url.pathname) ? url : undefined
-  } catch { return undefined }
-}
 function ImageViewer({ src, name, opener, close }: { src: string; name: string; opener: HTMLElement; close: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   useLayoutEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => { dialog?.close(); if (opener.isConnected) opener.focus() } }, [opener])
@@ -28,21 +23,16 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview }: {
   }
   function fileView(message: PublishedMessage, file: PublishedMessage['attachments'][number]): ReactNode {
     const url = attachmentUrl(threadId, message.id, file.id)
-    const html = /\.html?$/i.test(file.filename) || file.content_type === 'text/html'
-    return inlineImageType(file.filename, file.content_type) ? imageView(url, file.filename, file.id, file.width, file.height) : <div key={file.id} className="chat-file">{html ? <FileCode size={20} /> : <FileText size={20} />}<strong>{file.filename}</strong><small>{Math.ceil(file.size / 1024)} KiB</small>{html && <button onClick={() => preview(file.filename, url)}>Preview HTML</button>}<a href={url} download={file.filename}>Download</a></div>
+    const html = /\.html?$/i.test(file.filename) || file.content_type?.split(';')[0].trim().toLowerCase() === 'text/html'
+    return inlineImageType(file.filename, file.content_type) ? imageView(url, file.filename, file.id, file.width, file.height) : <div key={file.id} className="chat-file">{html ? <FileCode size={20} /> : <FileText size={20} />}<strong>{file.filename}</strong><small>{file.size ? `${Math.ceil(file.size / 1024)} KiB` : 'Attachment'}</small>{html && <button onClick={() => preview(file.filename, url)}>Preview HTML</button>}<a href={url} download={file.filename}>Download</a></div>
   }
   function mediaView(value: unknown, key: string, message: PublishedMessage, used: Set<string>, description?: string): ReactNode {
     const parsed = mediaSchema.safeParse(value)
     if (parsed.success) {
       const media = parsed.data, urls = [media.url, media.proxy_url].filter((url): url is string => Boolean(url))
-      const ids = urls.map(url => discordMediaUrl(url)?.pathname.split('/')[3]).filter(Boolean)
+      const ids = urls.map(url => discordAttachmentUrl(url)?.id).filter(Boolean)
       const file = message.attachments.find(file => file.id === media.attachment_id || ids.includes(file.id) || urls.some(url => file.url === url || file.proxy_url === url || `attachment://${file.filename}` === url))
       if (file) { if (used.has(file.id)) return null; used.add(file.id); return fileView(message, file) }
-      const url = discordMediaUrl(media.url) || discordMediaUrl(media.proxy_url)
-      if (url) {
-        const name = url.pathname.split('/').at(-1) || 'Image'
-        if (inlineImageType(name, media.content_type)) return imageView(url.href, description || name, key)
-      }
     }
     return <p key={key} className="chat-muted">{description || 'Media'}{discordUrl && <> · <a href={discordUrl}>View in Discord</a></>}</p>
   }
@@ -62,7 +52,7 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview }: {
     }
     return <div key={key} className="chat-action-unavailable"><span>{item.label || 'Discord interaction'}</span>{discordUrl ? <a href={discordUrl}>Respond in Discord</a> : <span>Not available in this client yet</span>}</div>
   }
-  return <>{messages.map(message => { const used = new Set<string>(); return <article className={`chat-message ${message.author.bot ? 'assistant' : 'user'}`} key={message.id} data-message-id={message.id}>
+  return <>{messages.map(raw => { const message = { ...raw, attachments: publishedAttachments(raw) }, used = new Set<string>(); return <article className={`chat-message ${message.author.bot ? 'assistant' : 'user'}`} key={message.id} data-message-id={message.id}>
     <div className="chat-message-meta"><span className="chat-avatar">{message.author.bot ? 'K' : (message.author.global_name || message.author.username).slice(0, 1)}</span><strong>{message.author.global_name || message.author.username}</strong><time dateTime={message.timestamp}>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>{message.edited_timestamp && <small>edited</small>}</div>
     {message.content && <ChatMarkdown text={message.content} />}
     {message.components.map((item, i) => component(item, `${message.id}-${i}`, message, used))}

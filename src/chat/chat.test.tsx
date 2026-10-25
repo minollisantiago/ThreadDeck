@@ -62,8 +62,15 @@ it('shows image attachments without MIME metadata as thumbnails, not generic dow
 it('renders Discord-hosted gallery images without separate attachment metadata', () => {
   const url = 'https://cdn.discordapp.com/attachments/100000000000000001/100000000000000004/preview.png'
   render(<PublishedMessages threadId={message.channel_id} preview={() => {}} messages={[{ ...message, components: [{ type: 12, items: [{ media: { url } }] }] }]} />)
-  expect(screen.getByRole('img').getAttribute('src')).toBe(url)
+  expect(screen.getByRole('img').getAttribute('src')).toBe(`/api/chat/threads/${message.channel_id}/messages/${message.id}/attachments/100000000000000004`)
   expect(screen.getByRole('button', { name: 'Enlarge preview.png' })).toBeTruthy()
+})
+it('renders actual Components V2 file resources even when Discord returns no top-level attachments', () => {
+  const preview = vi.fn()
+  render(<PublishedMessages threadId={message.channel_id} preview={preview} discordUrl="https://discord.com/channels/1/2" messages={[{ ...message, attachments: [], components: [{ type: 13, file: { id: '100000000000000009', attachment_id: '100000000000000004', url: `https://cdn.discordapp.com/attachments/${message.channel_id}/100000000000000004/review.html?ex=signed`, content_type: 'text/html; charset=utf-8' }, name: 'review.html', size: 240095 }] }]} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Preview HTML' }))
+  expect(preview).toHaveBeenCalledWith('review.html', `/api/chat/threads/${message.channel_id}/messages/${message.id}/attachments/100000000000000004`)
+  expect(screen.queryByText('View in Discord')).toBeNull()
 })
 it('does not load arbitrary external media or active formats inline', () => {
   render(<PublishedMessages threadId={message.channel_id} preview={() => {}} messages={[{ ...message, components: [{ type: 12, items: [{ media: { url: 'https://evil.example/preview.png' } }] }], attachments: [{ id: '100000000000000004', filename: 'unsafe.svg', size: 100, content_type: 'image/svg+xml' }] }]} />)

@@ -9,12 +9,12 @@ import { tmpdir } from 'node:os'
 const servers: ReturnType<typeof createServer>[] = []
 const directories: string[] = []
 afterEach(async () => { await Promise.all(servers.splice(0).map(server => new Promise<void>(resolve => server.close(() => resolve())))); await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true }))) })
-async function setup(data?: string) {
+async function setup(data?: string, download?: typeof fetch) {
   const call = vi.fn(async (): Promise<unknown> => ({ protocol: 1 }))
   const server = createServer(); servers.push(server)
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const port = (server.address() as AddressInfo).port
-  const handler = chatHandler(port, { call }, data)
+  const handler = chatHandler(port, { call }, data, download)
   server.on('request', (request, response) => { if (!handler(request, response)) response.writeHead(404).end() })
   return { url: `http://127.0.0.1:${port}`, call }
 }
@@ -52,10 +52,11 @@ it('stages private files with safe media extensions and rejects path names', asy
   expect((await fetch(`${url}/api/chat/files?name=${encodeURIComponent('../escape.png')}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: 'x' })).status).toBe(400)
 })
 it('serves raster attachments inline without MIME metadata but keeps active content as downloads', async () => {
-  const { url, call } = await setup()
+  const download = vi.fn<typeof fetch>(async () => new Response('synthetic bytes'))
+  const { url, call } = await setup(undefined, download)
   const endpoint = `${url}/api/chat/threads/100000000000000001/messages/100000000000000002/attachments/100000000000000003`
   for (const [name, type, expected] of [['image.PNG', 'application/octet-stream', 'image/png'], ['unsafe.svg', 'image/svg+xml', 'application/octet-stream'], ['unsafe.png', 'text/html', 'application/octet-stream']]) {
-    call.mockResolvedValueOnce({ name, type, data: Buffer.from('synthetic bytes').toString('base64') })
+    call.mockResolvedValueOnce({ messages: [{ id: '100000000000000002', channel_id: '100000000000000001', timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki' }, attachments: [{ id: '100000000000000003', filename: name, size: 15, content_type: type, url: `https://cdn.discordapp.com/attachments/100000000000000001/100000000000000003/${name}` }] }], cursor: 'fixture:0', before: null, stale: false })
     const response = await fetch(endpoint)
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe(expected)
