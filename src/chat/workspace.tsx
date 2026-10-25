@@ -13,6 +13,7 @@ import './workspace.css'
 const ConversationPane = lazy(async () => ({ default: (await import('./pane')).ConversationPane }))
 const sidebarMinWidth = 430, sidebarMaxRatio = .3
 const lastSessionKey = 'threaddeck:chat-last-session'
+function rememberSession(session: Session) { try { localStorage.setItem(lastSessionKey, session.id) } catch { /* optional navigation preference */ } }
 
 export function SessionFinder({ sessions, projects, select, create, close, history }: { sessions: Session[]; projects: Project[]; select: (session: Session) => void; create: (project: Project) => void; close: () => void; history: () => void }) {
   const [query, setQuery] = useState(''), [index, setIndex] = useState(0), [newThread, setNewThread] = useState(false)
@@ -45,24 +46,24 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const pendingFocus = useRef<'focus' | 'toggle' | null>(null)
   const open = useCallback((session: Session) => {
     const project = current.current.projects.find(p => p.id === session.projectId)
-    if (project) { setTarget({ session, project }); setFinder(false); setHistoryOpen(false); setDrawer(false) }
+    if (project) { rememberSession(session); setTarget({ session, project }); setFinder(false); setHistoryOpen(false); setDrawer(false) }
   }, [])
   const find = useCallback(() => setFinder(true), [])
   useEffect(() => {
-    if (restored.current || !snapshot || snapshot.health !== 'connected') return
-    restored.current = true
-    if (target) return // Never replace a session or draft the user has already opened.
+    if (restored.current || !snapshot || snapshot.health !== 'connected' || finder || historyOpen) return
+    if (target) { restored.current = true; return } // Never replace explicit navigation.
     let saved: string | null = null
     try { saved = localStorage.getItem(lastSessionKey) } catch { /* optional navigation preference */ }
-    if (!saved) return
+    if (!saved) { restored.current = true; return }
     const session = snapshot.projects.flatMap(project => project.sessions).find(session => session.id === saved)
-    if (session) open(session)
+    if (session) { restored.current = true; open(session) }
+    // A connected backend can still have an incomplete startup inventory. Keep
+    // watching subsequent snapshots rather than consuming the restore attempt.
     else setMissingSession(true)
-  }, [snapshot, open, target])
+  }, [snapshot, open, target, finder, historyOpen])
   useEffect(() => {
     if (!target) return
     restored.current = true; setMissingSession(false)
-    if (target.session) { try { localStorage.setItem(lastSessionKey, target.session.id) } catch { /* optional navigation preference */ } }
   }, [target])
   useEffect(() => {
     const resize = () => setViewportWidth(innerWidth)
@@ -134,7 +135,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
       const stop = () => { element.removeEventListener('pointermove', move); element.removeEventListener('pointerup', stop); element.removeEventListener('pointercancel', stop) }
       element.addEventListener('pointermove', move); element.addEventListener('pointerup', stop); element.addEventListener('pointercancel', stop)
     }} onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(Math.max(sidebarMinWidth, Math.min(maxWidth, sidebarWidth + (e.key === 'ArrowRight' ? 20 : -20)))) } }} />}
-    {selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} sidebar={() => narrow ? setDrawer(value => !value) : setSidebar(value => !value)} close={() => setTarget(null)} created={(session, project) => setTarget({ session, project })} markRead={markRead} /></Suspense>}
+    {selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} sidebar={() => narrow ? setDrawer(value => !value) : setSidebar(value => !value)} close={() => setTarget(null)} created={(session, project) => { rememberSession(session); setTarget({ session, project }) }} markRead={markRead} /></Suspense>}
     {!target && <main className="chat-pane chat-empty-workspace"><div><Layers2 size={36} strokeWidth={1.2} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find or start a thread <kbd>Ctrl K</kbd></button></div></main>}
     {!target && <button className="chat-manager-new" onClick={find}><Plus size={15} />New / find conversation <kbd>Ctrl K</kbd></button>}
     {finder && <SessionFinder sessions={sessions} projects={projects} select={open} create={project => { setTarget({ project }); setFinder(false); setDrawer(false) }} close={() => setFinder(false)} history={() => { setFinder(false); setHistoryOpen(true) }} />}

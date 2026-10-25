@@ -1,5 +1,5 @@
-import { mkdir } from 'node:fs/promises'
-import { test, expect, type Page } from '@playwright/test'
+import { mkdir, rm } from 'node:fs/promises'
+import { chromium, test, expect, type Page } from '@playwright/test'
 import type { Snapshot } from '../shared/model'
 
 const threadId = '100000000000000001', projectId = '100000000000000010'
@@ -99,6 +99,37 @@ test('startup restores the last opened session without opening Discord', async (
   await page.reload()
   await expect(page.locator('.chat-pane-header strong')).toHaveText('Parallel agent')
   await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toBeVisible()
+})
+test('startup restores the saved session after a complete browser profile restart', async () => {
+  const profile = test.info().outputPath('persistent-profile')
+  const options = { headless: true, baseURL: String(test.info().project.use.baseURL), viewport: { width: 1440, height: 1050 } }
+  let context = await chromium.launchPersistentContext(profile, options)
+  try {
+    let page = await context.newPage()
+    await page.route('**/api/events', route => route.abort())
+    await fixture(page)
+    await page.keyboard.press('Control+k')
+    await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.chat-pane-header strong')).toHaveText('Parallel agent')
+    await context.close()
+    context = await chromium.launchPersistentContext(profile, options)
+    page = await context.newPage()
+    await page.route('**/api/events', route => route.abort())
+    await fixture(page, 'submitted', true, undefined, 0, false)
+    await expect(page.locator('.chat-pane-header strong')).toHaveText('Parallel agent')
+  } finally { await context.close(); await rm(profile, { recursive: true, force: true }) }
+})
+test('startup retries restoration when the first connected inventory has not populated yet', async ({ page }) => {
+  await fixture(page)
+  const populatedSnapshot = await page.evaluate(async () => (await fetch('/api/snapshot')).json())
+  let populated = false
+  await page.route('**/api/snapshot', route => route.fulfill({ json: populated ? populatedSnapshot : { ...populatedSnapshot, projects: populatedSnapshot.projects.map((project: { sessions: unknown[] }) => ({ ...project, sessions: [] })) } }))
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Your last thread is unavailable' })).toBeVisible()
+  populated = true
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(page.locator('.chat-pane-header strong')).toHaveText('Stream workspace')
 })
 test('startup shows an actionable empty state when the remembered session is unavailable', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('threaddeck:chat-last-session', 'ses_removed'))
