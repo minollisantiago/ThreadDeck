@@ -19,7 +19,7 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
     if (url.pathname.endsWith('/changes')) return // Deliberately pending long poll; never reaches a real backend.
     if (url.pathname.endsWith('/catalog')) return route.fulfill({ json: { entries: [{ kind: 'skill', name: 'research', description: 'Investigate primary sources' }, { kind: 'command', name: 'review', description: 'Review changes' }] } })
     if (url.pathname.endsWith('/messages') && historyGate) await historyGate
-    if (url.pathname.endsWith('/messages')) return route.fulfill({ json: { cursor: 'test:0', before: null, stale: false, messages: [{ id: '100000000000000005', channel_id: threadId, author: { id: 'bot', username: 'Kimaki', bot: true }, timestamp: '2026-10-24T00:00:00Z', content: '## The approved Stream workspace\n\nThis is the **published Discord representation**, not a raw harness transcript.\n\n- Existing ThreadDeck typography and containers\n- One conversation and a durable Markdown draft\n- All execution stays inside Kimaki', attachments: [{ id: '100000000000000006', filename: 'study.html', size: 400, content_type: 'text/html' }], components: [{ type: 17, accent_color: 0xf77c9d, components: [{ type: 10, content: 'A real Components V2 callout' }] }], embeds: [] }] } })
+    if (url.pathname.endsWith('/messages')) return route.fulfill({ json: { cursor: 'test:0', before: null, stale: false, messages: [{ id: '100000000000000005', channel_id: threadId, author: { id: 'bot', username: 'Kimaki', bot: true }, timestamp: '2026-10-24T00:00:00Z', content: '## The approved Stream workspace\n\nThis is the **published Discord representation**, not a raw harness transcript.\n\n- Existing ThreadDeck typography and containers\n- One conversation and a durable Markdown draft\n- All execution stays inside Kimaki\n\n[Conversation guide](https://example.invalid/guide)', attachments: [{ id: '100000000000000006', filename: 'study.html', size: 400, content_type: 'text/html' }], components: [{ type: 17, accent_color: 0xf77c9d, components: [{ type: 10, content: 'A real Components V2 callout' }] }], embeds: [] }] } })
     if (url.pathname.includes('/attachments/')) return route.fulfill({ contentType: 'text/html', body: '<html><head><meta http-equiv="refresh" content="0;url=https://example.invalid/escape"><script>fetch("https://example.invalid/leak")</script><style>body{background:#f4f3f6;color:#25212e;padding:48px;font:20px monospace}</style></head><body><h1>Safe attachment preview</h1><p>This is a synthetic HTML attachment.</p></body></html>' })
     if (url.pathname === '/api/chat/submit') {
       const input = route.request().postDataJSON(); submissions.push(input)
@@ -35,6 +35,58 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
   }
   return submissions
 }
+test('approved deeper accent ink meets text contrast across light backgrounds without changing soft fills', async ({ page }) => {
+  await fixture(page)
+  await page.keyboard.press('Control+k')
+  await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.chat-agent-activity')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Conversation guide', exact: true })).toBeVisible()
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('A readable primary action')
+  await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; }' })
+  for (const palette of ['pink', 'lavender', 'blue', 'green', 'peach']) {
+    for (const theme of ['original', 'porcelain', 'paper', 'slate']) {
+      const result = await page.evaluate(({ palette, theme }) => {
+        const root = document.documentElement
+        root.dataset.appearance = 'light'; root.dataset.palette = palette; root.dataset.lightTheme = theme
+        const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1
+        const context = canvas.getContext('2d')!
+        function rgba(color: string) { context.clearRect(0, 0, 1, 1); context.fillStyle = color; context.fillRect(0, 0, 1, 1); return [...context.getImageData(0, 0, 1, 1).data] }
+        function background(element: Element | null): number[] {
+          if (!element) return [255, 255, 255]
+          const color = rgba(getComputedStyle(element).backgroundColor), alpha = color[3] / 255, under = background(element.parentElement)
+          return color.slice(0, 3).map((value, index) => value * alpha + under[index] * (1 - alpha))
+        }
+        function luminance(color: number[]) { return color.slice(0, 3).map(value => { value /= 255; return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4 }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0) }
+        const selectors = ['.live-label', '.chat-avatar', '.chat-markdown a', '.chat-agent-activity', '.chat-send', '.session-filters .filter-selected']
+        const samples = selectors.map(selector => {
+          const element = document.querySelector(selector)!, ink = luminance(rgba(getComputedStyle(element).color)), fill = luminance(background(element))
+          return { selector, ratio: (Math.max(ink, fill) + .05) / (Math.min(ink, fill) + .05) }
+        })
+        const send = document.querySelector('.chat-send')!, avatar = document.querySelector('.chat-avatar')!
+        const fills = [getComputedStyle(send).backgroundColor, getComputedStyle(avatar).backgroundColor]
+        root.style.setProperty('--accent-ink', 'var(--accent)')
+        const originalFills = [getComputedStyle(send).backgroundColor, getComputedStyle(avatar).backgroundColor]
+        root.style.removeProperty('--accent-ink')
+        return { samples, fills, originalFills }
+      }, { palette, theme })
+      expect(result.fills, `${palette}/${theme} soft surfaces`).toEqual(result.originalFills)
+      for (const sample of result.samples) expect(sample.ratio, `${palette}/${theme} ${sample.selector}`).toBeGreaterThanOrEqual(4.5)
+    }
+  }
+  await page.evaluate(() => { document.documentElement.dataset.palette = 'pink'; document.documentElement.dataset.lightTheme = 'porcelain' })
+  await mkdir('artifacts/production-chat', { recursive: true })
+  await page.screenshot({ path: 'artifacts/production-chat/approved-deeper-ink.png', animations: 'disabled' })
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('')
+  await expect(page.getByRole('button', { name: 'Queue', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Queue', exact: true })).toHaveCSS('opacity', '1')
+  await page.evaluate(() => { document.documentElement.dataset.appearance = 'dark' })
+  const dark = await page.locator('.chat-markdown a').evaluate(element => {
+    const reference = document.createElement('span'); reference.style.color = 'var(--accent)'; document.body.append(reference)
+    const result = { actual: getComputedStyle(element).color, original: getComputedStyle(reference).color }; reference.remove(); return result
+  })
+  expect(dark.actual).toBe(dark.original)
+})
 test('startup restores the last opened session without opening Discord', async ({ page }) => {
   await fixture(page)
   await page.keyboard.press('Control+k')

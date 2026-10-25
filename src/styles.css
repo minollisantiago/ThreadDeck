@@ -21,6 +21,7 @@
   --ground: #101014; --surface: #17171e; --row: #24232b; --hover: #2c2b35;
   --text: #eeeeef; --muted: #a4a2b2; --subtle: #797786; --rule: #ffffff0d;
   --accent: #f77c9d; --working: #8fd9af; --warning: #f2be7e; --danger: #ff8e98;
+  --accent-ink: var(--accent);
   --font: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
 }
 :root[data-appearance=light] {
@@ -28,6 +29,8 @@
   --ground: #f4f3f6; --surface: #fff; --row: #f0edf4; --hover: #e9e5ee;
   --text: #25212e; --muted: #625d70; --subtle: #797183; --rule: #211b3012;
   --working: #237947; --warning: #94601c; --danger: #c52b3b;
+  /* Option B: darker accent text without changing the soft decorative palette. */
+  --accent-ink: color-mix(in srgb, var(--accent) 40%, #261c2a);
   --pill-working-ink: #166534; --pill-working-bg: #d6f5e3;
   --pill-attention-ink: #854d0e; --pill-attention-bg: #ffebc5;
   --pill-danger-ink: #9f1239; --pill-danger-bg: #ffe0e7;
@@ -95,11 +98,11 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .app-shell { max-width: 1280px; padding: 48px 40px 24px; margin-inline: auto; }
 .page-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
 .identity { display: flex; align-items: center; gap: 16px; }
-.brand-icon { display: grid; place-items: center; width: 46px; height: 46px; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); border-radius: 13px; color: var(--accent); }
+.brand-icon { display: grid; place-items: center; width: 46px; height: 46px; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); border-radius: 13px; color: var(--accent-ink); }
 .brand-icon svg { width: 25px; height: 25px; stroke-width: 1.5; }
 .eyebrow { margin: 0 0 3px; color: var(--subtle); font-size: 9px; letter-spacing: 1.8px; }
 h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 13px; }
-.live-label { font-size: 9px; color: var(--accent); letter-spacing: 1px; border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: var(--pill-radius); padding: 3px 5px; }
+.live-label { font-size: 9px; color: var(--accent-ink); letter-spacing: 1px; border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: var(--pill-radius); padding: 3px 5px; }
 .appearance-controls { display: flex; align-items: center; gap: 6px; }
 .header-controls { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .header-actions { display: flex; align-items: center; gap: 6px; }
@@ -166,7 +169,7 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .overview-label-short { display: none; }
 .filter-group .filter-selected { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: color-mix(in srgb, var(--accent) 75%, var(--text)); }
 .mark-all-read { font-size: 12px; height: 36px; }
-[data-appearance=light] .filter-group .filter-selected { color: color-mix(in srgb, var(--accent) 38%, #25212e); }
+[data-appearance=light] .filter-group .filter-selected { color: var(--accent-ink); }
 .section-caption { display: flex; justify-content: space-between; gap: 16px; color: var(--subtle); font-size: 9px; margin: 0 2px 13px; }.section-caption>span:first-child { letter-spacing: 1.4px; }.caption-count { margin-left: 7px; color: var(--muted); }
 .project-list { display: grid; gap: 12px; }
 .grouping-control { padding: 3px; border: 1px solid var(--rule); border-radius: 10px; margin-left: 0; }
