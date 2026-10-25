@@ -5,6 +5,7 @@ const { appId, taskbarDetails } = require('./taskbar.cjs')
 const { startupController } = require('./startup.cjs')
 const { readFileSync } = require('node:fs')
 const { colors, savedAppearance } = require('./appearance.cjs')
+const { readWindowState, fitWindowBounds, saveWindowState } = require('./window-state.cjs')
 
 const configFile = process.argv.find(arg => arg.startsWith('--launch-services='))?.slice('--launch-services='.length)
 let config
@@ -78,9 +79,12 @@ app.whenReady().then(async () => {
   if (quitting) return
   startupState = initialState()
   appearance = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
-  const initialBounds = mobileBounds(screen.getPrimaryDisplay().workArea)
+  const stateFile = path.join(app.getPath('userData'), 'window-state.json')
+  const savedWindow = readWindowState(stateFile)
+  const area = savedWindow ? screen.getDisplayMatching(savedWindow.bounds).workArea : screen.getPrimaryDisplay().workArea
+  const initialBounds = savedWindow ? fitWindowBounds(savedWindow.bounds, area) : mobileBounds(area)
   window = new BrowserWindow({
-    ...initialBounds, minWidth: initialBounds.width, minHeight: 400,
+    ...initialBounds, minWidth: Math.min(430, area.width), minHeight: Math.min(400, area.height),
     frame: false, show: false, backgroundColor: colors[appearance], title: 'ThreadDeck',
     icon: path.join(__dirname, 'ThreadDeck.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },
@@ -141,14 +145,16 @@ app.whenReady().then(async () => {
   })
   const notify = () => window.webContents.send('window-maximized', window.isMaximized())
   window.on('maximize', notify)
-  window.on('unmaximize', () => {
-    window.setBounds(mobileBounds(screen.getDisplayMatching(window.getBounds()).workArea))
-    notify()
-  })
+  window.on('unmaximize', notify)
   window.webContents.on('did-finish-load', notify)
+  window.on('close', () => {
+    try { saveWindowState(stateFile, window.getNormalBounds(), window.isMaximized()) }
+    catch (error) { console.error(`Could not save window size: ${error.message}`) }
+  })
   window.on('closed', () => { quitting = true; attempt++; void controller?.stop() })
   await loadSplash()
   if (quitting || window.isDestroyed()) return
+  if (savedWindow?.maximized) window.maximize()
   window.show()
   void beginStartup()
 }).catch(error => { if (!quitting) dialog.showErrorBox('ThreadDeck could not start', error.message); app.exit(1) })
