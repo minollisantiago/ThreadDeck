@@ -112,6 +112,7 @@
 :root[data-appearance=light] .chat-composer-tools .chat-send:disabled { color: var(--subtle); background: var(--row); opacity: 1; }
 .chat-composer-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 10px; font-size: 10px; color: var(--subtle); }
 .chat-composer-feedback { margin-left: auto; text-align: right; }
+.chat-composer-status { padding: 14px 19px 0; text-align: left; font-size: 10px; flex-shrink: 0; }
 .chat-agent-activity { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-ink); }
 .chat-activity-dots { display: inline-flex; align-items: center; gap: 3px; height: 12px; }
 .chat-activity-dots i { width: 3px; height: 3px; border-radius: 50%; background: currentColor; animation: chat-activity 1.4s ease-in-out infinite; }
