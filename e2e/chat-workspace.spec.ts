@@ -307,6 +307,36 @@ test('shows message and attachment skeletons until thread history is ready', asy
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled()
   await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('Keep writing while loading')
 })
+test('conversation skeletons remain visible against every light theme background', async ({ page }) => {
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await fixture(page, 'submitted', true, gate)
+  await expect(page.locator('.chat-skeleton')).toBeVisible()
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  for (const theme of ['original', 'porcelain', 'paper', 'slate']) {
+    const contrasts = await page.evaluate(theme => {
+      const root = document.documentElement; root.dataset.appearance = 'light'; root.dataset.lightTheme = theme
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1; const context = canvas.getContext('2d')!
+      function rgb(color: string) { context.clearRect(0, 0, 1, 1); context.fillStyle = color; context.fillRect(0, 0, 1, 1); return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3) }
+      function luminance(color: number[]) { return color.map(value => { value /= 255; return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4 }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0) }
+      const backdrop = rgb(getComputedStyle(document.body).backgroundColor), background = luminance(backdrop)
+      return [...document.querySelectorAll('.chat-skeleton-message > .chat-skeleton-lines .skeleton-line')].flatMap(element => {
+        let opacity = 1
+        for (let parent: Element | null = element; parent; parent = parent.parentElement) opacity *= Number(getComputedStyle(parent).opacity)
+        const stops = getComputedStyle(element).backgroundImage.match(/(?:rgba?|color)\([^)]+\)/g) || []
+        return stops.map(stop => {
+          const ink = luminance(rgb(stop).map((value, index) => value * opacity + backdrop[index] * (1 - opacity)))
+          return (Math.max(ink, background) + .05) / (Math.min(ink, background) + .05)
+        })
+      })
+    }, theme)
+    expect(contrasts.length).toBeGreaterThan(0)
+    expect(Math.min(...contrasts), `${theme} skeleton contrast`).toBeGreaterThanOrEqual(1.3)
+  }
+  await page.evaluate(() => { document.documentElement.dataset.lightTheme = 'porcelain' })
+  await page.screenshot({ path: 'artifacts/production-chat/light-skeleton-contrast-fixed.png', animations: 'disabled' })
+  release()
+})
 test('composer shows live agent activity at the top left of the prompt input', async ({ page }) => {
   await fixture(page)
   await expect(page.locator('.chat-composer-feedback')).toHaveText('Draft kept on this device')

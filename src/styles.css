@@ -22,6 +22,7 @@
   --text: #eeeeef; --muted: #a4a2b2; --subtle: #797786; --rule: #ffffff0d;
   --accent: #f77c9d; --working: #8fd9af; --warning: #f2be7e; --danger: #ff8e98;
   --accent-ink: var(--accent);
+  --skeleton-base: var(--row); --skeleton-highlight: color-mix(in srgb, var(--subtle) 20%, var(--surface));
   --font: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
 }
 :root[data-appearance=light] {
@@ -31,6 +32,8 @@
   --working: #237947; --warning: #94601c; --danger: #c52b3b;
   /* Option B: darker accent text without changing the soft decorative palette. */
   --accent-ink: color-mix(in srgb, var(--accent) 40%, #261c2a);
+  --skeleton-base: color-mix(in srgb, var(--subtle) 40%, var(--ground));
+  --skeleton-highlight: color-mix(in srgb, var(--subtle) 28%, var(--ground));
   --pill-working-ink: #166534; --pill-working-bg: #d6f5e3;
   --pill-attention-ink: #854d0e; --pill-attention-bg: #ffebc5;
   --pill-danger-ink: #9f1239; --pill-danger-bg: #ffe0e7;
