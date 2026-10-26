@@ -35,6 +35,7 @@ export function SessionFinder({ sessions, projects, select, create, close, histo
 export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | null; children: ReactNode }) {
   const [target, setTarget] = useState<ChatTarget | null>(null), [finder, setFinder] = useState(false), [drawer, setDrawer] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [focusRequest, setFocusRequest] = useState(0)
   const restored = useRef(false), [missingSession, setMissingSession] = useState(false)
   const [viewportWidth, setViewportWidth] = useState(innerWidth), [sidebar, setSidebar] = useState(() => localStorage.getItem('threaddeck:chat-sidebar') !== 'false')
   const narrow = viewportWidth < Math.ceil(sidebarMinWidth / sidebarMaxRatio)
@@ -46,7 +47,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const pendingFocus = useRef<'focus' | 'toggle' | null>(null)
   const open = useCallback((session: Session) => {
     const project = current.current.projects.find(p => p.id === session.projectId)
-    if (project) { rememberSession(session); setTarget({ session, project }); setFinder(false); setHistoryOpen(false); setDrawer(false) }
+    if (project) { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setHistoryOpen(false); setDrawer(false) }
   }, [])
   const find = useCallback(() => setFinder(true), [])
   useEffect(() => {
@@ -135,10 +136,10 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
       const stop = () => { element.removeEventListener('pointermove', move); element.removeEventListener('pointerup', stop); element.removeEventListener('pointercancel', stop) }
       element.addEventListener('pointermove', move); element.addEventListener('pointerup', stop); element.addEventListener('pointercancel', stop)
     }} onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(Math.max(sidebarMinWidth, Math.min(maxWidth, sidebarWidth + (e.key === 'ArrowRight' ? 20 : -20)))) } }} />}
-    {selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} sidebar={() => narrow ? setDrawer(value => !value) : setSidebar(value => !value)} close={() => setTarget(null)} created={(session, project) => { rememberSession(session); setTarget({ session, project }) }} markRead={markRead} /></Suspense>}
+    {selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} sidebar={() => narrow ? setDrawer(value => !value) : setSidebar(value => !value)} close={() => setTarget(null)} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
     {!target && <main className="chat-pane chat-empty-workspace"><div><Layers2 size={36} strokeWidth={1.2} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find or start a thread <kbd>Ctrl K</kbd></button></div></main>}
     {!target && <button className="chat-manager-new" onClick={find}><Plus size={15} />New / find conversation <kbd>Ctrl K</kbd></button>}
-    {finder && <SessionFinder sessions={sessions} projects={projects} select={open} create={project => { setTarget({ project }); setFinder(false); setDrawer(false) }} close={() => setFinder(false)} history={() => { setFinder(false); setHistoryOpen(true) }} />}
+    {finder && <SessionFinder sessions={sessions} projects={projects} select={open} create={project => { setTarget({ project }); setFocusRequest(value => value + 1); setFinder(false); setDrawer(false) }} close={() => setFinder(false)} history={() => { setFinder(false); setHistoryOpen(true) }} />}
     {historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} onSelect={hit => {
       const known = sessions.find(session => session.id === hit.id)
       if (known) { open(known); return true }

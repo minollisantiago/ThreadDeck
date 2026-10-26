@@ -18,7 +18,7 @@ const pendingSchema = z.object({ id: z.uuid(), text: z.string(), files: z.array(
 type Pending = z.infer<typeof pendingSchema>
 type Outgoing = Pending & { state: OperationReceipt['state']; messageIds: string[] }
 const scrolls = new Map<string, number>()
-export function ConversationPane({ target, sidebar, close, created, markRead }: { target: ChatTarget; sidebar: () => void; close: () => void; created: (session: Session, project: Project) => void; markRead: (session: Session) => void }) {
+export function ConversationPane({ target, focusRequest, sidebar, close, created, markRead }: { target: ChatTarget; focusRequest: number; sidebar: () => void; close: () => void; created: (session: Session, project: Project) => void; markRead: (session: Session) => void }) {
   const { session, project } = target, key = session?.id || `new:${project.id}`, pendingKey = `threaddeck:chat-operation:${key}`
   const [retry, setRetry] = useState(0)
   const draft = useDraft(key), conversation = useConversation(session?.threadId, retry)
@@ -44,6 +44,14 @@ export function ConversationPane({ target, sidebar, close, created, markRead }: 
     window.dispatchEvent(new Event('threaddeck:pane-ready'))
     return () => window.removeEventListener('threaddeck:composer-request', request)
   }, [])
+  useEffect(() => {
+    // Run after the finder/drawer has closed and its focus-restoration cleanup
+    // has finished. A request counter also handles reselecting the same thread.
+    const frame = requestAnimationFrame(() => {
+      if (!document.querySelector('dialog[open]')) window.dispatchEvent(new CustomEvent('threaddeck:composer-request', { detail: 'focus' }))
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [focusRequest])
   useEffect(() => {
     const abort = new AbortController()
     setBridgeError(''); setInfo(null)
