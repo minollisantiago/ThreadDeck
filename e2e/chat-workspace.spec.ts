@@ -90,6 +90,34 @@ test('approved deeper accent ink meets text contrast across light backgrounds wi
   })
   expect(dark.actual).toBe(dark.original)
 })
+test('groups model tool messages, answers, callouts and footers under one interaction header', async ({ page }) => {
+  await fixture(page)
+  const base = { channel_id: '100000000000000003', timestamp: '2026-10-25T00:56:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, attachments: [], components: [], embeds: [] }
+  const messages = [
+    { ...base, id: '100000000000000010', author: { id: 'operator', username: 'Local operator', bot: false }, content: 'Please keep the conversation connected, like Discord.' },
+    { ...base, id: '100000000000000011', content: '-# ├ shell Verify persistent native window sizing' },
+    { ...base, id: '100000000000000012', content: '-# ├ shell Verify centered image previews' },
+    { ...base, id: '100000000000000013', content: 'Done and verified.\n\n- Conversation messages stay together.\n- Individual messages and attachment identities are preserved.\n- [Review the change](https://example.invalid/review).' },
+    { ...base, id: '100000000000000014', content: '', components: [{ type: 17, accent_color: 0xb1a7f2, components: [{ type: 10, content: 'One header for the whole response, including callouts and attachments.' }] }] },
+    { ...base, id: '100000000000000015', content: '-# ThreadDeck · workspace · 6m 50s · gpt-6.1-sol' },
+    { ...base, id: '100000000000000016', content: '', components: [{ type: 17, components: [{ type: 10, content: '**ThreadDeck · local operator**\n\nThe next interaction starts here.' }] }] },
+    { ...base, id: '100000000000000017', content: 'A new response belongs under a fresh header.' },
+  ]
+  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { messages, cursor: 'groups:0', before: null, stale: false } }))
+  await page.keyboard.press('Control+k')
+  await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.chat-message-group')).toHaveCount(3)
+  const reply = page.locator('[data-message-group="100000000000000011"]')
+  await expect(reply.locator('.chat-message-meta')).toHaveCount(1)
+  await expect(reply.locator('article[data-message-id]')).toHaveCount(5)
+  await expect(reply.getByText('One header for the whole response, including callouts and attachments.')).toBeVisible()
+  await expect(page.locator('[data-message-group="100000000000000016"] article')).toHaveCount(2)
+  expect(await page.locator('.chat-message-group article').evaluateAll(elements => elements.map(element => element.getAttribute('data-message-id')))).toEqual(messages.map(message => message.id))
+  await page.setViewportSize({ width: 1440, height: 1200 })
+  await page.locator('.chat-transcript').evaluate(element => { element.scrollTop = 0 })
+  await page.screenshot({ path: 'artifacts/production-chat/grouped-message-interactions.png', animations: 'disabled' })
+})
 test('startup restores the last opened session without opening Discord', async ({ page }) => {
   await fixture(page)
   await page.keyboard.press('Control+k')

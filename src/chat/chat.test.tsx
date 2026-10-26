@@ -26,6 +26,27 @@ it('replaces image loading skeletons with the decoded preview or an explicit fai
   expect(screen.queryByRole('status', { name: 'Loading Second image' })).toBeNull()
 })
 const message = publishedMessageSchema.parse({ id: '100000000000000002', channel_id: '100000000000000001', timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: 'Discord-visible text' })
+it('renders one author header for a model interaction while preserving message identity, callouts, and edits', () => {
+  const messages = [message, { ...message, id: '100000000000000003', content: 'Answer text', edited_timestamp: '2026-10-24T00:02:00Z' }, { ...message, id: '100000000000000004', content: '', components: [{ type: 17, components: [{ type: 10, content: 'Important callout' }] }] }, { ...message, id: '100000000000000005', content: '-# Session footer' }]
+  const { container } = render(<PublishedMessages threadId={message.channel_id} messages={messages} preview={() => {}} />)
+  expect(screen.getAllByText('Kimaki')).toHaveLength(1)
+  expect(container.querySelectorAll('.chat-message-meta')).toHaveLength(1)
+  expect(container.querySelectorAll('article[data-message-id]')).toHaveLength(4)
+  expect(screen.getByText('Important callout')).toBeTruthy()
+  expect(screen.getByText('Session footer', { exact: false })).toBeTruthy()
+  expect(container.querySelector('[data-message-id="100000000000000003"] .chat-message-edited')?.textContent).toBe('edited')
+  expect(container.querySelector('[data-message-id="100000000000000003"] time')?.getAttribute('datetime')).toBe(message.timestamp)
+})
+it('adds a new header for the next human interaction but not for live model continuations', () => {
+  const { container, rerender } = render(<PublishedMessages threadId={message.channel_id} messages={[message]} preview={() => {}} />)
+  const continued = { ...message, id: '100000000000000003', content: 'Live continuation' }
+  rerender(<PublishedMessages threadId={message.channel_id} messages={[message, continued]} preview={() => {}} />)
+  expect(container.querySelectorAll('.chat-message-meta')).toHaveLength(1)
+  const prompt = { ...message, id: '100000000000000004', author: { id: 'human', username: 'Operator' }, content: 'Another question' }
+  rerender(<PublishedMessages threadId={message.channel_id} messages={[message, continued, prompt, { ...message, id: '100000000000000005' }]} preview={() => {}} />)
+  expect(container.querySelectorAll('.chat-message-meta')).toHaveLength(3)
+  expect(screen.getAllByText('Kimaki')).toHaveLength(2)
+})
 it('displays literal HTML as text without executing or dropping it', () => {
   const { container } = render(<ChatMarkdown text={'<script>window.unsafe = true</script>'} />)
   expect(container.textContent).toContain('<script>window.unsafe = true</script>')
