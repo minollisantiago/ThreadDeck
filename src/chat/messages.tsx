@@ -6,7 +6,7 @@ import { ChatMarkdown } from './markdown'
 import { inlineImageType } from '../../shared/image'
 import { ImagePreview } from './image-preview'
 import { discordAttachmentUrl, publishedAttachments } from '../../shared/discord-attachments'
-import { groupPublishedMessages } from './message-groups'
+import { displayPublishedMessage, groupPublishedMessages, localOperatorPrompt } from './message-groups'
 
 export function attachmentUrl(threadId: string, messageId: string, id: string) { return `/api/chat/threads/${threadId}/messages/${messageId}/attachments/${id}` }
 const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().optional(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
@@ -54,10 +54,10 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview }: {
     return <div key={key} className="chat-action-unavailable"><span>{item.label || 'Discord interaction'}</span>{discordUrl ? <a href={discordUrl}>Respond in Discord</a> : <span>Not available in this client yet</span>}</div>
   }
   return <>{groupPublishedMessages(messages).map(group => {
-    const first = group.messages[0], author = first.author.global_name || first.author.username
-    return <section className={`chat-message-group ${first.author.bot ? 'assistant' : 'user'}`} key={group.id} aria-label={`Messages from ${author}`} data-message-group={group.id}>
-    <div className="chat-message-meta"><span className="chat-avatar">{first.author.bot ? 'K' : author.slice(0, 1)}</span><strong>{author}</strong><time dateTime={first.timestamp}>{new Date(first.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div>
-    {group.messages.map((raw, index) => { const message = { ...raw, attachments: publishedAttachments(raw) }, used = new Set<string>(); return <article className={`chat-message ${message.author.bot ? 'assistant' : 'user'}`} key={message.id} data-message-id={message.id} title={new Date(message.timestamp).toLocaleString()}>
+    const first = group.messages[0], operator = localOperatorPrompt(first), author = operator ? 'You' : first.author.global_name || first.author.username, role = group.role === 'assistant' ? 'assistant' : 'user'
+    return <section className={`chat-message-group ${role}`} key={group.id} aria-label={`Messages from ${author}`} data-message-group={group.id}>
+    <div className="chat-message-meta"><span className="chat-avatar">{role === 'assistant' ? 'K' : author.slice(0, 1)}</span><strong>{author}</strong>{operator?.queued && <small>Queued</small>}<time dateTime={first.timestamp}>{new Date(first.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div>
+    {group.messages.map((raw, index) => { const message = { ...displayPublishedMessage(raw), attachments: publishedAttachments(raw) }, used = new Set<string>(); return <article className={`chat-message ${role}`} key={message.id} data-message-id={message.id} title={new Date(message.timestamp).toLocaleString()}>
     {index > 0 && <time className="sr-only" dateTime={message.timestamp}>{new Date(message.timestamp).toLocaleString()}</time>}
     {message.content && <ChatMarkdown text={message.content} />}
     {message.components.map((item, i) => component(item, `${message.id}-${i}`, message, used))}

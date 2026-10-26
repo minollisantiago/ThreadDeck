@@ -47,6 +47,19 @@ it('adds a new header for the next human interaction but not for live model cont
   expect(container.querySelectorAll('.chat-message-meta')).toHaveLength(3)
   expect(screen.getAllByText('Kimaki')).toHaveLength(2)
 })
+it('attributes prompts relayed through Kimaki to the user instead of the model header', () => {
+  const first = { ...message, content: '**ThreadDeck · local operator**\n\nFocus the input when I switch threads.' }
+  const second = { ...message, id: '100000000000000003', content: '', components: [{ type: 10, content: '**ThreadDeck · local operator · queued**\n\nAlso focus after selecting a search result.' }] }
+  const answer = { ...message, id: '100000000000000004', content: 'I will fix both navigation paths.' }
+  const { container } = render(<PublishedMessages threadId={message.channel_id} messages={[first, second, answer, { ...answer, id: '100000000000000005', content: 'The model response continues here.' }]} preview={() => {}} />)
+  expect(screen.getAllByText('You', { exact: true })).toHaveLength(2)
+  expect(screen.getAllByText('Kimaki', { exact: true })).toHaveLength(1)
+  expect(screen.queryByText('ThreadDeck · local operator', { exact: false })).toBeNull()
+  expect(screen.getByText('Queued', { exact: true })).toBeTruthy()
+  expect(container.querySelectorAll('.chat-message-group.user')).toHaveLength(2)
+  expect(container.querySelector('.chat-message-group.assistant')?.querySelectorAll('article')).toHaveLength(2)
+  expect(first.content).toContain('**ThreadDeck · local operator**')
+})
 it('displays literal HTML as text without executing or dropping it', () => {
   const { container } = render(<ChatMarkdown text={'<script>window.unsafe = true</script>'} />)
   expect(container.textContent).toContain('<script>window.unsafe = true</script>')
