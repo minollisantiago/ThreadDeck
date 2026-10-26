@@ -45,14 +45,14 @@ test.describe('message clocks', () => {
     const messages = [
       { ...base, id: '100000000000000010', timestamp: '2026-10-24T19:00:00Z', content: 'An older reply includes its calendar date.' },
       { ...base, id: '100000000000000011', timestamp: '2026-10-26T06:59:00Z', author: { id: 'operator', username: 'Local operator', bot: false }, content: 'This was sent just before local midnight, even though the UTC day is today.' },
-      { ...base, id: '100000000000000012', timestamp: '2026-10-26T07:02:00Z', content: 'Today’s reply only needs the time, right beside the name.' },
+      { ...base, id: '100000000000000012', timestamp: '2026-10-26T07:02:00Z', content: 'Today’s reply shows Today and the time, right beside the name.' },
     ]
     await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { messages, cursor: 'clocks:0', before: null, stale: false } }))
     await page.keyboard.press('Control+k')
     await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
     await page.keyboard.press('Enter')
     const clocks = page.locator('.chat-message-meta time')
-    await expect(clocks).toHaveText(['24/10/26 · 12:00', '25/10/26 · 23:59', '00:02'])
+    await expect(clocks).toHaveText(['24/10/26 · 12:00', '25/10/26 · 23:59', 'Today · 00:02'])
     await expect(clocks.nth(1)).toHaveAttribute('datetime', '2026-10-26T06:59:00Z')
     for (const header of await page.locator('.chat-message-meta').all()) {
       const author = await header.locator('strong').boundingBox(), clock = await header.locator('time').boundingBox()
