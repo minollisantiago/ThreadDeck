@@ -97,11 +97,14 @@ describe('owned OpenCode lifecycle', () => {
     await service.stop()
   })
 
-  it('respects OPENCODE_PATH and never launches a V1 binary', async () => {
-    const run = vi.fn().mockResolvedValue({ stdout: 'opencode 2.0.29' })
+  it.each(['opencode 2.0.29', 'opencode v2.0.29\n', '2.0.29', 'opencode v0.0.0-dev-test'])('respects OPENCODE_PATH and accepts V2 output %j', async stdout => {
+    const run = vi.fn().mockResolvedValue({ stdout })
     expect(await openCodeCommand({ OPENCODE_PATH: '/custom/opencode' }, run)).toEqual(['/custom/opencode', 'serve', '--service', '--hostname', '127.0.0.1'])
     expect(run).toHaveBeenCalledTimes(1)
-    run.mockResolvedValue({ stdout: '1.2.3' })
+  })
+
+  it.each(['1.2.3', 'opencode v1.2.3', 'opencode v12.0.29'])('never launches an incompatible binary reporting %j', async stdout => {
+    const run = vi.fn().mockResolvedValue({ stdout })
     await expect(openCodeCommand({ OPENCODE_PATH: '/custom/opencode' }, run)).rejects.toThrow('V2 was not found')
   })
 

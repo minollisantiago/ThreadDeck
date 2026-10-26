@@ -11,7 +11,7 @@ export async function openCodeCommand(env, run = promisify(execFile)) {
   for (const binary of candidates) {
     try {
       const { stdout } = await run(binary, ['--version'], { env, timeout: 10_000 })
-      if (/\b(?:2\.\d+\.\d+|0\.0\.0-dev[^\s]*)/.test(stdout)) return [binary, 'serve', '--service', '--hostname', '127.0.0.1']
+      if (/\bv?(?:2\.\d+\.\d+|0\.0\.0-dev[^\s]*)/.test(stdout)) return [binary, 'serve', '--service', '--hostname', '127.0.0.1']
     } catch { /* try the next installed V2 binary */ }
   }
   throw new Error('OpenCode V2 was not found. Set OPENCODE_PATH to its executable.')
