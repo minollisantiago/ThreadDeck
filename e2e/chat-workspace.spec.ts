@@ -35,6 +35,32 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
   }
   return submissions
 }
+test.describe('message clocks', () => {
+  test.use({ locale: 'en-GB', timezoneId: 'America/Los_Angeles' })
+  for (const width of [430, 1440]) test(`shows local dates beside authors without pushing clocks to the edge at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1050 })
+    await page.clock.install({ time: new Date('2026-10-26T07:05:00Z') })
+    await fixture(page)
+    const base = { channel_id: '100000000000000003', author: { id: 'bot', username: 'Kimaki', bot: true }, attachments: [], components: [], embeds: [] }
+    const messages = [
+      { ...base, id: '100000000000000010', timestamp: '2026-10-24T19:00:00Z', content: 'An older reply includes its calendar date.' },
+      { ...base, id: '100000000000000011', timestamp: '2026-10-26T06:59:00Z', author: { id: 'operator', username: 'Local operator', bot: false }, content: 'This was sent just before local midnight, even though the UTC day is today.' },
+      { ...base, id: '100000000000000012', timestamp: '2026-10-26T07:02:00Z', content: 'Today’s reply only needs the time, right beside the name.' },
+    ]
+    await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { messages, cursor: 'clocks:0', before: null, stale: false } }))
+    await page.keyboard.press('Control+k')
+    await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
+    await page.keyboard.press('Enter')
+    const clocks = page.locator('.chat-message-meta time')
+    await expect(clocks).toHaveText(['24/10/26 · 12:00', '25/10/26 · 23:59', '00:02'])
+    await expect(clocks.nth(1)).toHaveAttribute('datetime', '2026-10-26T06:59:00Z')
+    for (const header of await page.locator('.chat-message-meta').all()) {
+      const author = await header.locator('strong').boundingBox(), clock = await header.locator('time').boundingBox()
+      expect(clock!.x - (author!.x + author!.width)).toBeCloseTo(10, 0)
+    }
+    if (width === 1440) await page.screenshot({ path: 'artifacts/production-chat/message-clocks-by-author.png', animations: 'disabled' })
+  })
+})
 test('approved deeper accent ink meets text contrast across light backgrounds without changing soft fills', async ({ page }) => {
   await fixture(page)
   await page.keyboard.press('Control+k')

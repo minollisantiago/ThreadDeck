@@ -63,8 +63,8 @@
 .chat-outgoing { transition: opacity 180ms ease; }.chat-outgoing:not([data-state=submitted]) { opacity: .5; }.chat-restore-prompt { margin-top: 10px; font-size: 11px; color: var(--accent-ink) !important; }
 @media (prefers-reduced-motion: reduce) { .chat-outgoing { transition: none; } }
 .chat-message-meta { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 12px; margin-bottom: 14px; }
-.chat-message-meta strong { font-weight: 500; }
-.chat-message-meta time { margin-left: auto; color: var(--subtle); font-size: 10px; }
+.chat-message-meta strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.chat-message-meta time { flex-shrink: 0; white-space: nowrap; color: var(--subtle); font-size: 10px; }
 .chat-message-meta small { color: var(--subtle); font-size: 10px; }
 .chat-avatar { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
 .chat-markdown { font: 14px/1.85 var(--font); overflow-wrap: anywhere; color: var(--muted); }
