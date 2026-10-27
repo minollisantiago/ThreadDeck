@@ -141,9 +141,9 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
   return <>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design={design}>
     <header className="page-header">
-      {workspace?.toggleSidebar && <SidebarToggle open={Boolean(workspace.sidebarOpen)} toggle={workspace.toggleSidebar} />}
       <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><h1>ThreadDeck</h1></div>
       <HeaderControls compact={workspace?.compact} appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
+      {workspace?.toggleSidebar && <SidebarToggle open={Boolean(workspace.sidebarOpen)} toggle={workspace.toggleSidebar} />}
     </header>
 
     <div className="overview">

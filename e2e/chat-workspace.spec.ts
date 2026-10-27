@@ -425,7 +425,7 @@ for (const width of [430, 1440]) test(`project tree rail joins the channel heade
   expect(Math.abs(geometry.headerX - geometry.iconX)).toBeLessThan(1)
   expect(Math.abs(geometry.headerBottom - geometry.rowTop)).toBeLessThan(1)
 })
-for (const width of [430, 1440]) test(`sidebar keeps navigation left and connection details bottom right at ${width}px`, async ({ page }) => {
+for (const width of [430, 1440]) test(`sidebar keeps its toggle rightmost and connection details bottom right at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })
   await fixture(page)
   await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveAttribute('placeholder', 'Ask anything, / for commands and skills, or attach files…')
@@ -439,8 +439,8 @@ for (const width of [430, 1440]) test(`sidebar keeps navigation left and connect
   await expect(sidebar.locator('footer').getByRole('button', { name: 'Connected', exact: true })).toBeVisible()
   await expect(sidebar.locator('footer')).not.toContainText('LOCAL · KIMAKI')
   const toggleBox = await sidebar.getByRole('button', { name: 'Toggle session sidebar' }).boundingBox(), brandBox = await sidebar.locator('.identity').boundingBox(), menuBox = await menu.boundingBox()
-  expect(toggleBox!.x + toggleBox!.width).toBeLessThanOrEqual(brandBox!.x)
   expect(brandBox!.x + brandBox!.width).toBeLessThanOrEqual(menuBox!.x)
+  expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(toggleBox!.x)
   await expect(menu.locator('.lucide-ellipsis-vertical')).toBeVisible()
   await connection.focus()
   const tooltip = sidebar.locator('footer .connection-tooltip')
