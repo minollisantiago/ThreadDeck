@@ -28,7 +28,7 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
   const flags = useRef<HTMLDivElement>(null)
   useChangeMotion(flags, `${status}:${unread}:${unread ? session.responseAt ?? '' : ''}`, 120, 2)
   const Icon = status === 'working' ? LoaderCircle : status === 'idle' ? CirclePause : status === 'permission' ? ShieldQuestion : CircleAlert
-  return <TooltipHint label={`Updated ${relativeTime(session.updatedAt, now)} · ${new Date(session.updatedAt).toLocaleString()}`}><div ref={row} tabIndex={0} aria-haspopup="menu" className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''} ${graphical ? 'session-tile' : ''}`} data-state={status} data-selected={selected} onContextMenu={event => {
+  return <TooltipHint label={<div className="session-tooltip"><strong>{session.title}</strong><span>Updated {relativeTime(session.updatedAt, now)}</span><time dateTime={new Date(session.updatedAt).toISOString()}>{new Date(session.updatedAt).toLocaleString()}</time></div>}><div ref={row} tabIndex={0} aria-haspopup="menu" className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''} ${graphical ? 'session-tile' : ''}`} data-state={status} data-selected={selected} onContextMenu={event => {
     event.preventDefault()
     event.stopPropagation()
     setMenu({ x: event.clientX, y: event.clientY })
@@ -42,9 +42,9 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
     {(attention || unread) && <span className="session-attention-marker" aria-hidden="true" />}
     {graphical && <span className={`session-glyph glyph-${status}`} aria-hidden="true"><Icon /></span>}
     <div className="session-copy">
-      {projectName && <TooltipHint label={`Project: ${projectName}`}><span className="session-project"><span className="channel-hash" aria-hidden="true">#</span> {projectName}</span></TooltipHint>}
-      {links ? <TooltipHint label={session.title}><a className="session-title" href={links.app} onClick={event => { if (openSession && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); openSession(session); return } markRead(session) }} onAuxClick={event => { if (event.button === 1) markRead(session) }}>{session.title}</a></TooltipHint>
-         : openSession ? <TooltipHint label={session.title}><button className="session-title" onClick={() => openSession(session)}>{session.title}</button></TooltipHint> : <span className="session-title">{session.title}</span>}
+      {projectName && <span className="session-project"><span className="channel-hash" aria-hidden="true">#</span> {projectName}</span>}
+      {links ? <a className="session-title" href={links.app} onClick={event => { if (openSession && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); openSession(session); return } markRead(session) }} onAuxClick={event => { if (event.button === 1) markRead(session) }}>{session.title}</a>
+         : openSession ? <button className="session-title" onClick={() => openSession(session)}>{session.title}</button> : <span className="session-title">{session.title}</span>}
     </div>
     <div className="session-flags" ref={flags}>
       {unread && <TooltipHint label="Unread in ThreadDeck. Click to mark as read. Reading in Discord does not clear this flag."><button className="status status-unread" aria-label={`Mark ${session.title} as read`} onClick={() => markRead(session)}>Unread</button></TooltipHint>}

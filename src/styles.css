@@ -222,6 +222,10 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .session-context-menu button[aria-disabled=true] { color: var(--subtle); cursor: default; }
 .session-context-menu svg { width: 15px; height: 15px; }
 .session-copy { min-width: 0; }.session-title { display: block; font-size: 14px; line-height: 1.65; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }.session-title:hover { color: var(--text); }
+.session-tooltip { display: grid; gap: 5px; text-align: left; max-width: 320px; overflow-wrap: anywhere; }
+.session-tooltip strong { font-size: 12px; font-weight: 600; line-height: 1.5; color: var(--text); }
+.session-tooltip span { margin-top: 3px; font-size: 11px; color: var(--muted); }
+.session-tooltip time { font-size: 10px; color: var(--subtle); }
 .session-attention .session-title { color: var(--text); font-weight: 600; }
 .session-attention-marker { position: absolute; left: -29px; width: 4px; height: 9px; border-radius: 0 3px 3px 0; background: var(--text); }
 .status { background: var(--row); color: var(--muted); font-size: 10px; padding: 4px 8px; border-radius: var(--pill-radius); }.status-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
