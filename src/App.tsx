@@ -141,8 +141,8 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
   return <>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design={design}>
     <header className="page-header">
-      <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><h1>ThreadDeck</h1></div>
       {workspace?.toggleSidebar && <SidebarToggle open={Boolean(workspace.sidebarOpen)} toggle={workspace.toggleSidebar} />}
+      <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><h1>ThreadDeck</h1></div>
       <HeaderControls compact={workspace?.compact} appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
     </header>
 
@@ -176,7 +176,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button className="empty-state-action" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
       </div>
     </main>
-    <footer><span><span className="footer-dot" />{workspace ? 'LOCAL · KIMAKI' : 'LOCAL · READ ONLY'}</span><span>{workspace ? 'Titles open chat' : 'Titles open Discord app'} <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span></footer>
+    <footer>{!workspace && <span><span className="footer-dot" />LOCAL · READ ONLY</span>}<span>{workspace ? 'Titles open chat' : 'Titles open Discord app'} <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span>{workspace && <ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />}</footer>
   </div>{historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} />}</>
 }
 
