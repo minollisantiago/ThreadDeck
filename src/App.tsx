@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, Hash, Layers2, Search, X } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, Hash, Layers2, Plus, Search, X } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { HeaderControls, palettes, type Palette } from './components/header-controls'
@@ -157,12 +157,12 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <div className="search-shortcuts"><button type="button" aria-label="Search shortcuts" aria-describedby="search-shortcuts-tooltip" onClick={openFinder}><kbd>/</kbd></button><div className="search-shortcuts-tooltip" id="search-shortcuts-tooltip" role="tooltip"><span><strong>/</strong> — Filter projects or sessions</span><span><strong>Double Space</strong> — {workspace ? 'Find sessions' : 'Search chat logs'}</span><span>Outside text fields and controls</span></div></div>}</div>
         <div className="filter-toolbar">
         <FilterTabs filter={filter} setFilter={setFilter} />
-         <ThreadOptions compact={workspace?.compact} grouping={grouping} setGrouping={setGrouping} unreadCount={unread.size} markAllRead={markAllRead} />
+         {workspace?.create && <Button variant="ghost" size="icon" className="chat-create-thread" aria-label="New thread / OpenCode session" title="Start a new thread / OpenCode session" onClick={workspace.create}><Plus aria-hidden="true" /></Button>}
         </div>
       </div>
 
       <ConnectionNotice visible={!verified && !loading} hasSnapshot={Boolean(snapshot?.lastSuccessAt)} />
-      <div className="section-caption"><span>{grouping === 'project' ? 'PROJECTS' : 'STATES'} <span className="caption-count">{(grouping === 'project' ? shown.length : groups.length).toString().padStart(2, '0')}</span></span>{(narrowed || grouping === 'state') && <span>{narrowed ? `${shown.reduce((count, p) => count + p.sessions.length, 0)} matching sessions` : 'Needs attention first'}</span>}</div>
+      <div className="section-caption"><span>{grouping === 'project' ? 'PROJECTS' : 'STATES'} <span className="caption-count">{(grouping === 'project' ? shown.length : groups.length).toString().padStart(2, '0')}</span></span><ThreadOptions grouping={grouping} setGrouping={setGrouping} unreadCount={unread.size} markAllRead={markAllRead} /></div>
       <div className="project-list" ref={results}>
         {grouping === 'state' && <StatePanels groups={groups} verified={verified} now={now} unread={unread} markRead={markRead} graphical={design === 'islands'} />}
         {grouping === 'project' && design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} markProjectRead={markProjectRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}

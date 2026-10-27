@@ -65,7 +65,7 @@ it('omits the active-project ordering caption while keeping filtered result coun
   render(<Dashboard snapshot={snapshot} now={now} />)
   expect(screen.queryByText('Active projects first')).toBeNull()
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'switchboard' } })
-  expect(screen.getByText('1 matching sessions')).toBeTruthy()
+  expect(screen.queryByText('1 matching sessions')).toBeNull()
 })
 it('distinguishes positive, zero and unavailable summary pill counts', () => {
   const { container, rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
@@ -293,7 +293,7 @@ it.each(['list', 'islands', 'state'] as const)('marks only the right-clicked thr
   const unread: Snapshot = { ...snapshot, projects: snapshot.projects.map(project => ({ ...project, sessions: project.sessions.map(session => ({ ...session, status: 'idle', agentCount: 0, responseAt: now })) })) }
   const { unmount } = render(<Dashboard snapshot={unread} now={now} />)
   if (view === 'islands') fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
-  if (view === 'state') fireEvent.click(screen.getByRole('button', { name: 'By state' }))
+  if (view === 'state') fireEvent.change(screen.getByRole('combobox', { name: 'Group threads' }), { target: { value: 'state' } })
   fireEvent.contextMenu(screen.getByRole('link', { name: 'Old conversation' }), { clientX: 100, clientY: 200 })
   const menu = screen.getByRole('menu', { name: 'Thread actions' })
   expect(screen.getByRole('button', { name: 'Mark Old conversation as read' })).toBeTruthy()
@@ -330,7 +330,7 @@ it('toggles state grouping, shows project pills, preserves filters and restores 
   const mixed: Snapshot = { ...snapshot, projects: snapshot.projects.map(project => ({ ...project, sessions: project.sessions.map(session => ({ ...session, responseAt: session.id === 'b' ? now : undefined })) })) }
   render(<Dashboard snapshot={mixed} now={now} />)
   fireEvent.click(screen.getByRole('button', { name: /Alpha/ }))
-  fireEvent.click(screen.getByRole('button', { name: 'By state' }))
+  fireEvent.change(screen.getByRole('combobox', { name: 'Group threads' }), { target: { value: 'state' } })
   const attention = screen.getByRole('region', { name: 'Needs attention 1 thread' })
   expect(within(attention).getByText('Beta')).toBeTruthy()
   expect(within(attention).getByRole('link', { name: 'Old conversation' })).toBeTruthy()
@@ -340,17 +340,17 @@ it('toggles state grouping, shows project pills, preserves filters and restores 
   fireEvent.click(screen.getByRole('button', { name: 'Mark Old conversation as read' }))
   expect(screen.getByText('No matching sessions')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Active sessions' }))
-  fireEvent.click(screen.getByRole('button', { name: 'By project' }))
+  fireEvent.change(screen.getByRole('combobox', { name: 'Group threads' }), { target: { value: 'project' } })
   expect(screen.getByRole('button', { name: /Alpha/ }).getAttribute('aria-expanded')).toBe('false')
 })
 it('persists grouping independently of appearance and supports state tiles and project search', () => {
   const { unmount, container } = render(<Dashboard snapshot={snapshot} now={now} />)
-  fireEvent.click(screen.getByRole('button', { name: 'By state' }))
+  fireEvent.change(screen.getByRole('combobox', { name: 'Group threads' }), { target: { value: 'state' } })
   fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
   expect(container.querySelector('.state-panel .session-tile')).not.toBeNull()
   unmount()
   render(<Dashboard snapshot={snapshot} now={now} />)
-  expect(screen.getByRole('button', { name: 'By state' }).getAttribute('aria-pressed')).toBe('true')
+  expect((screen.getByRole('combobox', { name: 'Group threads' }) as HTMLSelectElement).value).toBe('state')
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Alpha' } })
   expect(screen.getByRole('link', { name: 'Build a switchboard' })).toBeTruthy()
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Beta' } })
@@ -358,7 +358,7 @@ it('persists grouping independently of appearance and supports state tiles and p
 })
 it('moves threads between state groups on refresh and treats stale status as unknown', () => {
   const { rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
-  fireEvent.click(screen.getByRole('button', { name: 'By state' }))
+  fireEvent.change(screen.getByRole('combobox', { name: 'Group threads' }), { target: { value: 'state' } })
   const changed: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[0], sessions: [{ ...snapshot.projects[0].sessions[0], status: 'permission', agentCount: 0 }] }] }
   rerender(<Dashboard snapshot={changed} now={now} />)
   expect(screen.getByRole('region', { name: 'Needs attention 1 thread' })).toBeTruthy()

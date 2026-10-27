@@ -15,8 +15,8 @@ const sidebarMinWidth = 430, sidebarMaxRatio = .3
 const lastSessionKey = 'threaddeck:chat-last-session'
 function rememberSession(session: Session) { try { localStorage.setItem(lastSessionKey, session.id) } catch { /* optional navigation preference */ } }
 
-export function SessionFinder({ sessions, projects, select, create, close, history }: { sessions: Session[]; projects: Project[]; select: (session: Session) => void; create: (project: Project) => void; close: () => void; history: () => void }) {
-  const [query, setQuery] = useState(''), [index, setIndex] = useState(0), [newThread, setNewThread] = useState(false)
+export function SessionFinder({ sessions, projects, select, create, close, history, initialNewThread = false }: { sessions: Session[]; projects: Project[]; select: (session: Session) => void; create: (project: Project) => void; close: () => void; history: () => void; initialNewThread?: boolean }) {
+  const [query, setQuery] = useState(''), [index, setIndex] = useState(0), [newThread, setNewThread] = useState(initialNewThread)
   const dialog = useRef<HTMLDialogElement>(null), input = useRef<HTMLInputElement>(null), results = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => { const previous = document.activeElement; dialog.current?.showModal(); input.current?.focus(); return () => { if (previous instanceof HTMLElement && previous.isConnected) previous.focus() } }, [])
   const hits = sessions.map(session => ({ session, score: query ? Math.max(fuzzyScore(query, session.title), fuzzyScore(query, projects.find(p => p.id === session.projectId)?.name || '')) : session.updatedAt })).filter(hit => hit.score > 0).sort((a, b) => b.score - a.score).slice(0, 100)
@@ -35,6 +35,7 @@ export function SessionFinder({ sessions, projects, select, create, close, histo
 export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | null; children: ReactNode }) {
   const [target, setTarget] = useState<ChatTarget | null>(null), [finder, setFinder] = useState(false), [drawer, setDrawer] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [newThread, setNewThread] = useState(false)
   const [focusRequest, setFocusRequest] = useState(0)
   const restored = useRef(false), [missingSession, setMissingSession] = useState(false)
   const [viewportWidth, setViewportWidth] = useState(innerWidth), [sidebar, setSidebar] = useState(() => localStorage.getItem('threaddeck:chat-sidebar') !== 'false')
@@ -49,7 +50,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     const project = current.current.projects.find(p => p.id === session.projectId)
     if (project) { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setHistoryOpen(false); setDrawer(false) }
   }, [])
-  const find = useCallback(() => setFinder(true), [])
+  const find = useCallback(() => { setNewThread(false); setFinder(true) }, [])
   useEffect(() => {
     if (restored.current || !snapshot || snapshot.health !== 'connected' || finder || historyOpen) return
     if (target) { restored.current = true; return } // Never replace explicit navigation.
@@ -93,12 +94,12 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
       if (p && !event.altKey && !event.shiftKey && chord.current && performance.now() - chord.current < 550) { event.preventDefault(); event.stopPropagation(); chord.current = 0; focus(true); return }
       if (ctrl && p && !event.altKey && !event.shiftKey) { event.preventDefault(); event.stopPropagation(); chord.current = performance.now(); focus(); return }
       chord.current = 0
-      if (ctrl && (event.key.toLowerCase() === 'k' || event.key === 'Tab' && Boolean(window.threaddeckDesktop))) { event.preventDefault(); event.stopPropagation(); setFinder(true); return }
+      if (ctrl && (event.key.toLowerCase() === 'k' || event.key === 'Tab' && Boolean(window.threaddeckDesktop))) { event.preventDefault(); event.stopPropagation(); setNewThread(false); setFinder(true); return }
       if (ctrl && event.key === 'Enter' && current.current.target && (event.target as HTMLElement).closest('.chat-composer')) { event.preventDefault(); event.stopPropagation(); window.dispatchEvent(new CustomEvent('threaddeck:composer-submit', { detail: event.shiftKey ? 'queue' : 'send' })); return }
       const el = event.target as HTMLElement
       if (event.code === 'Space' && !ctrl && !event.altKey && !el.closest('input,textarea,select,[contenteditable],button,a,[role="button"],dialog')) {
         event.preventDefault(); event.stopPropagation(); const now = performance.now()
-        if (spaces.current && now - spaces.current < 350) { setFinder(true); spaces.current = 0 } else spaces.current = now
+        if (spaces.current && now - spaces.current < 350) { setNewThread(false); setFinder(true); spaces.current = 0 } else spaces.current = now
       } else spaces.current = 0
     }
     const typing = () => { chord.current = 0 }
@@ -126,7 +127,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const active = target?.session ? sessions.find(s => s.id === target.session!.id) || target.session : undefined
   const selected = target ? { ...target, ...(active && { session: active }) } : null
   const maxWidth = Math.floor(viewportWidth * sidebarMaxRatio), sidebarWidth = Math.max(sidebarMinWidth, Math.min(width, maxWidth))
-  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, threadId: active?.threadId }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, create: () => { setNewThread(true); setFinder(true) }, threadId: active?.threadId }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
     <style>{mobileManagerStyle}</style>
     {target && narrow && drawer && <button className="chat-drawer-backdrop" aria-label="Close sidebar" onClick={() => setDrawer(false)} />}
     {(!target || !narrow && sidebar || narrow && drawer) && <aside ref={manager} className={`chat-manager ${target && narrow ? 'drawer' : ''}`} aria-label="Session manager" {...(target && narrow ? { role: 'dialog', 'aria-modal': true } : {})}>{children}</aside>}
@@ -139,7 +140,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     {selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} sidebar={() => narrow ? setDrawer(value => !value) : setSidebar(value => !value)} close={() => setTarget(null)} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
     {!target && <main className="chat-pane chat-empty-workspace"><div><Layers2 size={36} strokeWidth={1.2} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find or start a thread <kbd>Ctrl K</kbd></button></div></main>}
     {!target && <button className="chat-manager-new" onClick={find}><Plus size={15} />New / find conversation <kbd>Ctrl K</kbd></button>}
-    {finder && <SessionFinder sessions={sessions} projects={projects} select={open} create={project => { setTarget({ project }); setFocusRequest(value => value + 1); setFinder(false); setDrawer(false) }} close={() => setFinder(false)} history={() => { setFinder(false); setHistoryOpen(true) }} />}
+    {finder && <SessionFinder initialNewThread={newThread} sessions={sessions} projects={projects} select={open} create={project => { setTarget({ project }); setFocusRequest(value => value + 1); setFinder(false); setDrawer(false) }} close={() => { setFinder(false); setNewThread(false) }} history={() => { setFinder(false); setHistoryOpen(true) }} />}
     {historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} onSelect={hit => {
       const known = sessions.find(session => session.id === hit.id)
       if (known) { open(known); return true }

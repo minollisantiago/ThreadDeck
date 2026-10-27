@@ -354,7 +354,7 @@ test('connected sidebar indicator pulses to the left of the aligned app menu', a
   await fixture(page)
   const connection = page.getByRole('button', { name: 'Connected', exact: true })
   const menu = page.getByRole('button', { name: 'App controls', exact: true })
-  const options = page.locator('.thread-options-toggle')
+  const options = page.locator('.chat-create-thread')
   await expect(connection.locator('.connection-dot')).toHaveCSS('animation-name', 'connection-pulse')
   const dotBox = await connection.boundingBox(), menuBox = await menu.boundingBox(), optionsBox = await options.boundingBox()
   expect(dotBox!.x + dotBox!.width).toBeLessThanOrEqual(menuBox!.x)
