@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { CheckCheck } from 'lucide-react'
+import { CheckCheck, Pin, PinOff } from 'lucide-react'
 
-export function SessionContextMenu({ x, y, unread, markRead, close }: {
-  x: number; y: number; unread: boolean; markRead: () => void; close: (restoreFocus?: boolean) => void
+export function SessionContextMenu({ x, y, unread, markRead, close, pinned = false, togglePin }: {
+  x: number; y: number; unread: boolean; markRead: () => void; close: (restoreFocus?: boolean) => void; pinned?: boolean; togglePin?: () => void
 }) {
   const menu = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -18,7 +18,12 @@ export function SessionContextMenu({ x, y, unread, markRead, close }: {
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true) }
       if (event.key === 'Tab') close()
-      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) event.preventDefault()
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault()
+        const items = [...panel.querySelectorAll<HTMLButtonElement>('button')], index = items.indexOf(document.activeElement as HTMLButtonElement)
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+        items[next]?.focus()
+      }
     }
     document.addEventListener('pointerdown', dismissOutside)
     document.addEventListener('contextmenu', dismissOutside)
@@ -37,5 +42,6 @@ export function SessionContextMenu({ x, y, unread, markRead, close }: {
   }, [x, y, close])
   return createPortal(<div ref={menu} className="session-context-menu" role="menu" aria-label="Thread actions" style={{ left: x, top: y }} onContextMenu={event => { event.preventDefault(); event.stopPropagation() }}>
     <button role="menuitem" aria-disabled={!unread} onClick={() => { close(true); if (unread) markRead() }}><CheckCheck aria-hidden="true" />Mark as read</button>
+    {togglePin && <button role="menuitem" onClick={() => { close(true); togglePin() }}>{pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}{pinned ? 'Unpin from Active' : 'Pin to Active'}</button>}
   </div>, document.body)
 }

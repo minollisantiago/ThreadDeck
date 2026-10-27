@@ -20,12 +20,12 @@ export function stateGroups(projects: Project[], verified: boolean, unread: Read
   return groups.filter(group => group.threads.length > 0)
 }
 
-export function visibleProjects(projects: Project[], query: string, filter: Filter, now: number, verified: boolean, unread: ReadonlySet<string> = new Set()) {
+export function visibleProjects(projects: Project[], query: string, filter: Filter, now: number, verified: boolean, unread: ReadonlySet<string> = new Set(), pinned: ReadonlySet<string> = new Set(), selectedSession?: string | null) {
   const search = query.trim().toLocaleLowerCase()
   return projects.map(project => ({ ...project, sessions: project.sessions.filter(session => {
     const matches = !search || `${project.name} ${session.title}`.toLocaleLowerCase().includes(search)
     if (!matches) return false
-    if (filter === 'active') return !verified || isActive(session) || unread.has(session.id)
+    if (filter === 'active') return !verified || isActive(session) || unread.has(session.id) || pinned.has(session.id) || session.id === selectedSession
     if (filter === 'working') return verified && session.agentCount > 0
     if (filter === 'attention') return unread.has(session.id) || verified && isAttention(session.status)
     if (filter === 'recent') return session.updatedAt >= now - 24 * 60 * 60 * 1000

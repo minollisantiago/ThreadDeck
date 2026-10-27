@@ -79,3 +79,16 @@ it('orders working and unread flags newest first, including a just-finished resp
   const finished = sessions.map(session => session.id === 'old-working' ? { ...session, status: 'idle' as const, agentCount: 0, updatedAt: 600 } : session)
   expect(sessionOrder(finished, true, new Set([...unread, 'old-working'])).map(session => session.id)).toEqual(['new-working', 'old-working', 'new-unread', 'old-unread'])
 })
+it('keeps pinned idle sessions in Active without bypassing search or other filters', () => {
+  const idle = [{ ...projects[0], sessions: [{ ...projects[0].sessions[0], status: 'idle' as const, agentCount: 0 }] }], pinned = new Set(['a'])
+  expect(visibleProjects(idle, '', 'active', 100, true, new Set(), pinned)).toHaveLength(1)
+  expect(visibleProjects(idle, 'no match', 'active', 100, true, new Set(), pinned)).toHaveLength(0)
+  expect(visibleProjects(idle, '', 'working', 100, true, new Set(), pinned)).toHaveLength(0)
+  expect(visibleProjects(idle, '', 'attention', 100, true, new Set(), pinned)).toHaveLength(0)
+})
+it('keeps the open read thread in Active only until navigation leaves it', () => {
+  const idle = [{ ...projects[0], sessions: [{ ...projects[0].sessions[0], status: 'idle' as const, agentCount: 0 }] }]
+  expect(visibleProjects(idle, '', 'active', 100, true, new Set(), new Set(), 'a')).toHaveLength(1)
+  expect(visibleProjects(idle, '', 'active', 100, true, new Set(), new Set(), 'another')).toHaveLength(0)
+  expect(visibleProjects(idle, 'no match', 'active', 100, true, new Set(), new Set(), 'a')).toHaveLength(0)
+})

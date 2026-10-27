@@ -20,11 +20,12 @@ import { isDarkTheme, isLightTheme, type DarkTheme, type LightTheme } from './li
 import { useSnapshot } from './hooks/use-snapshot'
 import { useChangeMotion } from './hooks/use-change-motion'
 import { useUnread } from './hooks/use-unread'
+import { PinnedSessions, usePinned } from './hooks/use-pinned'
 import { DesktopTitlebar } from './components/desktop-titlebar'
 import { ConversationSearch } from './components/conversation-search'
 import { isActive, isAttention, type Project, type Session, type Snapshot } from '../shared/model'
 import { snapshotStaleAfterMs } from '../shared/update-timing'
-import { WorkspaceControls } from './chat/navigation'
+import { SelectedSession, WorkspaceControls } from './chat/navigation'
 import { ChatWorkspace } from './chat/workspace'
 import { SidebarToggle } from './chat/sidebar-toggle'
 import { isGrouping, projectOrder, sessionOrder, stateGroups, visibleProjects, workingCount, type Filter, type Grouping } from './lib/view'
@@ -40,7 +41,9 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
   const working = workingCount(project.sessions)
   const attention = project.sessions.filter(s => isAttention(s.status)).length
   const unreadCount = project.sessions.filter(s => unread.has(s.id)).length
-  const active = unreadCount > 0 || verified && project.sessions.some(isActive)
+  const pins = useContext(PinnedSessions)
+  const selectedSession = useContext(SelectedSession)
+  const active = unreadCount > 0 || verified && project.sessions.some(isActive) || project.sessions.some(session => pins?.pinned.has(session.id) || session.id === selectedSession)
   return <section className={`project-panel ${active ? 'project-active' : ''}`} aria-labelledby={`heading-${project.id}`}>
     <div className="project-heading" data-connected={!collapsed && project.sessions.length > 0}>
       <TooltipHint label={project.name}><button className="project-toggle" type="button" onClick={toggle} aria-expanded={!collapsed} aria-controls={`sessions-${project.id}`}>
@@ -71,6 +74,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
 
 export function Dashboard({ snapshot, transportError = false, now = Date.now() }: { snapshot: Snapshot | null; transportError?: boolean; now?: number }) {
   const workspace = useContext(WorkspaceControls)
+  const selectedSession = useContext(SelectedSession)
   const openFinder = () => workspace ? workspace.find() : setHistoryOpen(true)
   const [query, setQuery] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -124,13 +128,20 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const loading = !transportError && (!snapshot || snapshot.lastSuccessAt === null && snapshot.checkedAt === 0)
   const projects = snapshot?.projects ?? []
   const { unread, markRead, markAllRead, markProjectRead } = useUnread(projects)
+  const pins = usePinned(projects)
+  const selectedProject = projects.find(project => project.sessions.some(session => session.id === selectedSession))?.id
+  useEffect(() => {
+    if (!selectedProject) return
+    setCollapsed(previous => previous[selectedProject] === false ? previous : { ...previous, [selectedProject]: false })
+    setVisualCollapsed(previous => previous[selectedProject] === false ? previous : { ...previous, [selectedProject]: false })
+  }, [selectedSession, selectedProject])
   useEffect(() => {
     if (!snapshot || snapshot.lastSuccessAt === null) return
     setCollapsed(previous => {
       const next = { ...previous }
       let changed = false
       for (const project of snapshot.projects) if (!(project.id in next)) {
-        next[project.id] = !project.sessions.some(s => isActive(s) || unread.has(s.id)); changed = true
+        next[project.id] = !project.sessions.some(s => isActive(s) || unread.has(s.id) || pins.pinned.has(s.id) || s.id === selectedSession); changed = true
       }
       return changed ? next : previous
     })
@@ -138,12 +149,12 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const sessions = projects.flatMap(p => p.sessions)
   const working = verified ? workingCount(sessions) : 0
   const attention = verified ? sessions.filter(s => isAttention(s.status) || unread.has(s.id)).length : 0
-  const activeProjects = verified ? projects.filter(p => p.sessions.some(s => isActive(s) || unread.has(s.id))).length : 0
-  const shown = projectOrder(visibleProjects(projects, query, filter, now, verified, unread), verified, unread)
+  const activeProjects = verified ? projects.filter(p => p.sessions.some(s => isActive(s) || unread.has(s.id) || pins.pinned.has(s.id) || s.id === selectedSession)).length : 0
+  const shown = projectOrder(visibleProjects(projects, query, filter, now, verified, unread, pins.pinned, selectedSession), verified, unread)
   const groups = stateGroups(shown, verified, unread)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
-  return <>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design={design}>
+  return <PinnedSessions.Provider value={pins}>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design={design}>
     <header className="page-header">
       <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><h1>ThreadDeck</h1></div>
       <HeaderControls compact={workspace?.compact} appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
@@ -174,7 +185,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         {grouping === 'state' && <StatePanels groups={groups} verified={verified} now={now} unread={unread} markRead={markRead} graphical={design === 'islands'} />}
         {grouping === 'project' && design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} markProjectRead={markProjectRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}
         {grouping === 'project' && design === 'classic' && shown.map(project => {
-          const defaultCollapsed = !project.sessions.some(s => unread.has(s.id) || verified && isActive(s))
+          const defaultCollapsed = !project.sessions.some(s => unread.has(s.id) || pins.pinned.has(s.id) || s.id === selectedSession || verified && isActive(s))
           const isCollapsed = collapsed[project.id] ?? (narrowed ? false : defaultCollapsed)
           return <ProjectPanel key={project.id} project={project} verified={verified} now={now} unread={unread} markRead={markRead} markProjectRead={markProjectRead} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />
         })}
@@ -182,7 +193,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       </div>
     </main>
     <footer>{!workspace && <span><span className="footer-dot" />LOCAL · READ ONLY</span>}<span>{workspace ? 'Titles open chat' : 'Titles open Discord app'} <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span>{workspace && <ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />}</footer>
-  </div>{historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} />}</>
+  </div>{historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} />}</PinnedSessions.Provider>
 }
 
 export default function App() {
