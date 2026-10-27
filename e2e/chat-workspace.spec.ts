@@ -426,8 +426,9 @@ for (const width of [430, 1440]) test(`session tooltips follow beside the pointe
   await sidebar.getByRole('link', { name: 'Parallel agent', exact: true }).click()
   await expect(page.locator('.chat-pane-header strong')).toHaveText('Parallel agent')
 })
-for (const width of [430, 1440]) test(`session rows share one formatted tooltip and a short selection accent at ${width}px`, async ({ page }) => {
+for (const width of [430, 1440]) for (const design of ['classic', 'islands']) test(`session rows share one formatted tooltip and a short selection accent in ${design} at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })
+  await page.addInitScript(design => localStorage.setItem('threaddeck:design', JSON.stringify(design)), design)
   await fixture(page)
   if (width === 430) await page.getByRole('button', { name: 'Toggle session sidebar' }).click()
   const title = page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true })
@@ -446,15 +447,20 @@ for (const width of [430, 1440]) test(`session rows share one formatted tooltip 
   await expect(tooltip.locator('strong')).toHaveText('Stream workspace')
   const marker = await row.evaluate(node => {
     const style = getComputedStyle(node.querySelector('.session-copy')!, '::before')
-    return { height: parseFloat(style.height), rowHeight: node.getBoundingClientRect().height, left: style.left, radius: style.borderRadius, pointerEvents: style.pointerEvents, shadow: getComputedStyle(node).boxShadow }
+    return { width: style.width, height: parseFloat(style.height), rowHeight: node.getBoundingClientRect().height, left: style.left, radius: style.borderRadius, pointerEvents: style.pointerEvents, shadow: getComputedStyle(node).boxShadow }
   })
+  expect(marker.width).toBe('3px')
   expect(marker.height).toBe(20)
   expect(marker.height).toBeLessThan(marker.rowHeight - 10)
   expect(marker.left).toBe('0px')
   expect(marker.radius).toBe('2px')
   expect(marker.pointerEvents).toBe('none')
   expect(marker.shadow).toBe('none')
-  if (width === 1440) await page.screenshot({ path: 'artifacts/production-chat/session-tooltip-short-accent.png', animations: 'disabled' })
+  const rows = page.locator('.chat-manager .session-row')
+  for (const copy of await rows.locator('.session-copy').all()) {
+    expect(await copy.evaluate(node => getComputedStyle(node).paddingLeft)).toBe('6px')
+  }
+  if (width === 1440) await page.screenshot({ path: `artifacts/production-chat/session-tooltip-short-accent-${design}.png`, animations: 'disabled' })
 })
 for (const width of [430, 1440]) test(`jump to latest floats above the composer while reading older messages at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })

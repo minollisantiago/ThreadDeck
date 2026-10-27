@@ -30,8 +30,9 @@
 .chat-manager footer .connection-tooltip::before { inset: 100% 0 -12px; }
 .chat-workspace.manager-only .app-shell > footer { padding-bottom: 68px; }
 .chat-manager .session-row[data-selected=true] { background: var(--row); }
+.chat-manager .session-row .session-copy { padding-left: 6px; }
 /* Use the copy's pseudo-element: the row's own pseudo-elements draw tree connectors. */
-.chat-manager .session-row[data-selected=true] .session-copy::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 2px; height: 20px; max-height: calc(100% - 16px); border-radius: 2px; background: var(--accent); pointer-events: none; }
+.chat-manager .session-row[data-selected=true] .session-copy::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; max-height: calc(100% - 16px); border-radius: 2px; background: var(--accent); pointer-events: none; }
 .chat-manager button.session-title { padding: 0; width: 100%; text-align: left; }
 .chat-manager .appearance-controls[popover] { inset: 76px auto auto 16px; max-width: calc(100cqw - 32px); }
 .chat-manager .mobile-menu-toggle { width: 40px; height: 40px; }
