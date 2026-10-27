@@ -95,6 +95,7 @@ for (const width of [430, 1440]) test(`sidebar uses direct actions and a centere
   await page.screenshot({ path: `artifacts/production-chat/sidebar-empty-${width}.png`, animations: 'disabled' })
   await empty.getByRole('button', { name: 'Clear filters' }).click()
   await expect(empty).toHaveCount(0)
+  await expect(sidebar.getByRole('button', { name: 'New thread / OpenCode session', exact: true })).toHaveCSS('border-top-width', '1px')
   await sidebar.getByRole('button', { name: 'New thread / OpenCode session', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'New thread / OpenCode session', exact: true })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Find a project' })).toBeFocused()

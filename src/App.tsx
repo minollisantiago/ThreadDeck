@@ -159,7 +159,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <div className="search-shortcuts"><button type="button" aria-label="Search shortcuts" aria-describedby="search-shortcuts-tooltip" onClick={openFinder}><kbd>/</kbd></button><div className="search-shortcuts-tooltip" id="search-shortcuts-tooltip" role="tooltip"><span><strong>/</strong> — Filter projects or sessions</span><span><strong>Double Space</strong> — {workspace ? 'Find sessions' : 'Search chat logs'}</span><span>Outside text fields and controls</span></div></div>}</div>
         <div className="filter-toolbar">
         <FilterTabs filter={filter} setFilter={setFilter} />
-         {workspace?.create && <Button variant="ghost" size="icon" className="chat-create-thread" aria-label="New thread / OpenCode session" title="Start a new thread / OpenCode session" onClick={workspace.create}><Plus aria-hidden="true" /></Button>}
+         {workspace?.create && <Button variant="outline" size="icon" className="chat-create-thread" aria-label="New thread / OpenCode session" title="Start a new thread / OpenCode session" onClick={() => workspace.create?.()}><Plus aria-hidden="true" /></Button>}
         </div>
       </div>
 
