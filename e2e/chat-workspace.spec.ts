@@ -123,6 +123,48 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
   }
   return submissions
 }
+for (const width of [430, 1440]) test(`author avatars have their own rail with aligned published and outgoing content at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1050 })
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  const base = { channel_id: threadId, timestamp: '2026-10-27T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, attachments: [], components: [], embeds: [] }
+  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'rail:0', before: null, stale: false, messages: [
+    { ...base, id: '100000000000000101', content: '**ThreadDeck · local operator**\n\nGive each author a column of their own.' },
+    { ...base, id: '100000000000000102', content: '## A clear reading edge\n\nThe avatar stays to the left. Every paragraph, code block and action lines up beneath the author’s name.\n\n```ts\nconst layout = "author rail"\n```' },
+    { ...base, id: '100000000000000103', content: '', components: [{ type: 17, components: [{ type: 10, content: 'A continuation shares this avatar, not a new author header.' }] }] },
+    { ...base, id: '100000000000000104', content: '**ThreadDeck · local operator**\n\nKeep the copy action in the text column, too.' },
+    { ...base, id: '100000000000000105', content: 'Exactly. One icon per interaction, with a consistent reading edge.' },
+  ] } }))
+  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  const groups = page.locator('.chat-message-group')
+  await expect(groups).toHaveCount(4)
+  await expect(page.locator('.chat-message-meta .chat-avatar')).toHaveCount(0)
+  const gap = width === 430 ? 12 : 16, size = width === 430 ? 26 : 32
+  for (const group of await groups.all()) {
+    await expect(group.locator('.chat-avatar')).toHaveCount(1)
+    const avatar = await group.locator('.chat-avatar').boundingBox(), content = await group.locator('.chat-message-content').boundingBox(), name = await group.locator('.chat-message-meta strong').boundingBox(), text = await group.locator('.chat-markdown').first().boundingBox()
+    expect(avatar!.width).toBe(size)
+    expect(Math.abs(content!.x - avatar!.x - avatar!.width - gap)).toBeLessThan(1)
+    expect(name!.x).toBeCloseTo(content!.x, 0)
+    expect(text!.x).toBeCloseTo(content!.x, 0)
+    expect(avatar!.y).toBeCloseTo(content!.y, 0)
+    await expect(group.locator('.chat-avatar')).toHaveCSS('position', 'static')
+  }
+  const answer = groups.nth(1), content = await answer.locator('.chat-message-content').boundingBox()
+  await expect(answer.locator('article')).toHaveCount(2)
+  for (const selector of ['.chat-code', '.chat-container', '.chat-message-actions']) expect((await answer.locator(selector).boundingBox())!.x).toBeCloseTo(content!.x, 0)
+  const input = page.getByRole('textbox', { name: 'Write a prompt' })
+  await input.fill('The outgoing prompt uses the same rail.')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  const outgoing = page.getByRole('article', { name: 'Outgoing prompt' })
+  await expect(outgoing).toBeVisible()
+  const avatar = await outgoing.locator('.chat-avatar').boundingBox(), body = await outgoing.locator('.chat-message-content').boundingBox()
+  expect(avatar!.width).toBe(size)
+  expect(body!.x - avatar!.x - avatar!.width).toBeCloseTo(gap, 0)
+  expect((await outgoing.locator('.chat-markdown').boundingBox())!.x).toBeCloseTo(body!.x, 0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.getByLabel('Conversation messages', { exact: true }).evaluate(node => { node.scrollTop = 0 })
+  await page.screenshot({ path: `artifacts/production-chat/author-rail-implemented-${width}.png`, animations: 'disabled' })
+})
 for (const width of [430, 1440]) test(`copies the published Markdown of one complete agent group at ${width}px`, async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.setViewportSize({ width, height: 1050 })

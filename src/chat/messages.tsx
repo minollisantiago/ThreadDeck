@@ -60,7 +60,8 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview }: {
   return <>{groupPublishedMessages(messages).map(group => {
     const first = group.messages[0], operator = localOperatorPrompt(first), author = operator ? 'You' : first.author.global_name || first.author.username, role = group.role === 'assistant' ? 'assistant' : 'user'
     return <section className={`chat-message-group ${role}`} key={group.id} aria-label={`Messages from ${author}`} data-message-group={group.id}>
-    <div className="chat-message-meta"><span className="chat-avatar">{role === 'assistant' ? 'K' : author.slice(0, 1)}</span><strong>{author}</strong><TooltipHint label={new Date(first.timestamp).toLocaleString()}><time dateTime={first.timestamp}>{formatMessageTime(first.timestamp)}</time></TooltipHint>{operator?.queued && <small>Queued</small>}</div>
+    <div className="chat-avatar-rail" aria-hidden="true"><span className="chat-avatar">{role === 'assistant' ? 'K' : author.slice(0, 1)}</span></div>
+    <div className="chat-message-content"><div className="chat-message-meta"><strong>{author}</strong><TooltipHint label={new Date(first.timestamp).toLocaleString()}><time dateTime={first.timestamp}>{formatMessageTime(first.timestamp)}</time></TooltipHint>{operator?.queued && <small>Queued</small>}</div>
     {group.messages.map((raw, index) => { const message = { ...displayPublishedMessage(raw), attachments: publishedAttachments(raw) }, used = new Set<string>(); return <TooltipHint key={message.id} label={new Date(message.timestamp).toLocaleString()}><article className={`chat-message ${role}`} data-message-id={message.id}>
     {index > 0 && <time className="sr-only" dateTime={message.timestamp}>{new Date(message.timestamp).toLocaleString()}</time>}
     {message.content && <ChatMarkdown text={message.content} />}
@@ -68,5 +69,5 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview }: {
     {message.embeds.map((raw, i) => { const embed = embedSchema.safeParse(raw); return embed.success ? <div className="chat-container" key={i}>{embed.data.title && <strong>{embed.data.title}</strong>}{embed.data.description && <ChatMarkdown text={embed.data.description} />}{embed.data.fields?.map((field, n) => <div key={n}><strong>{field.name}</strong><ChatMarkdown text={field.value} /></div>)}{(embed.data.image || embed.data.thumbnail) && mediaView(embed.data.image || embed.data.thumbnail, `embed-${i}`, message, used)}</div> : null })}
     {message.attachments.some(file => !used.has(file.id)) && <div className="chat-attachments">{message.attachments.filter(file => !used.has(file.id)).map(file => fileView(message, file))}</div>}
     {message.edited_timestamp && <TooltipHint label={new Date(message.edited_timestamp).toLocaleString()}><small className="chat-message-edited">edited</small></TooltipHint>}
-  </article></TooltipHint> })}{role === 'assistant' && <CopyMessage markdown={publishedMarkdown(group.messages)} />}</section> })}{image && <ImageViewer src={image.src} name={image.name} opener={image.opener} close={() => setImage(null)} />}</>
+  </article></TooltipHint> })}{role === 'assistant' && <CopyMessage markdown={publishedMarkdown(group.messages)} />}</div></section> })}{image && <ImageViewer src={image.src} name={image.name} opener={image.opener} close={() => setImage(null)} />}</>
 }
