@@ -123,6 +123,65 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
   }
   return submissions
 }
+function unreadSnapshot(responseAt: number): Snapshot {
+  const now = Date.now()
+  return { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [
+    { id: 'ses_stream', threadId, guildId: '100000000000000099', projectId, title: 'Stream workspace', status: 'idle', agentCount: 0, updatedAt: now, responseAt },
+  ] }] }
+}
+test('opening a loaded conversation marks its response read even when the harness timestamp is later than Discord', async ({ page }) => {
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  const responseAt = Date.parse('2026-10-24T00:00:05Z')
+  const snapshot = unreadSnapshot(responseAt)
+  snapshot.projects[0].sessions.push({ ...snapshot.projects[0].sessions[0], id: 'ses_parallel', threadId: '100000000000000003', title: 'Parallel agent', status: 'working', agentCount: 1 })
+  await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Mark Stream workspace as read', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
+  await expect.poll(() => page.evaluate(({ projectId, threadId }) => JSON.parse(localStorage.getItem('threaddeck:read-responses') || '{}')[`${projectId}:${threadId}`], { projectId, threadId })).toBe(responseAt)
+})
+for (const state of ['loading', 'hidden', 'stale']) test(`does not mark an unread conversation read while ${state}`, async ({ page }) => {
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await fixture(page, 'submitted', true, state === 'loading' ? gate : undefined, 0, false)
+  const responseAt = Date.parse('2026-10-24T00:00:05Z')
+  await page.route('**/api/snapshot', route => route.fulfill({ json: unreadSnapshot(responseAt) }))
+  if (state === 'hidden') await page.addInitScript(() => Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }))
+  const message = { id: '100000000000000005', channel_id: threadId, timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: 'Published answer', attachments: [], components: [], embeds: [] }
+  let stale = state === 'stale'
+  if (stale) await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { messages: [message], cursor: 'read:0', before: null, stale } }))
+  await page.reload()
+  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  if (state === 'loading') await expect(page.getByRole('status', { name: 'Loading conversation' })).toBeVisible()
+  else if (state === 'stale') await expect(page.getByText('Discord connection is stale.', { exact: false })).toBeVisible()
+  else await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  const receipt = () => page.evaluate(({ projectId, threadId }) => JSON.parse(localStorage.getItem('threaddeck:read-responses') || '{}')[`${projectId}:${threadId}`], { projectId, threadId })
+  expect(await receipt()).toBeUndefined()
+  if (state === 'loading') release()
+  else if (state === 'hidden') await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange')) })
+  else { stale = false; await page.reload() }
+  await expect.poll(receipt).toBe(responseAt)
+})
+test('leaves new responses unread while reading older messages, then marks read at the bottom', async ({ page }) => {
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  let responseAt = Date.parse('2026-10-24T00:00:05Z')
+  await page.route('**/api/snapshot', route => route.fulfill({ json: unreadSnapshot(responseAt) }))
+  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { messages: Array.from({ length: 25 }, (_, index) => ({ id: String(100000000000000100n + BigInt(index)), channel_id: threadId, timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: `Reply ${index}\n\nA long conversation to read through.`, attachments: [], components: [], embeds: [] })), cursor: 'read:0', before: null, stale: false } }))
+  await page.reload()
+  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  const receipt = () => page.evaluate(({ projectId, threadId }) => JSON.parse(localStorage.getItem('threaddeck:read-responses') || '{}')[`${projectId}:${threadId}`], { projectId, threadId })
+  await expect.poll(receipt).toBe(responseAt)
+  await page.getByLabel('Conversation messages', { exact: true }).evaluate(node => { node.scrollTop = 0 })
+  await expect(page.getByRole('button', { name: 'Scroll to latest message', exact: true })).toBeVisible()
+  const previous = responseAt; responseAt += 10000
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(page.getByRole('button', { name: 'Mark Stream workspace as read', exact: true })).toBeVisible()
+  expect(await receipt()).toBe(previous)
+  await page.getByRole('button', { name: 'Scroll to latest message', exact: true }).click()
+  await expect.poll(receipt).toBe(responseAt)
+})
 for (const width of [430, 1440]) test(`author avatars have their own rail with aligned published and outgoing content at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })
   await fixture(page, 'submitted', true, undefined, 0, false)

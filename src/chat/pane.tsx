@@ -13,6 +13,7 @@ import { ChatState } from './chat-state'
 import { OutgoingMessage } from './outgoing-message'
 import { ConversationSkeleton } from './conversation-skeleton'
 import { SidebarToggle } from './sidebar-toggle'
+import { localOperatorPrompt } from './message-groups'
 import { TooltipHint } from '../components/ui/tooltip'
 
 export type ChatTarget = { session: Session; project: Project } | { session?: undefined; project: Project }
@@ -35,7 +36,23 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
   const latest = useRef({ draft, pending, created, target }); latest.current = { draft, pending, created, target }
   const links = session ? discordLinks(session) : null
   const busy = session?.status === 'working' || Boolean(session?.agentCount)
-  const deliveredReply = Boolean(session?.responseAt != null && conversation.messages.some(message => message.author.bot && Date.parse(message.edited_timestamp || message.timestamp) >= session.responseAt!))
+  const publishedReply = conversation.messages.some(message => message.author.bot && !localOperatorPrompt(message))
+  function markVisibleRead() {
+    // Harness response timestamps and Discord publication timestamps are not a
+    // shared clock. A loaded, visible transcript is the evidence of reading.
+    if (!session || !publishedReply || !following.current) return
+    if (!info || bridgeError || conversation.loading || conversation.error || conversation.stale) return
+    if (preview || expanded || mobileSidebar && sidebarOpen || document.querySelector('dialog[open]')) return
+    if (document.visibilityState !== 'visible' || !document.hasFocus()) return
+    markRead(session)
+  }
+  useEffect(() => {
+    let frame = 0
+    const inspect = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(markVisibleRead) }
+    window.addEventListener('focus', inspect); document.addEventListener('visibilitychange', inspect); document.addEventListener('focusin', inspect)
+    inspect()
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('focus', inspect); document.removeEventListener('visibilitychange', inspect); document.removeEventListener('focusin', inspect) }
+  }, [session, publishedReply, info, bridgeError, conversation.loading, conversation.error, conversation.stale, preview, expanded, mobileSidebar, sidebarOpen])
   useEffect(() => {
     const request = (event: Event) => {
       if (transcript.current && initialized.current) scrolls.set(key, transcript.current.scrollTop)
@@ -124,14 +141,14 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     if (!initialized.current && conversation.messages.length) { node.scrollTop = scrolls.get(key) ?? node.scrollHeight; following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; initialized.current = true }
     else if (!savingPage.current && following.current) node.scrollTop = node.scrollHeight
     setAboveLatest(!following.current)
-    if (following.current && !preview && session && deliveredReply) markRead(session)
+    markVisibleRead()
   }, [conversation.messages, outgoing, expanded, preview, session?.responseAt, info, bridgeError, conversation.loading, conversation.error])
   function remember() {
     const node = transcript.current
     if (!node) return
     scrolls.set(key, node.scrollTop); following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80
     setAboveLatest(!following.current)
-    if (following.current && session && deliveredReply && info && !bridgeError && !conversation.loading && !conversation.error) markRead(session)
+    markVisibleRead()
   }
   const block = bridgeError || conversation.error
   const loading = !block && (!info || conversation.loading)

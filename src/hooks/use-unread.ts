@@ -33,7 +33,7 @@ export function useUnread(projects: Project[]) {
     if (session.responseAt == null) return
     const key = readKey(session.projectId, session.threadId)
     const timestamp = session.responseAt
-    setRead(previous => ({ ...previous, [key]: Math.max(previous[key] ?? 0, timestamp) }))
+    setRead(previous => (previous[key] ?? 0) >= timestamp ? previous : { ...previous, [key]: timestamp })
   }
   const unread = unreadSessions(projects, read)
   function markProjectsRead(projectId?: string) {
