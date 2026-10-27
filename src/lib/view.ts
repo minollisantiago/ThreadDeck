@@ -4,7 +4,7 @@ export type Filter = 'active' | 'all' | 'working' | 'attention' | 'recent'
 export type Grouping = 'project' | 'state'
 export const isGrouping = (value: unknown): value is Grouping => value === 'project' || value === 'state'
 
-export function stateGroups(projects: Project[], verified: boolean, unread: ReadonlySet<string>) {
+export function stateGroups(projects: Project[], verified: boolean, unread: ReadonlySet<string>, pinned: ReadonlySet<string> = new Set()) {
   const groups = [
     { id: 'working', label: 'Working' },
     { id: 'attention', label: 'Needs attention' },
@@ -16,7 +16,7 @@ export function stateGroups(projects: Project[], verified: boolean, unread: Read
       : unread.has(session.id) || verified && isAttention(session.status) ? 'attention' : !verified ? 'unknown' : 'idle'
     groups.find(group => group.id === state)!.threads.push({ session, project })
   }
-  for (const group of groups) group.threads.sort((a, b) => compareSessions(a.session, b.session, verified, unread))
+  for (const group of groups) group.threads.sort((a, b) => compareSessions(a.session, b.session, verified, unread, pinned))
   return groups.filter(group => group.threads.length > 0)
 }
 
@@ -38,12 +38,12 @@ export function projectOrder(projects: Project[], verified: boolean, unread: Rea
     return active(b) - active(a) || a.name.localeCompare(b.name)
   })
 }
-function compareSessions(a: Session, b: Session, verified: boolean, unread: ReadonlySet<string>) {
+function compareSessions(a: Session, b: Session, verified: boolean, unread: ReadonlySet<string>, pinned: ReadonlySet<string>) {
   const priority = (session: Session) => verified && (session.agentCount > 0 || session.status === 'working') ? 0 : unread.has(session.id) ? 1 : verified && isAttention(session.status) ? 2 : 3
-  return priority(a) - priority(b) || b.updatedAt - a.updatedAt || a.id.localeCompare(b.id)
+  return priority(a) - priority(b) || Number(pinned.has(b.id)) - Number(pinned.has(a.id)) || b.updatedAt - a.updatedAt || a.id.localeCompare(b.id)
 }
-export function sessionOrder(sessions: Session[], verified: boolean, unread: ReadonlySet<string> = new Set()) {
-  return [...sessions].sort((a, b) => compareSessions(a, b, verified, unread))
+export function sessionOrder(sessions: Session[], verified: boolean, unread: ReadonlySet<string> = new Set(), pinned: ReadonlySet<string> = new Set()) {
+  return [...sessions].sort((a, b) => compareSessions(a, b, verified, unread, pinned))
 }
 export function relativeTime(timestamp: number, now: number) {
   const seconds = Math.max(0, Math.floor((now - timestamp) / 1000))

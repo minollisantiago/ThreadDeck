@@ -65,7 +65,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
     </div>
     <ProjectCollapse id={`sessions-${project.id}`} collapsed={collapsed}>
       <div className="project-sessions">
-        {project.sessions.length ? sessionOrder(project.sessions, verified, unread).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)
+        {project.sessions.length ? sessionOrder(project.sessions, verified, unread, pins?.pinned).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)
           : <p className="project-empty">No recent Discord sessions.</p>}
       </div>
     </ProjectCollapse>
@@ -150,8 +150,8 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const attention = verified ? sessions.filter(s => isAttention(s.status) || unread.has(s.id)).length : 0
   const activeProjects = verified ? projects.filter(p => p.sessions.some(s => isActive(s) || unread.has(s.id) || pins.pinned.has(s.id) || s.id === selectedSession)).length : 0
   const shown = projectOrder(visibleProjects(projects, query, filter, now, verified, unread, pins.pinned, selectedSession), verified, unread)
-  const groups = stateGroups(shown, verified, unread)
-  const listOrder = grouping === 'state' ? groups.flatMap(group => [group.id, ...group.threads.map(({ session }) => session.id)]) : shown.flatMap(project => [project.id, ...sessionOrder(project.sessions, verified, unread).map(session => session.id)])
+  const groups = stateGroups(shown, verified, unread, pins.pinned)
+  const listOrder = grouping === 'state' ? groups.flatMap(group => [group.id, ...group.threads.map(({ session }) => session.id)]) : shown.flatMap(project => [project.id, ...sessionOrder(project.sessions, verified, unread, pins.pinned).map(session => session.id)])
   useThreadListMotion(results, `${grouping}:${design}:${filter}:${query}:${listOrder.join(',')}`)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'

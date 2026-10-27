@@ -86,6 +86,20 @@ it('keeps pinned idle sessions in Active without bypassing search or other filte
   expect(visibleProjects(idle, '', 'working', 100, true, new Set(), pinned)).toHaveLength(0)
   expect(visibleProjects(idle, '', 'attention', 100, true, new Set(), pinned)).toHaveLength(0)
 })
+it('puts pins first within each priority while keeping working above unread, attention and idle', () => {
+  const base = projects[0].sessions[0]
+  const sessions = ['working', 'unread', 'attention', 'idle'].flatMap((state, index) => [false, true].map(pinned => ({
+    ...base, id: `${state}-${pinned ? 'pinned' : 'newer'}`, status: state === 'working' ? 'working' as const : state === 'attention' ? 'input' as const : 'idle' as const,
+    agentCount: state === 'working' ? 1 : 0, updatedAt: (pinned ? 10 : 100) + index,
+  })))
+  const unread = new Set(['unread-pinned', 'unread-newer'])
+  const pinned = new Set(sessions.filter(session => session.id.endsWith('-pinned')).map(session => session.id))
+  const expected = ['working-pinned', 'working-newer', 'unread-pinned', 'unread-newer', 'attention-pinned', 'attention-newer', 'idle-pinned', 'idle-newer']
+  expect(sessionOrder(sessions, true, unread, pinned).map(session => session.id)).toEqual(expected)
+  const mixed = [{ ...projects[0], sessions: sessions.filter(session => session.id.endsWith('-newer')) }, { ...projects[1], sessions: sessions.filter(session => pinned.has(session.id)) }]
+  expect(stateGroups(mixed, true, unread, pinned).flatMap(group => group.threads.map(thread => thread.session.id))).toEqual(expected)
+  expect(sessionOrder(sessions, false, unread, pinned).slice(0, 2).map(session => session.id)).toEqual(['unread-pinned', 'unread-newer'])
+})
 it('keeps the open read thread in Active only until navigation leaves it', () => {
   const idle = [{ ...projects[0], sessions: [{ ...projects[0].sessions[0], status: 'idle' as const, agentCount: 0 }] }]
   expect(visibleProjects(idle, '', 'active', 100, true, new Set(), new Set(), 'a')).toHaveLength(1)

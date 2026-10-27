@@ -303,6 +303,27 @@ for (const width of [430, 1440]) for (const grouping of ['project', 'state']) te
   await page.keyboard.press('Enter')
   await expect(title).toHaveCount(0)
 })
+for (const grouping of ['project', 'state']) for (const design of ['classic', 'islands']) test(`pins sort within matching flags with working first in ${design} grouped by ${grouping}`, async ({ page }) => {
+  await page.addInitScript(({ grouping, design }) => {
+    localStorage.setItem('threaddeck:grouping', JSON.stringify(grouping))
+    localStorage.setItem('threaddeck:design', JSON.stringify(design))
+  }, { grouping, design })
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  const now = Date.now()
+  await page.route('**/api/snapshot', route => route.fulfill({ json: { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [
+    { id: 'ses_old', threadId, guildId: '100000000000000099', projectId, title: 'Older unread', status: 'idle', agentCount: 0, updatedAt: now - 1000, responseAt: now - 1000 },
+    { id: 'ses_new', threadId: '100000000000000002', guildId: '100000000000000099', projectId, title: 'Newer unread', status: 'idle', agentCount: 0, updatedAt: now, responseAt: now },
+    { id: 'ses_working', threadId: '100000000000000003', guildId: '100000000000000099', projectId, title: 'Working thread', status: 'working', agentCount: 1, updatedAt: now - 2000 },
+  ] }] } }))
+  await page.reload()
+  const sidebar = page.locator('.chat-manager'), titles = sidebar.locator('.session-row .session-title')
+  await expect(titles).toHaveText(['Working thread', 'Newer unread', 'Older unread'])
+  await sidebar.getByRole('link', { name: 'Older unread', exact: true }).hover()
+  await sidebar.getByRole('button', { name: 'Pin Older unread', exact: true }).click()
+  await expect(titles).toHaveText(['Working thread', 'Older unread', 'Newer unread'])
+  await sidebar.getByRole('button', { name: 'Unpin Older unread', exact: true }).click()
+  await expect(titles).toHaveText(['Working thread', 'Newer unread', 'Older unread'])
+})
 for (const width of [430, 1440]) test(`author avatars have their own rail with aligned published and outgoing content at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })
   await fixture(page, 'submitted', true, undefined, 0, false)

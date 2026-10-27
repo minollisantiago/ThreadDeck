@@ -1,3 +1,4 @@
+import { useContext } from 'react'
 import { ChevronDown, CircleAlert, Radio } from 'lucide-react'
 import { isAttention, type Project, type Session } from '../../shared/model'
 import { sessionOrder, workingCount } from '../lib/view'
@@ -6,6 +7,7 @@ import { Badge } from './ui/badge'
 import { ProjectCollapse } from './project-collapse'
 import { ProjectUnreadPill } from './project-unread-pill'
 import { ProjectCreateButton } from './project-create-button'
+import { PinnedSessions } from '../hooks/use-pinned'
 
 export function ProjectIslands({ projects, verified, now, unread, markRead, markProjectRead, collapsed, toggle }: {
   projects: Project[]; verified: boolean; now: number
@@ -13,6 +15,7 @@ export function ProjectIslands({ projects, verified, now, unread, markRead, mark
   markProjectRead: (projectId: string) => void
   collapsed: Record<string, boolean>; toggle: (key: string) => void
 }) {
+  const pins = useContext(PinnedSessions)
   return <div className="visual-projects projects-islands">
     {projects.map(project => {
       const key = project.id
@@ -35,7 +38,7 @@ export function ProjectIslands({ projects, verified, now, unread, markRead, mark
         </div>
         <ProjectCollapse id={`visual-sessions-${project.id}`} collapsed={closed}>
           <div className="visual-session-grid">
-            {sessionOrder(project.sessions, verified, unread).map(session => <SessionRow key={session.id} session={session} graphical verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)}
+            {sessionOrder(project.sessions, verified, unread, pins?.pinned).map(session => <SessionRow key={session.id} session={session} graphical verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)}
             {project.sessions.length === 0 && <p className="project-empty">No recent Discord sessions.</p>}
           </div>
         </ProjectCollapse>
