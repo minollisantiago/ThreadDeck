@@ -13,7 +13,12 @@ import { SessionRow } from '../components/session-row'
 import { SessionNavigation } from './navigation'
 import { ImagePreview } from './image-preview'
 
-afterEach(() => { cleanup(); localStorage.clear() })
+const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+afterEach(() => {
+  cleanup(); localStorage.clear()
+  if (clipboardDescriptor) Object.defineProperty(navigator, 'clipboard', clipboardDescriptor)
+  else Reflect.deleteProperty(navigator, 'clipboard')
+})
 it('replaces image loading skeletons with the decoded preview or an explicit failure state', () => {
   const { rerender } = render(<ImagePreview src="/first.png" name="First image" />)
   expect(screen.getByRole('status', { name: 'Loading First image' })).toBeTruthy()
@@ -64,6 +69,33 @@ it('displays literal HTML as text without executing or dropping it', () => {
   const { container } = render(<ChatMarkdown text={'<script>window.unsafe = true</script>'} />)
   expect(container.textContent).toContain('<script>window.unsafe = true</script>')
   expect(container.querySelector('script')).toBeNull()
+})
+it('copies one complete agent group as published Markdown and uses the latest edits', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+  const prompt = { ...message, content: '**ThreadDeck · local operator**\n\nUser question' }
+  const first = { ...message, id: '100000000000000003', content: '**Answer**\n\n```ts\nconst x = 1\n```' }
+  const second = { ...message, id: '100000000000000004', content: '', components: [{ type: 17, components: [{ type: 10, content: '> Important' }] }] }
+  const { container, rerender } = render(<PublishedMessages threadId={message.channel_id} messages={[prompt, first, second]} preview={() => {}} />)
+  expect(screen.getAllByRole('button', { name: 'Copy Markdown' })).toHaveLength(1)
+  expect(container.querySelector('.chat-message-group.user .chat-message-actions')).toBeNull()
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy Markdown' })) })
+  expect(writeText).toHaveBeenLastCalledWith(`${first.content}\n\n> Important`)
+  expect(screen.getByRole('status').textContent).toBe('Markdown copied')
+  const edited = { ...first, content: '# Revised answer' }
+  rerender(<PublishedMessages threadId={message.channel_id} messages={[prompt, edited, second]} preview={() => {}} />)
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy Markdown' })) })
+  expect(writeText).toHaveBeenLastCalledWith('# Revised answer\n\n> Important')
+})
+it('reports clipboard failures without claiming success and allows retry', async () => {
+  const writeText = vi.fn().mockRejectedValueOnce(new Error('Clipboard denied')).mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+  render(<PublishedMessages threadId={message.channel_id} messages={[message]} preview={() => {}} />)
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy Markdown' })) })
+  expect(screen.getByRole('status').textContent).toBe('Couldn’t copy Markdown. Try again.')
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy Markdown' })) })
+  expect(screen.getByRole('status').textContent).toBe('Markdown copied')
+  expect(writeText).toHaveBeenCalledTimes(2)
 })
 it('keeps previews inert, removes active navigation and places restrictive CSP first', () => {
   const html = safePreview('<html><head><meta http-equiv="refresh" content="0;url=https://evil.example"><script>fetch("https://evil.example")</script><base href="https://evil.example"></head><body onload="alert(1)"><iframe src="https://evil.example"></iframe><h1>Safe heading</h1></body></html>')

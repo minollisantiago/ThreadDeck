@@ -123,6 +123,33 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
   }
   return submissions
 }
+for (const width of [430, 1440]) test(`copies the published Markdown of one complete agent group at ${width}px`, async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.setViewportSize({ width, height: 1050 })
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  const answer = '**Published answer**\n\n```ts\nconst answer = 42\n```', callout = '> Keep the Markdown intact.'
+  const base = { channel_id: threadId, timestamp: '2026-10-27T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, attachments: [], components: [], embeds: [] }
+  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'copy:0', before: null, stale: false, messages: [
+    { ...base, id: '100000000000000101', content: answer },
+    { ...base, id: '100000000000000102', content: '', components: [{ type: 17, components: [{ type: 10, content: callout }] }] },
+    { ...base, id: '100000000000000103', content: '**ThreadDeck · local operator**\n\nAnother question' },
+    { ...base, id: '100000000000000104', content: 'A separate response.' },
+  ] } }))
+  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  const buttons = page.getByRole('button', { name: 'Copy Markdown', exact: true })
+  await expect(buttons).toHaveCount(2)
+  await expect(page.locator('.chat-message-group.user').getByRole('button', { name: 'Copy Markdown', exact: true })).toHaveCount(0)
+  const input = page.getByRole('textbox', { name: 'Write a prompt' })
+  await input.fill('Keep my next prompt')
+  await buttons.first().click()
+  await expect(page.locator('.chat-message-group.assistant').first().getByRole('status')).toHaveText('Markdown copied')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${answer}\n\n${callout}`)
+  await buttons.last().click()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('A separate response.')
+  await expect(input).toHaveValue('Keep my next prompt')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  if (width === 1440) await page.screenshot({ path: 'artifacts/production-chat/copy-published-markdown.png', animations: 'disabled' })
+})
 for (const width of [430, 1440]) test(`jump to latest floats above the composer while reading older messages at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })
   await fixture(page, 'submitted', true, undefined, 0, false)

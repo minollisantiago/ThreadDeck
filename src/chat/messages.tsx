@@ -9,6 +9,8 @@ import { discordAttachmentUrl, publishedAttachments } from '../../shared/discord
 import { displayPublishedMessage, groupPublishedMessages, localOperatorPrompt } from './message-groups'
 import { formatMessageTime } from './message-time'
 import { TooltipHint } from '../components/ui/tooltip'
+import { CopyMessage } from './copy-message'
+import { publishedMarkdown } from './published-markdown'
 
 export function attachmentUrl(threadId: string, messageId: string, id: string) { return `/api/chat/threads/${threadId}/messages/${messageId}/attachments/${id}` }
 const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().optional(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
@@ -66,5 +68,5 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview }: {
     {message.embeds.map((raw, i) => { const embed = embedSchema.safeParse(raw); return embed.success ? <div className="chat-container" key={i}>{embed.data.title && <strong>{embed.data.title}</strong>}{embed.data.description && <ChatMarkdown text={embed.data.description} />}{embed.data.fields?.map((field, n) => <div key={n}><strong>{field.name}</strong><ChatMarkdown text={field.value} /></div>)}{(embed.data.image || embed.data.thumbnail) && mediaView(embed.data.image || embed.data.thumbnail, `embed-${i}`, message, used)}</div> : null })}
     {message.attachments.some(file => !used.has(file.id)) && <div className="chat-attachments">{message.attachments.filter(file => !used.has(file.id)).map(file => fileView(message, file))}</div>}
     {message.edited_timestamp && <TooltipHint label={new Date(message.edited_timestamp).toLocaleString()}><small className="chat-message-edited">edited</small></TooltipHint>}
-  </article></TooltipHint> })}</section> })}{image && <ImageViewer src={image.src} name={image.name} opener={image.opener} close={() => setImage(null)} />}</>
+  </article></TooltipHint> })}{role === 'assistant' && <CopyMessage markdown={publishedMarkdown(group.messages)} />}</section> })}{image && <ImageViewer src={image.src} name={image.name} opener={image.opener} close={() => setImage(null)} />}</>
 }
