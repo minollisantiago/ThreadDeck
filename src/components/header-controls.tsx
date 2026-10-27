@@ -1,5 +1,5 @@
 import { useCallback, useContext, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Github, Keyboard, List, Menu, Moon, Network, Sun } from 'lucide-react'
+import { Ellipsis, Github, Keyboard, List, Moon, Network, Sun } from 'lucide-react'
 import { Button } from './ui/button'
 import type { Design } from '../lib/design'
 import { darkThemes, lightThemes, type DarkTheme, type LightTheme } from '../lib/theme'
@@ -62,7 +62,7 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
   }, [compact])
   return <div className="header-controls">
     {compact && connection}
-    <Button ref={trigger} variant="outline" size="icon" className="mobile-menu-toggle" popoverTarget="header-controls" aria-label="App controls" aria-controls="header-controls" aria-expanded={open}><Menu aria-hidden="true" /></Button>
+    <Button ref={trigger} variant="ghost" size="icon" className="mobile-menu-toggle" popoverTarget="header-controls" aria-label="App controls" aria-controls="header-controls" aria-expanded={open}><Ellipsis aria-hidden="true" /></Button>
     <div ref={controls} className="appearance-controls" id="header-controls" role="group" aria-label="Appearance and links">
       <div className="palette-picker" role="group" aria-label="Accent color">{palettes.map(p => <button key={p} className={`palette-swatch palette-${p}`} aria-label={`${p} accent`} title={`${p} accent`} aria-pressed={palette === p} onClick={() => setPalette(p)}>{palette === p ? '✓' : ''}</button>)}</div>
       <div className="theme-picker" role="group" aria-label={`${appearance === 'light' ? 'Light' : 'Dark'} theme background`}>{themeOptions.map(option => <button key={option.value} className={`theme-swatch ${option.swatch}`} aria-label={`${option.label} theme`} title={`${option.label} theme`} aria-pressed={option.selected} onClick={option.select}>{option.selected ? '✓' : ''}</button>)}</div>

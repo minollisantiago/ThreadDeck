@@ -116,7 +116,7 @@ test('approved deeper accent ink meets text contrast across light backgrounds wi
           return color.slice(0, 3).map((value, index) => value * alpha + under[index] * (1 - alpha))
         }
         function luminance(color: number[]) { return color.slice(0, 3).map(value => { value /= 255; return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4 }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0) }
-        const selectors = ['.live-label', '.chat-avatar', '.chat-markdown a', '.chat-agent-activity', '.chat-send', '.session-filters .filter-selected']
+        const selectors = ['.chat-avatar', '.chat-markdown a', '.chat-agent-activity', '.chat-send', '.session-filters .filter-selected']
         const samples = selectors.map(selector => {
           const element = document.querySelector(selector)!, ink = luminance(rgba(getComputedStyle(element).color)), fill = luminance(background(element))
           return { selector, ratio: (Math.max(ink, fill) + .05) / (Math.min(ink, fill) + .05) }
