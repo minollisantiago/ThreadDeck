@@ -63,8 +63,8 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
   }
   return <section className={`chat-composer ${expanded ? 'expanded' : ''} ${dragging ? 'dragging-files' : ''}`} aria-label={expanded ? 'Expanded prompt editor' : 'Prompt composer'} onKeyDownCapture={event => {
     if (event.key !== 'Escape' || event.nativeEvent.isComposing || !(event.target instanceof HTMLElement) || !event.target.closest('textarea,.cm-content')) return
-    // Let Vim handle its mode change before releasing focus on the same Escape.
-    if (expanded && vimEnabled && mode !== 'NORMAL') { const editor = event.target; requestAnimationFrame(() => editor.blur()); return }
+    // Escape belongs to Vim in every mode, including repeated presses in Normal.
+    if (expanded && vimEnabled) return
     event.preventDefault(); event.stopPropagation(); event.target.blur()
   }} onPasteCapture={event => {
     if (!(event.target instanceof HTMLElement) || !event.target.closest('textarea,.cm-content')) return

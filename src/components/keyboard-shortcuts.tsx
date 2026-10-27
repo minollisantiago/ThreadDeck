@@ -28,7 +28,7 @@ export function KeyboardShortcuts({ workspace, threadId, close, restoreFocus }: 
       ['Ctrl / ⌘ P, then P', 'Expand or restore the Markdown editor'],
       ['Ctrl / ⌘ Enter', 'Send now (interrupts a working turn), from the composer'],
       ['Ctrl / ⌘ Shift Enter', 'Queue the prompt, from the composer'],
-       ['Esc', 'Leave prompt focus for app shortcuts; also returns Vim to Normal mode'],
+       ['Esc', 'Leave prompt focus for app shortcuts; in the expanded Vim editor, return to Normal mode without leaving focus'],
     ] }] : []),
     { title: 'Dialogs and previews', shortcuts: [
       ['Esc', 'Close the current dialog or return from HTML preview'],

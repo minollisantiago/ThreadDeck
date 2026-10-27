@@ -469,7 +469,10 @@ for (const width of [430, 1440]) test(`composer reports the session model and ha
 for (const expanded of [false, true]) test(`Escape releases the ${expanded ? 'expanded' : 'compact'} prompt for app shortcuts`, async ({ page }) => {
   await fixture(page)
   await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Keep my draft')
-  if (expanded) await page.getByRole('button', { name: 'Expand composer', exact: true }).click()
+  if (expanded) {
+    await page.getByRole('button', { name: 'Expand composer', exact: true }).click()
+    await page.getByRole('button', { name: 'Vim on', exact: true }).click()
+  }
   const editor = expanded ? page.locator('.cm-content') : page.getByRole('textbox', { name: 'Write a prompt' })
   await expect(editor).toBeFocused()
   await page.keyboard.press('Escape')
@@ -496,7 +499,9 @@ test('Vim mode sits directly before its toggle and follows editor mode changes',
   await expect(mode).toHaveText('INSERT')
   await page.keyboard.press('Escape')
   await expect(mode).toHaveText('NORMAL')
-  await expect(page.locator('.cm-content')).not.toBeFocused()
+  await expect(page.locator('.cm-content')).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.cm-content')).toBeFocused()
   await page.getByRole('button', { name: 'Vim on', exact: true }).click()
   await expect(mode).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Vim off', exact: true })).toBeVisible()
