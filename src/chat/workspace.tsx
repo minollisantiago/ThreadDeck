@@ -52,6 +52,11 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     if (project) { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setHistoryOpen(false); setDrawer(false) }
   }, [])
   const find = useCallback(() => { setNewThread(false); setFinder(true) }, [])
+  const start = useCallback((project: Project) => {
+    const original = current.current.projects.find(item => item.id === project.id)
+    if (!original) return
+    setTarget({ project: original }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setDrawer(false)
+  }, [])
   useEffect(() => {
     if (restored.current || !snapshot || snapshot.health !== 'connected' || finder || historyOpen) return
     if (target) { restored.current = true; return } // Never replace explicit navigation.
@@ -131,7 +136,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const maxWidth = Math.floor(viewportWidth * sidebarMaxRatio), sidebarWidth = Math.max(sidebarMinWidth, Math.min(width, maxWidth))
   const sidebarOpen = !target || (narrow ? drawer : sidebar)
   const toggleSidebar = () => { if (target) { if (narrow) setDrawer(value => !value); else setSidebar(value => !value) } }
-  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, create: () => { setNewThread(true); setFinder(true) }, threadId: active?.threadId, ...(target && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, create: project => { if (project) start(project); else { setNewThread(true); setFinder(true) } }, threadId: active?.threadId, ...(target && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
     <style>{mobileManagerStyle}</style>
     {target && narrow && <button className="chat-drawer-backdrop" data-open={drawer} aria-hidden={!drawer} tabIndex={drawer ? 0 : -1} aria-label="Close sidebar" onClick={() => setDrawer(false)} />}
     <div className={`chat-sidebar-slot ${target && narrow ? 'mobile' : ''}`} data-open={sidebarOpen}>
@@ -147,7 +152,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     {selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} mobileSidebar={narrow} sidebarOpen={sidebarOpen} sidebar={toggleSidebar} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
     {!target && <main className="chat-pane chat-empty-workspace"><div><Layers2 size={36} strokeWidth={1.2} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find or start a thread <kbd>Ctrl K</kbd></button></div></main>}
     {!target && <button className="chat-manager-new" onClick={find}><Plus size={15} />New / find conversation <kbd>Ctrl K</kbd></button>}
-    {finder && <SessionFinder initialNewThread={newThread} sessions={sessions} projects={projects} select={open} create={project => { setTarget({ project }); setFocusRequest(value => value + 1); setFinder(false); setDrawer(false) }} close={() => { setFinder(false); setNewThread(false) }} history={() => { setFinder(false); setHistoryOpen(true) }} />}
+    {finder && <SessionFinder initialNewThread={newThread} sessions={sessions} projects={projects} select={open} create={start} close={() => { setFinder(false); setNewThread(false) }} history={() => { setFinder(false); setHistoryOpen(true) }} />}
     {historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} onSelect={hit => {
       const known = sessions.find(session => session.id === hit.id)
       if (known) { open(known); return true }

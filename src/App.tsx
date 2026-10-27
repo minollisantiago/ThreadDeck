@@ -8,6 +8,7 @@ import { ConnectionNotice } from './components/connection-notice'
 import { ThreadOptions } from './components/thread-options'
 import { FilterTabs } from './components/filter-tabs'
 import { ProjectUnreadPill } from './components/project-unread-pill'
+import { ProjectCreateButton } from './components/project-create-button'
 import { SessionRow } from './components/session-row'
 import { ProjectIslands } from './components/project-islands'
 import { ProjectCollapse } from './components/project-collapse'
@@ -50,6 +51,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
         <span className="project-total" aria-hidden="true">{project.sessions.length} {project.sessions.length === 1 ? 'session' : 'sessions'}</span>
         {verified && attention > 0 && <span className="project-attention" aria-hidden="true"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</span>}
         <ProjectUnreadPill count={unreadCount} projectName={project.name} describedBy={`heading-${project.id}`} className="project-unread" markRead={() => markProjectRead(project.id)} />
+        <ProjectCreateButton project={project} />
       </span>
       {(!verified || working > 0 || !active) && <span className="project-summary" aria-hidden="true">
         {verified && working > 0 && <span className="working-summary"><i />{working} working</span>}

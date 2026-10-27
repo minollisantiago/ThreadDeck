@@ -143,6 +143,36 @@ for (const width of [430, 1440]) test(`grouping dropdown supports keyboard selec
   await expect(trigger).toBeFocused()
   await expect(sidebar).toBeVisible()
 })
+for (const width of [430, 1440]) for (const design of ['classic', 'islands']) test(`project header starts a session in its own project in ${design} at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1050 })
+  await page.addInitScript(design => localStorage.setItem('threaddeck:design', JSON.stringify(design)), design)
+  const submissions = await fixture(page, 'submitted', true, undefined, 0, false)
+  const now = Date.now(), otherProject = '100000000000000020'
+  const session = { id: 'ses_stream', threadId, guildId: '100000000000000099', projectId, title: 'Stream workspace', status: 'input', agentCount: 0, updatedAt: now } as const
+  await page.route('**/api/snapshot', route => route.fulfill({ json: { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [
+    { id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [session] },
+    { id: otherProject, name: 'Other project', directory: '/fixture/other', sessions: [{ ...session, id: 'ses_other', projectId: otherProject, threadId: '100000000000000021', title: 'Other conversation' }] },
+  ] } }))
+  await page.reload()
+  const sidebar = page.locator('.chat-manager')
+  const globalCreate = sidebar.getByRole('button', { name: 'New thread / OpenCode session', exact: true })
+  await expect(globalCreate).toHaveCSS('border-top-style', 'solid')
+  await expect(globalCreate).toHaveCSS('border-top-width', '1px')
+  const create = sidebar.getByRole('button', { name: 'New session in Other project', exact: true })
+  await expect(create).toBeVisible()
+  await expect(create).toHaveCSS('border-top-width', '0px')
+  await create.click()
+  await expect(page.getByRole('dialog', { name: 'New thread / OpenCode session', exact: true })).toHaveCount(0)
+  await expect(page.locator('.chat-channel-name')).toHaveText('# Other project')
+  const input = page.getByRole('textbox', { name: 'Write a prompt' })
+  await expect(input).toBeFocused()
+  expect(submissions).toHaveLength(0)
+  await input.fill('Create in the chosen project')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  await expect.poll(() => submissions.length).toBe(1)
+  expect(submissions[0]).toMatchObject({ projectId: otherProject, text: 'Create in the chosen project' })
+  expect(submissions[0]).not.toHaveProperty('threadId')
+})
 test.describe('message clocks', () => {
   test.use({ locale: 'en-GB', timezoneId: 'America/Los_Angeles' })
   for (const width of [430, 1440]) test(`shows local dates beside authors without pushing clocks to the edge at ${width}px`, async ({ page }) => {
