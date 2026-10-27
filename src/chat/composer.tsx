@@ -61,7 +61,12 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
       }
     } catch (error) { setUploadError(error instanceof Error ? error.message : 'Upload failed') } finally { uploadLock.current = false; setUploading(false) }
   }
-  return <section className={`chat-composer ${expanded ? 'expanded' : ''} ${dragging ? 'dragging-files' : ''}`} aria-label={expanded ? 'Expanded prompt editor' : 'Prompt composer'} onPasteCapture={event => {
+  return <section className={`chat-composer ${expanded ? 'expanded' : ''} ${dragging ? 'dragging-files' : ''}`} aria-label={expanded ? 'Expanded prompt editor' : 'Prompt composer'} onKeyDownCapture={event => {
+    if (event.key !== 'Escape' || event.nativeEvent.isComposing || !(event.target instanceof HTMLElement) || !event.target.closest('textarea,.cm-content')) return
+    // Let Vim handle its mode change before releasing focus on the same Escape.
+    if (expanded && vimEnabled && mode !== 'NORMAL') { const editor = event.target; requestAnimationFrame(() => editor.blur()); return }
+    event.preventDefault(); event.stopPropagation(); event.target.blur()
+  }} onPasteCapture={event => {
     if (!(event.target instanceof HTMLElement) || !event.target.closest('textarea,.cm-content')) return
     const items = [...event.clipboardData.items].filter(item => item.kind === 'file' && item.type.startsWith('image/')).map(item => item.getAsFile()).filter((file): file is File => Boolean(file))
     const images = items.length ? items : [...event.clipboardData.files].filter(file => file.type.startsWith('image/'))
