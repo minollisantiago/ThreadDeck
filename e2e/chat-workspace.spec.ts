@@ -123,6 +123,20 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
   }
   return submissions
 }
+for (const width of [430, 1440]) for (const design of ['classic', 'islands']) test(`pin sits immediately left of the Discord link in ${design} at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1050 })
+  await page.addInitScript(design => localStorage.setItem('threaddeck:design', JSON.stringify(design)), design)
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  const row = page.locator('.chat-manager .session-row').filter({ has: page.getByRole('link', { name: 'Parallel agent', exact: true }) })
+  await row.hover()
+  const pin = row.getByRole('button', { name: 'Pin Parallel agent', exact: true }), external = row.getByRole('link', { name: 'Open Parallel agent in browser', exact: true })
+  await expect(row.locator('.session-actions > *')).toHaveCount(2)
+  const left = (await pin.boundingBox())!, right = (await external.boundingBox())!
+  expect(right.x - left.x - left.width).toBeCloseTo(4, 0)
+  expect(Math.abs(left.y + left.height / 2 - right.y - right.height / 2)).toBeLessThan(1)
+  await expect(row.locator('.session-flags .session-pin')).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
 function unreadSnapshot(responseAt: number): Snapshot {
   const now = Date.now()
   return { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [

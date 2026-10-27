@@ -229,6 +229,8 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .session-pin { display: grid; place-items: center; width: 22px; height: 24px; padding: 3px; border: 0; border-radius: 5px; color: var(--subtle); background: transparent; opacity: 0; }
 .session-row:hover .session-pin, .session-row:focus-within .session-pin, .session-pin[data-pinned=true] { opacity: 1; }
 .session-pin:hover { background: var(--row); color: var(--text); }.session-pin[data-pinned=true] { color: var(--accent-ink); }
+.session-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.session-row:not(.session-tile) { grid-template-columns: minmax(0, 1fr) auto auto; }
 @media(hover:none) { .session-pin { opacity: 1; } }
 .session-attention .session-title { color: var(--text); font-weight: 600; }
 .session-attention-marker { position: absolute; left: -29px; width: 4px; height: 9px; border-radius: 0 3px 3px 0; background: var(--text); }
@@ -286,14 +288,14 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .visual-project-stats .status { font-size: 12px; padding: 4px 9px; border-radius: var(--pill-radius); }
 .visual-project-stats .status-unread, .session-tile .status-unread { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
 .visual-session-grid { display: grid; gap: 10px; min-width: 0; }
-.session-tile { display: grid; grid-template-columns: 30px minmax(0, 1fr) 26px; gap: 8px 10px; padding: 14px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--row) 48%, var(--surface)); border-radius: 13px; align-items: start; }
+.session-tile { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px 10px; padding: 14px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--row) 48%, var(--surface)); border-radius: 13px; align-items: start; }
 .session-tile::before, .session-tile::after, .session-tile .session-attention-marker { display: none; }
 .session-tile .session-copy { grid-column: 2; grid-row: 1; }
 .session-tile .session-title { white-space: normal; overflow-wrap: anywhere; color: var(--text); font-size: 13px; line-height: 1.6; }
 .session-tile .session-title:hover { color: var(--accent); }
 .session-tile .session-flags { grid-column: 2 / -1; grid-row: 2; flex-wrap: wrap; }
 .session-tile .status { font-size: 12px; padding: 4px 9px; border-radius: var(--pill-radius); }
-.session-tile .browser-link { grid-column: 3; grid-row: 1; width: 26px; height: 26px; }
+.session-tile .session-actions { grid-column: 3; grid-row: 1; }.session-tile .browser-link { width: 26px; height: 26px; }
 .session-tile-meta { grid-column: 2 / -1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px 10px; color: var(--subtle); font-size: 10px; }
 .session-tile-meta>span { display: inline-flex; gap: 4px; align-items: center; }
 .session-tile-meta svg { width: 12px; height: 12px; }
@@ -317,11 +319,11 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .projects-islands .visual-project-stats { justify-content: center; padding-bottom: 25px; }
 .projects-islands .visual-session-grid { position: relative; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
 .projects-islands .visual-session-grid::before { content: ''; position: absolute; top: -15px; bottom: 30px; left: 50%; width: 1px; background: color-mix(in srgb, var(--accent) 35%, var(--rule)); }
-.projects-islands .session-tile { position: relative; grid-template-columns: minmax(0, 1fr) 24px; padding: 12px; background: var(--surface); }
+.projects-islands .session-tile { position: relative; grid-template-columns: minmax(0, 1fr) auto; padding: 12px; background: var(--surface); }
 .projects-islands .session-tile::before { display: block; content: ''; position: absolute; left: auto; right: -13px; top: 30px; width: 13px; height: 1px; border: 0; background: var(--accent); opacity: .35; }
 .projects-islands .session-tile:nth-child(even)::before { right: auto; left: -13px; }
 .projects-islands .session-glyph { grid-column: 1; grid-row: 1; }
-.projects-islands .session-tile .browser-link { grid-column: 2; grid-row: 1; }
+.projects-islands .session-tile .session-actions { grid-column: 2; grid-row: 1; }
 .projects-islands .session-tile .session-copy { grid-column: 1 / -1; grid-row: 2; }
 .projects-islands .session-tile .session-flags { grid-column: 1 / -1; grid-row: 3; }
 .projects-islands .session-tile-meta { grid-column: 1 / -1; }
