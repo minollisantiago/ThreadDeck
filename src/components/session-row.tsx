@@ -41,9 +41,9 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
     {(attention || unread) && <span className="session-attention-marker" aria-hidden="true" />}
     {graphical && <span className={`session-glyph glyph-${status}`} aria-hidden="true"><Icon /></span>}
     <div className="session-copy">
+      {projectName && <span className="session-project" title={`Project: ${projectName}`}><span className="channel-hash" aria-hidden="true">#</span> {projectName}</span>}
       {links ? <a className="session-title" href={links.app} title={session.title} onClick={event => { if (openSession && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); openSession(session); return } markRead(session) }} onAuxClick={event => { if (event.button === 1) markRead(session) }}>{session.title}</a>
          : openSession ? <button className="session-title" title={session.title} onClick={() => openSession(session)}>{session.title}</button> : <span className="session-title">{session.title}</span>}
-      {projectName && <span className="session-project" title={`Project: ${projectName}`}>{projectName}</span>}
     </div>
     <div className="session-flags" ref={flags}>
       {unread && <button className="status status-unread" aria-label={`Mark ${session.title} as read`} title="Unread in ThreadDeck. Click to mark as read.

@@ -181,7 +181,7 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .state-panel-working .state-heading { color: var(--working); }
 .state-sessions { padding: 0 16px 16px; }
 .state-sessions .session-row::before, .state-sessions .session-row::after, .state-sessions .session-attention-marker { display: none; }
-.session-project { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; margin-top: 4px; padding: 1px 7px; border: 1px solid var(--rule); border-radius: var(--pill-radius); color: var(--muted); background: var(--row); font-size: 10px; }
+.session-project { display: flex; align-items: center; gap: 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 6px; padding: 0; border: 0; border-radius: 0; color: var(--muted); background: transparent; font-size: 10px; }
 .state-sessions .session-row { padding-block: 10px; }
 .project-panel { background: var(--surface); border-radius: 15px; min-width: 0; overflow: clip; }
 .project-heading { display: flex; flex-wrap: wrap; width: 100%; align-items: center; text-align: left; padding: 19px 23px; gap: 11px; border-radius: 15px; }
@@ -357,7 +357,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 :root[data-appearance=light] .status-error { color: var(--pill-danger-ink); background: var(--pill-danger-bg); }
 :root[data-appearance=light] .status-unread, :root[data-appearance=light] .project-unread { color: var(--pill-accent-ink); background: var(--pill-accent-bg); }
 :root[data-appearance=light] .status-unread:hover { background: color-mix(in srgb, var(--accent) 48%, #fff); }
-:root[data-appearance=light] .status-idle, :root[data-appearance=light] .project-total, :root[data-appearance=light] .session-project { color: var(--muted); background: var(--pill-neutral-bg); }
+:root[data-appearance=light] .status-idle, :root[data-appearance=light] .project-total { color: var(--muted); background: var(--pill-neutral-bg); }
 :root[data-appearance=light] .session-tile.session-unread { border-color: var(--pill-accent-ink); }
 .project-panel { --project-pad-x: 23px; --project-pad-y: 19px; --project-heading-gap: 11px; --project-branch-width: 20px; --project-rail-x: calc(var(--project-pad-x) + 14px + var(--project-heading-gap) + 9px); }
 .project-heading { position: relative; display: grid; grid-template-columns: 14px 18px minmax(0, 1fr) auto; gap: 8px var(--project-heading-gap); padding: var(--project-pad-y) var(--project-pad-x); }
