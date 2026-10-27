@@ -441,7 +441,7 @@ for (const width of [430, 1440]) test(`sidebar keeps its toggle rightmost and co
   const toggleBox = await sidebar.getByRole('button', { name: 'Toggle session sidebar' }).boundingBox(), brandBox = await sidebar.locator('.identity').boundingBox(), menuBox = await menu.boundingBox()
   expect(brandBox!.x + brandBox!.width).toBeLessThanOrEqual(menuBox!.x)
   expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(toggleBox!.x)
-  await expect(menu.locator('.lucide-ellipsis-vertical')).toBeVisible()
+  await expect(menu.locator('.lucide-settings2')).toBeVisible()
   await connection.focus()
   const tooltip = sidebar.locator('footer .connection-tooltip')
   await expect(tooltip).toBeVisible()
