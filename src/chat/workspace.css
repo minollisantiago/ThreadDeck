@@ -103,6 +103,8 @@
 .chat-message-meta time { flex-shrink: 0; white-space: nowrap; color: var(--subtle); font-size: 10px; }
 .chat-message-meta small { color: var(--subtle); font-size: 10px; }
 .chat-avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.assistant > .chat-avatar-rail .chat-avatar { background: transparent; }
+.chat-hush-avatar { display: block; width: 100%; height: 100%; }
 .user > .chat-avatar-rail .chat-avatar { color: var(--muted); background: var(--row); }
 .chat-markdown { font: 14px/1.85 var(--font); overflow-wrap: anywhere; color: var(--muted); }
 .chat-markdown p { margin: 0 0 16px; }

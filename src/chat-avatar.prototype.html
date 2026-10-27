@@ -1,0 +1,234 @@
+<!doctype html>
+<!-- Throwaway visual study: ten original SVG agent mascots, beside a mock chat.
+     Open this file directly; no server, dependencies, or production changes.
+     Select with ?variant=1 through 10, the cards, or the floating arrow switcher. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ThreadDeck · Little agents</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { color-scheme: dark; --bg:#141516; --panel:#1b1d1e; --line:#303334; --text:#eeeee7; --muted:#a0a39c; --accent:#cadc91; }
+    body.light { color-scheme:light; --bg:#f4f3ed; --panel:#fffef8; --line:#dcded2; --text:#232722; --muted:#666e60; --accent:#526a26; }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 system-ui,sans-serif; }
+    button { font:inherit; cursor:pointer; color:inherit; }
+    button:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+    header, main { max-width:1240px; margin:auto; padding:28px 36px; }
+    header { display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .eyebrow { color:var(--muted); font:11px/1.5 ui-monospace,monospace; letter-spacing:1.8px; text-transform:uppercase; }
+    .theme { border:1px solid var(--line); border-radius:20px; background:var(--panel); padding:7px 15px; }
+    h1 { font-size:clamp(32px,5vw,54px); line-height:1.1; font-weight:500; letter-spacing:-2px; margin:17px 0; }
+    .intro { max-width:650px; color:var(--muted); margin:0 0 32px; }
+    .gallery { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .concept { text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; transition:transform .15s; }
+    .concept:hover { transform:translateY(-3px); }
+    .concept[aria-pressed="true"] { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+    .concept .portrait { display:grid; place-items:center; min-height:122px; }
+    .portrait svg { width:100px; height:100px; }
+    .concept strong { display:block; font-size:14px; font-weight:550; margin-top:15px; }
+    .concept small { color:var(--muted); font-size:11px; }
+    .number { font:10px ui-monospace,monospace; color:var(--muted); }
+    .detail { display:grid; grid-template-columns:1fr 1.45fr; gap:32px; margin-top:38px; padding-bottom:100px; }
+    h2 { font-size:26px; font-weight:500; letter-spacing:-.7px; margin:8px 0; }
+    #description { color:var(--muted); max-width:340px; }
+    .sizes { display:flex; align-items:flex-end; gap:24px; margin:28px 0; }
+    .size { text-align:center; }
+    .size small { display:block; color:var(--muted); font:10px ui-monospace,monospace; margin-top:12px; }
+    .avatar { display:inline-flex; flex-shrink:0; vertical-align:middle; }
+    .avatar svg { width:100%; height:100%; }
+    .note { color:var(--muted); font-size:12px; max-width:320px; }
+    .chat { border:1px solid var(--line); border-radius:16px; overflow:hidden; background:var(--panel); }
+    .chat-head { padding:16px 22px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:12px; font-size:12px; }
+    .chat-head span { color:var(--muted); }
+    .messages { padding:24px; }
+    .message + .message { margin-top:25px; }
+    .meta { display:flex; align-items:center; gap:10px; font-size:12px; }
+    .meta strong { font-weight:550; }
+    .meta small { color:var(--muted); font-size:10px; }
+    .message p { margin:10px 0 0 36px; font-size:13px; color:var(--muted); }
+    .user { width:26px; height:26px; background:#786558; color:#fff3de; border-radius:50%; display:grid; place-items:center; font-size:11px; }
+    .activity { margin:14px 0 0 36px; color:var(--accent); font:11px ui-monospace,monospace; }
+    .composer { margin:0 24px 22px; border:1px solid var(--line); border-radius:9px; padding:12px; color:var(--muted); font-size:12px; }
+    .switcher { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:16px; padding:8px; background:var(--text); color:var(--bg); border-radius:30px; box-shadow:0 8px 32px #0004; white-space:nowrap; }
+    .switcher button { border:0; background:transparent; width:36px; height:32px; font-size:20px; }
+    #current { min-width:150px; text-align:center; font-size:12px; }
+    @media(max-width:850px) { .gallery { grid-template-columns:repeat(3,1fr); } .detail { grid-template-columns:1fr; } }
+    @media(max-width:520px) { header,main { padding:22px 18px; } .gallery { grid-template-columns:repeat(2,1fr); } .concept { padding:14px; } .portrait svg { width:80px; height:80px; } .concept .portrait { min-height:90px; } }
+  </style>
+</head>
+<body>
+  <header><span class="eyebrow">ThreadDeck / avatar playground</span><button class="theme" id="theme">Light mode</button></header>
+  <main>
+    <div class="eyebrow">Visual study 01 · throwaway prototype</div>
+    <h1>Small faces. Big opinions.</h1>
+    <p class="intro">Ten little agents to replace the letter-in-a-box. Original SVG mascots, not provider logos. Concepts 06–09 explore your creature references; 10 blends Hoot and Mossback around your sketch. Pick a face to see it at real chat size.</p>
+    <section class="gallery" id="gallery" aria-label="Agent avatar concepts"></section>
+    <section class="detail">
+      <div>
+        <div class="eyebrow">Selected specimen</div>
+        <h2 id="name"></h2>
+        <p id="description"></p>
+        <div class="sizes" id="sizes" aria-label="Avatar size comparison"></div>
+        <p class="note">26 px matches the current chat avatar. Larger views are for judging personality, not a proposal to make the chat bigger.</p>
+        <p class="note">Prototype only. No app integration, network requests, or saved preferences.</p>
+      </div>
+      <div class="chat" aria-label="Mock conversation preview">
+        <div class="chat-head"><strong>Make room for a little personality</strong><span>Chat preview</span></div>
+        <div class="messages">
+          <div class="message"><div class="meta"><span class="user">S</span><strong>You</strong><small>12:04</small></div><p>Can you give the agent a face? Something a little less corporate.</p></div>
+          <div class="message"><div class="meta"><span class="agent-slot"></span><strong>Kimaki</strong><small>agent · 12:04</small></div><p>Absolutely. I have two eyes, zero meetings, and a suspicious amount of enthusiasm.</p><div class="activity">✓ Read 3 files · ready to help</div></div>
+          <div class="message"><div class="meta"><span class="agent-slot"></span><strong>Kimaki</strong><small>agent · 12:05</small></div><p>Same useful assistant. Slightly more likely to befriend your toaster.</p></div>
+        </div>
+        <div class="composer">Reply to Kimaki…</div>
+      </div>
+    </section>
+  </main>
+  <nav class="switcher" aria-label="Prototype variant switcher"><button id="prev" aria-label="Previous concept">←</button><span id="current" aria-live="polite"></span><button id="next" aria-label="Next concept">→</button></nav>
+  <script>
+    const concepts = [
+      {
+        name: '01 / Dotling', tag: 'A tiny collective brain',
+        description: 'A handful of dots pretending to be one very helpful creature. Abstract enough to feel like AI; a wonky smile keeps it from becoming a loading spinner.',
+        art: `<rect width="80" height="80" rx="25" fill="#262e28"/>
+          <g fill="#d8edac"><circle cx="29" cy="20" r="7"/><circle cx="49" cy="21" r="7"/><circle cx="19" cy="37" r="7"/><circle cx="39" cy="37" r="8"/><circle cx="60" cy="38" r="7"/><circle cx="25" cy="56" r="7"/><circle cx="45" cy="59" r="7"/><circle cx="61" cy="56" r="5"/></g>
+          <g fill="#202a20"><circle cx="35" cy="35" r="2"/><circle cx="43" cy="35" r="2"/></g><path d="M35 41q4 4 8 0" stroke="#202a20" stroke-width="2" fill="none" stroke-linecap="round"/>`
+      },
+      {
+        name: '02 / Peep', tag: 'One eye. Many questions.',
+        description: 'An inky cyclops with a little aerial and entirely too much curiosity. The simplest silhouette of the bunch: graphic, mischievous, and easy to spot at 26 px.',
+        art: `<rect width="80" height="80" rx="25" fill="#e9dfcc"/>
+          <path d="M40 24V15m0 0 8-5" fill="none" stroke="#27272c" stroke-width="4" stroke-linecap="round"/>
+          <path d="M19 40q0-16 21-16t21 16v17q0 8-8 6l-8-4-9 6-8-5-9 3Z" fill="#27272c"/>
+          <ellipse cx="40" cy="41" rx="13" ry="12" fill="#fff9ee"/><ellipse cx="44" cy="42" rx="5" ry="6" fill="#27272c"/><circle cx="46" cy="40" r="1.5" fill="#fff9ee"/>`
+      },
+      {
+        name: '03 / Sprout', tag: 'Locally grown intelligence',
+        description: 'A soft terminal-bot with a leaf instead of an antenna. Friendly maker energy: less omniscient supercomputer, more tiny desk companion who fixes your CSS.',
+        art: `<rect width="80" height="80" rx="25" fill="#24342e"/>
+          <path d="M40 28V17" stroke="#b4d9a4" stroke-width="3"/><path d="M40 20Q26 20 27 10q14-1 13 10" fill="#cce5a0"/><path d="M40 23Q53 22 54 12q-13-1-14 11" fill="#77b49a"/>
+          <rect x="15" y="27" width="50" height="37" rx="14" fill="#c9dfbc"/><rect x="22" y="34" width="36" height="21" rx="8" fill="#263c35"/>
+          <path d="M30 41v5m20-5v5" stroke="#d5efb4" stroke-width="4" stroke-linecap="round"/><path d="M36 48q4 4 8 0" stroke="#d5efb4" stroke-width="2" fill="none" stroke-linecap="round"/>`
+      },
+      {
+        name: '04 / Orbit', tag: 'Space cat. Code janitor.',
+        description: 'A round little robot-cat floating inside its own orbit. The most mascot-like option: pointy ears, oversized eyes, and a face that says it definitely pushed to main.',
+        art: `<rect width="80" height="80" rx="25" fill="#2e2941"/>
+          <ellipse cx="40" cy="46" rx="33" ry="12" transform="rotate(-25 40 46)" fill="none" stroke="#82749f" stroke-width="2"/>
+          <path d="m20 34 1-17 16 10h10l13-10 1 20q7 28-21 28T20 34" fill="#d8c8f2"/>
+          <rect x="23" y="34" width="34" height="21" rx="10" fill="#332e47"/><ellipse cx="32" cy="43" rx="4" ry="5" fill="#e9dfb7"/><ellipse cx="48" cy="43" rx="4" ry="5" fill="#e9dfb7"/>
+          <path d="m38 50 2 2 2-2" stroke="#e9dfb7" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="66" cy="33" r="4" fill="#ecd99d"/>`
+      },
+      {
+        name: '05 / Bolt', tag: 'Employee of the millisecond',
+        description: 'A wonky orange appliance-bot. Uneven eyes and an off-centre aerial make it feel hand-built rather than polished by a branding committee. Cheerfully overqualified.',
+        art: `<rect width="80" height="80" rx="25" fill="#3c2a23"/>
+          <path d="m49 25 4-12" stroke="#f2b883" stroke-width="3" stroke-linecap="round"/><circle cx="54" cy="12" r="4" fill="#f4d3a6"/>
+          <rect x="13" y="34" width="8" height="17" rx="4" fill="#bb714d"/><rect x="60" y="34" width="8" height="17" rx="4" fill="#bb714d"/>
+          <rect x="19" y="24" width="43" height="40" rx="13" transform="rotate(-5 40 44)" fill="#efa46e"/>
+          <circle cx="31" cy="42" r="6" fill="#392d27"/><circle cx="50" cy="40" r="5" fill="#392d27"/><circle cx="33" cy="40" r="2" fill="#fff0d3"/><circle cx="51" cy="38" r="1.5" fill="#fff0d3"/>
+          <path d="M33 54q8 5 16-2" stroke="#392d27" stroke-width="3" fill="none" stroke-linecap="round"/>`
+      },
+      {
+        name: '06 / Mossback', tag: 'Gentle giant. Tiny deadlines.',
+        description: 'A shaggy midnight-blue forest guardian with a small luminous face and a seed-light tucked into its paws. Inspired by the warmth and protective posture of your first reference, rather than its exact character design.',
+        art: `<rect width="80" height="80" rx="25" fill="#132b3b"/>
+          <path d="m12 60 3-18 7-13 5-9 9 2 6-8 8 8 9 5 7 14 3 20-10-3-4 10H25l-5-9Z" fill="#202d47"/>
+          <path d="m22 33 5-13 9 2 6-8 8 8 7 6-12-4-8 3-7-1Z" fill="#354b6b"/>
+          <path d="M27 32q2-10 14-10t15 12q0 13-15 14T27 32" fill="#c4edf0"/>
+          <path d="M31 31q3-3 5 0m11-1q3-3 5 0" stroke="#456c86" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <path d="M37 39q5 3 9-1" stroke="#6296a4" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <circle cx="41" cy="57" r="12" fill="#477e8b" opacity=".35"/><path d="M41 62q-12-10 0-16 12 6 0 16" fill="#d5ffec"/>
+          <path d="M18 48q10 1 17 10m29-10q-11 1-17 10" stroke="#3b5269" stroke-width="10" fill="none" stroke-linecap="round"/>
+          <path d="m29 56 5 3m18-3-5 3" stroke="#b4d9de" stroke-width="5" stroke-linecap="round"/>`
+      },
+      {
+        name: '07 / Wisp', tag: 'Quiet mask. Loud ideas.',
+        description: 'A moon-white, leaf-shaped mask wrapped in a windswept indigo scarf. The dark eye openings and compact silhouette borrow the mysterious mood of your second reference, with branching twig crests instead of horns.',
+        art: `<rect width="80" height="80" rx="25" fill="#22283c"/>
+          <circle cx="56" cy="22" r="15" fill="#39435b"/>
+          <path d="m28 49-8 18 16-4 7 9 5-13 14 3-10-13" fill="#383d62"/>
+          <path d="m24 53 14 3 20-7-8 10-15 1" fill="#606b91"/>
+          <path d="M28 25 24 15l-7-5m7 5 4-8m22 18 5-11 8-3m-8 3-2-7" stroke="#dce7e4" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M21 31q1-12 18-12 19 0 20 13 1 13-19 23-20-9-19-24" fill="#e9eee4"/>
+          <path d="M25 29q12-7 28-2" stroke="#fff9ea" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M28 34q8-6 8 4l-2 8q-8-1-6-12m16 3q0-10 8-5 4 9-5 13Z" fill="#1c2638"/>
+          <path d="m40 26-2 5 3 3-1 5" stroke="#b8cacb" stroke-width="1.5" fill="none"/>
+          <circle cx="15" cy="49" r="2" fill="#b7cdd5"/>`
+      },
+      {
+        name: '08 / Hoot', tag: 'Sees bugs before you do.',
+        description: 'A ruffled blue owl with a pale heart-shaped facial disk and oversized copper eyes. A direct exploration of the third reference’s color palette and watchful expression, simplified to survive the tiny chat-avatar size.',
+        art: `<rect width="80" height="80" rx="25" fill="#202a40"/>
+          <path d="m12 29 1-18 18 9 12-6 10 5 17-9-3 21 5 9-5 9 1 11-12 2-7 10-10-5-12 4-4-11-12-6 5-12Z" fill="#43557f"/>
+          <path d="m15 21 9 5-7-11m43 7 6-6-2 11M20 57l7 2 2 7m22-4 7-5 5-1" stroke="#7184a2" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M15 37q0-17 16-14l9 6 9-6q17-3 17 14 0 18-26 28-25-11-25-28" fill="#c2dcd9"/>
+          <path d="M18 33q8-9 19 1m6 0q10-10 20-2" stroke="#8aa9b8" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <circle cx="28" cy="41" r="11" fill="#344159"/><circle cx="53" cy="41" r="11" fill="#344159"/>
+          <circle cx="28" cy="41" r="7.5" fill="#bd7a4d"/><circle cx="53" cy="41" r="7.5" fill="#bd7a4d"/>
+          <circle cx="29" cy="41" r="4.5" fill="#202739"/><circle cx="52" cy="41" r="4.5" fill="#202739"/>
+          <circle cx="31" cy="38" r="2" fill="#f6e4c7"/><circle cx="54" cy="38" r="2" fill="#f6e4c7"/>
+          <path d="m36 52 5 9 5-9-5-3Z" fill="#53657d"/>`
+      },
+      {
+        name: '09 / Lantern', tag: 'A small light in the backlog',
+        description: 'A fuzzy moth-spirit with a porcelain face and amber lantern chest. A fourth direction mixing the references’ soft creature shapes and pale masks into a warm, slightly magical coding companion.',
+        art: `<rect width="80" height="80" rx="25" fill="#263b3b"/>
+          <path d="M34 41Q11 21 12 46q-3 17 19 18l9-10 10 11q21-3 18-20 0-24-23-4" fill="#59736e"/>
+          <path d="M19 40q-4 12 10 15m32-15q5 11-10 16" stroke="#8ba49a" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="m26 35-2 14 5 4-3 9 9-2 5 9 6-8 8 1-3-10 5-7-4-12Z" fill="#374c4b"/>
+          <path d="M32 25q0-10-9-12m25 12q1-10 9-12" stroke="#c7d7b8" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="m21 13 4-4 4 6m28-2-4-4-4 6" stroke="#c7d7b8" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M24 30q1-12 16-12t16 12q-2 15-16 19-15-5-16-19" fill="#e3e7cd"/>
+          <path d="M29 30q6-5 7 3l-2 6q-6-1-5-9m15 2q1-7 7-3 3 8-5 9Z" fill="#2b4141"/>
+          <circle cx="40" cy="55" r="10" fill="#e8b16a" opacity=".18"/><path d="m40 47 6 8-6 8-6-8Z" fill="#f3c979"/>
+          <path d="m40 51 2 4-2 4-2-4Z" fill="#fff2be"/>`
+      },
+      {
+        name: '10 / Hush', tag: 'Owl face. Guardian heart.',
+        description: 'One solid bluish owl-guardian, with no dividing line between the face and body. Big round eye cutouts with blue pupils and a small beak cutout keep the expression simple. Transparent background, one ink color.',
+        art: `<path fill="#536f90" fill-rule="evenodd" d="M8 68C18 62 17 43 22 31Q20 21 23 15Q25 13 33 19Q40 15 47 19Q55 13 57 15Q60 21 58 31C63 43 62 62 72 68Q40 77 8 68Z
+          M37 32a7 7 0 1 0-14 0a7 7 0 1 0 14 0Z
+          M57 32a7 7 0 1 0-14 0a7 7 0 1 0 14 0Z
+          M35 43Q40 41 45 43L41 50Q40 52 39 50Z"/>
+          <g fill="#536f90"><circle cx="31" cy="33" r="3"/><circle cx="49" cy="33" r="3"/></g>`
+      }
+    ];
+    const svg = (concept) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" role="img" aria-label="${concept.name.slice(5)} agent avatar">${concept.art}</svg>`;
+    const avatar = (concept, size) => `<span class="avatar" style="width:${size}px;height:${size}px">${svg(concept)}</span>`;
+    const gallery = document.getElementById('gallery');
+    gallery.innerHTML = concepts.map((c,i) => `<button class="concept" data-index="${i}" aria-pressed="false"><span class="number">CONCEPT ${String(i+1).padStart(2,'0')}</span><span class="portrait">${svg(c)}</span><strong>${c.name.slice(5)}</strong><small>${c.tag}</small></button>`).join('');
+    let selected = 0;
+    function render(index, updateUrl = true) {
+      selected = (index + concepts.length) % concepts.length;
+      const c = concepts[selected];
+      document.getElementById('name').textContent = c.name;
+      document.getElementById('description').textContent = c.description;
+      document.getElementById('current').textContent = c.name;
+      document.getElementById('sizes').innerHTML = [20,26,40,64].map(s => `<div class="size">${avatar(c,s)}<small>${s} px</small></div>`).join('');
+      document.querySelectorAll('.agent-slot').forEach(slot => slot.innerHTML = avatar(c,26));
+      document.querySelectorAll('.concept').forEach((card,i) => card.setAttribute('aria-pressed', String(i === selected)));
+      if (updateUrl) {
+        const url = new URL(location.href);
+        url.searchParams.set('variant', selected+1);
+        // Some browsers restrict history on file://; the prototype still works offline.
+        try { history.replaceState(null, '', url); } catch {}
+      }
+    }
+    function fromUrl() {
+      const value = Number(new URL(location.href).searchParams.get('variant'));
+      render(Number.isInteger(value) && value >= 1 && value <= concepts.length ? value-1 : 0, false);
+    }
+    gallery.addEventListener('click', e => { const card = e.target.closest('.concept'); if (card) render(Number(card.dataset.index)); });
+    document.getElementById('prev').onclick = () => render(selected-1);
+    document.getElementById('next').onclick = () => render(selected+1);
+    document.getElementById('theme').onclick = e => { const light = document.body.classList.toggle('light'); e.target.textContent = light ? 'Dark mode' : 'Light mode'; };
+    document.addEventListener('keydown', e => {
+      if (e.target.closest('input,textarea,select,[contenteditable]')) return;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); render(selected + (e.key === 'ArrowLeft' ? -1 : 1)); }
+    });
+    window.addEventListener('popstate', fromUrl);
+    fromUrl();
+  </script>
+</body>
+</html>

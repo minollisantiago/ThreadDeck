@@ -31,6 +31,18 @@ it('replaces image loading skeletons with the decoded preview or an explicit fai
   expect(screen.queryByRole('status', { name: 'Loading Second image' })).toBeNull()
 })
 const message = publishedMessageSchema.parse({ id: '100000000000000002', channel_id: '100000000000000001', timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: 'Discord-visible text' })
+it('uses the theme-colored Hush mascot for agents while keeping user initials', () => {
+  const user = { ...message, id: '100000000000000003', author: { id: 'human', username: 'Sam' } }
+  const { container } = render(<PublishedMessages threadId={message.channel_id} messages={[message, user]} preview={() => {}} />)
+  const avatar = container.querySelector('.assistant .chat-avatar')!
+  expect(avatar.textContent).toBe('')
+  const icon = avatar.querySelector('svg')!
+  expect(icon.getAttribute('aria-hidden')).toBe('true')
+  expect(icon.querySelector('path')?.getAttribute('fill-rule')).toBe('evenodd')
+  expect(icon.querySelectorAll('circle')).toHaveLength(2)
+  expect([...icon.querySelectorAll('[fill]')].map(node => node.getAttribute('fill'))).toEqual(['currentColor', 'currentColor'])
+  expect(container.querySelector('.user .chat-avatar')?.textContent).toBe('S')
+})
 it('renders one author header for a model interaction while preserving message identity, callouts, and edits', () => {
   const messages = [message, { ...message, id: '100000000000000003', content: 'Answer text', edited_timestamp: '2026-10-24T00:02:00Z' }, { ...message, id: '100000000000000004', content: '', components: [{ type: 17, components: [{ type: 10, content: 'Important callout' }] }] }, { ...message, id: '100000000000000005', content: '-# Session footer' }]
   const { container } = render(<PublishedMessages threadId={message.channel_id} messages={messages} preview={() => {}} />)
