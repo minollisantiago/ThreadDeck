@@ -16,11 +16,11 @@ export function TooltipContent({ className, sideOffset = 6, container, children,
 }
 
 /** Keep the trigger's DOM/layout intact, including in native top-layer dialogs and popovers. */
-export function TooltipHint({ label, children }: { label: React.ReactNode; children: React.ReactElement }) {
+export function TooltipHint({ label, children, onTriggerFocus }: { label: React.ReactNode; children: React.ReactElement; onTriggerFocus?: React.FocusEventHandler<HTMLElement> }) {
   const provided = React.useContext(ProviderContext)
   const [container, setContainer] = React.useState<HTMLElement>()
   const trigger = React.useCallback((node: HTMLElement | null) => { setContainer(node?.closest<HTMLElement>('dialog,[popover]') ?? undefined) }, [])
   if (!label) return children
-  const tooltip = <Tooltip><TooltipTrigger asChild ref={trigger}>{children}</TooltipTrigger><TooltipContent container={container}>{label}</TooltipContent></Tooltip>
+  const tooltip = <Tooltip><TooltipTrigger asChild ref={trigger} onFocus={onTriggerFocus}>{children}</TooltipTrigger><TooltipContent container={container}>{label}</TooltipContent></Tooltip>
   return provided ? tooltip : <TooltipProvider>{tooltip}</TooltipProvider>
 }

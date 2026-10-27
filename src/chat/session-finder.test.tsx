@@ -13,7 +13,7 @@ beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute('open', '') } })
   Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute('open') } })
 })
-afterEach(() => { cleanup(); Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal'); Reflect.deleteProperty(HTMLDialogElement.prototype, 'close') })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal'); Reflect.deleteProperty(HTMLDialogElement.prototype, 'close') })
 
 function setup() {
   const create = vi.fn(), select = vi.fn()
@@ -67,4 +67,33 @@ it('supports the Meta shortcut from any dialog control and resets when returning
   fireEvent.keyDown(input, { key: 'n', metaKey: true })
   fireEvent.keyDown(screen.getByRole('textbox', { name: 'Find a session' }), { key: 'Enter' })
   expect(select).toHaveBeenCalledOnce()
+})
+
+function setupCurrentProject() {
+  vi.spyOn(performance, 'now').mockReturnValue(1000)
+  const create = vi.fn()
+  render(<SessionFinder projects={projects} sessions={[]} currentProject={projects[1]} initialNewThread newThreadShortcutAt={900} create={create} select={vi.fn()} close={vi.fn()} history={vi.fn()} />)
+  return create
+}
+
+it.each([{}, { ctrlKey: true }, { metaKey: true }])('uses the current project for the second N with modifiers %j', modifiers => {
+  const create = setupCurrentProject()
+  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'n', ...modifiers })
+  expect(create).toHaveBeenCalledExactlyOnceWith(projects[1])
+})
+
+it.each(['expired', 'interrupted', 'pointer', 'repeat', 'composing'])('does not create a thread for an %s chord', reason => {
+  const create = setupCurrentProject(), input = screen.getByRole('textbox')
+  if (reason === 'expired') vi.mocked(performance.now).mockReturnValue(1500)
+  if (reason === 'interrupted') fireEvent.keyDown(input, { key: 'x' })
+  if (reason === 'pointer') fireEvent.pointerDown(input)
+  fireEvent.keyDown(input, { key: 'n', repeat: reason === 'repeat', isComposing: reason === 'composing' })
+  expect(create).not.toHaveBeenCalled()
+})
+
+it('provides an explicit current-project action independent of the chord timer', () => {
+  const create = setupCurrentProject()
+  vi.mocked(performance.now).mockReturnValue(5000)
+  fireEvent.click(screen.getByRole('button', { name: /New session in Kimaki/ }))
+  expect(create).toHaveBeenCalledExactlyOnceWith(projects[1])
 })
