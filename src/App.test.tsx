@@ -5,6 +5,10 @@ import { Dashboard } from './App'
 import type { Snapshot } from '../shared/model'
 
 afterEach(() => { cleanup(); localStorage.clear() })
+function groupThreads(value: 'project' | 'state') {
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Group threads' }), { key: 'Enter' })
+  fireEvent.click(screen.getByRole('menuitemradio', { name: value === 'state' ? 'By state' : 'By project' }))
+}
 const now = 100_000
 const snapshot: Snapshot = {
   health: 'connected', checkedAt: now, lastSuccessAt: now,
@@ -293,7 +297,7 @@ it.each(['list', 'islands', 'state'] as const)('marks only the right-clicked thr
   const unread: Snapshot = { ...snapshot, projects: snapshot.projects.map(project => ({ ...project, sessions: project.sessions.map(session => ({ ...session, status: 'idle', agentCount: 0, responseAt: now })) })) }
   const { unmount } = render(<Dashboard snapshot={unread} now={now} />)
   if (view === 'islands') fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
-  if (view === 'state') fireEvent.change(screen.getByRole('combobox', { name: 'Group threads' }), { target: { value: 'state' } })
+  if (view === 'state') groupThreads('state')
   fireEvent.contextMenu(screen.getByRole('link', { name: 'Old conversation' }), { clientX: 100, clientY: 200 })
   const menu = screen.getByRole('menu', { name: 'Thread actions' })
   expect(screen.getByRole('button', { name: 'Mark Old conversation as read' })).toBeTruthy()
@@ -330,7 +334,7 @@ it('toggles state grouping, shows project pills, preserves filters and restores 
   const mixed: Snapshot = { ...snapshot, projects: snapshot.projects.map(project => ({ ...project, sessions: project.sessions.map(session => ({ ...session, responseAt: session.id === 'b' ? now : undefined })) })) }
   render(<Dashboard snapshot={mixed} now={now} />)
   fireEvent.click(screen.getByRole('button', { name: /Alpha/ }))
-  fireEvent.change(screen.getByRole('combobox', { name: 'Group threads' }), { target: { value: 'state' } })
+  groupThreads('state')
   const attention = screen.getByRole('region', { name: 'Needs attention 1 thread' })
   expect(within(attention).getByText('Beta')).toBeTruthy()
   expect(within(attention).getByRole('link', { name: 'Old conversation' })).toBeTruthy()
@@ -340,17 +344,17 @@ it('toggles state grouping, shows project pills, preserves filters and restores 
   fireEvent.click(screen.getByRole('button', { name: 'Mark Old conversation as read' }))
   expect(screen.getByText('No matching sessions')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Active sessions' }))
-  fireEvent.change(screen.getByRole('combobox', { name: 'Group threads' }), { target: { value: 'project' } })
+  groupThreads('project')
   expect(screen.getByRole('button', { name: /Alpha/ }).getAttribute('aria-expanded')).toBe('false')
 })
 it('persists grouping independently of appearance and supports state tiles and project search', () => {
   const { unmount, container } = render(<Dashboard snapshot={snapshot} now={now} />)
-  fireEvent.change(screen.getByRole('combobox', { name: 'Group threads' }), { target: { value: 'state' } })
+  groupThreads('state')
   fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
   expect(container.querySelector('.state-panel .session-tile')).not.toBeNull()
   unmount()
   render(<Dashboard snapshot={snapshot} now={now} />)
-  expect((screen.getByRole('combobox', { name: 'Group threads' }) as HTMLSelectElement).value).toBe('state')
+  expect(screen.getByRole('button', { name: 'Group threads' }).getAttribute('title')).toBe('Group threads by state')
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Alpha' } })
   expect(screen.getByRole('link', { name: 'Build a switchboard' })).toBeTruthy()
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Beta' } })
@@ -358,7 +362,7 @@ it('persists grouping independently of appearance and supports state tiles and p
 })
 it('moves threads between state groups on refresh and treats stale status as unknown', () => {
   const { rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
-  fireEvent.change(screen.getByRole('combobox', { name: 'Group threads' }), { target: { value: 'state' } })
+  groupThreads('state')
   const changed: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[0], sessions: [{ ...snapshot.projects[0].sessions[0], status: 'permission', agentCount: 0 }] }] }
   rerender(<Dashboard snapshot={changed} now={now} />)
   expect(screen.getByRole('region', { name: 'Needs attention 1 thread' })).toBeTruthy()

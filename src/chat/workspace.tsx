@@ -113,6 +113,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     const previous = document.activeElement
     manager.current?.querySelector<HTMLElement>('button,input,a')?.focus()
     const key = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || (event.target instanceof HTMLElement && event.target.closest('[role="menu"]'))) return
       if (document.querySelector('dialog[open]')) return
       if (event.key === 'Escape' && !document.querySelector('[popover]:popover-open')) { event.preventDefault(); setDrawer(false) }
       if (event.key === 'Tab' && manager.current) {

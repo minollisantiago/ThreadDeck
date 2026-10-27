@@ -19,7 +19,7 @@ const snapshot: Snapshot = {
 it('keeps Classic as default and remembers the selected design across mounts', () => {
   const { unmount, container } = render(<Dashboard snapshot={snapshot} now={now} />)
   expect(container.querySelector('.app-shell')?.getAttribute('data-design')).toBe('classic')
-  expect(screen.getByRole('combobox', { name: 'Group threads' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Group threads' })).toBeTruthy()
   const toggle = screen.getByRole('button', { name: 'Switch to islands view' })
   expect(toggle.nextElementSibling?.getAttribute('aria-label')).toBe('Switch to light mode')
   fireEvent.click(toggle)

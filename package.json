@@ -30,6 +30,7 @@
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.15",
     "@opencode/client": "2.0.29",
+    "@radix-ui/react-dropdown-menu": "^2.2.1",
     "@radix-ui/react-slot": "^1.2.3",
     "@replit/codemirror-vim": "^6.4.0",
     "class-variance-authority": "^0.7.1",
