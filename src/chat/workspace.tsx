@@ -10,6 +10,7 @@ import type { ChatTarget } from './pane'
 import { mobileManagerStyle } from './mobile-style'
 import { ConversationSkeleton } from './conversation-skeleton'
 import { SidebarToggle } from './sidebar-toggle'
+import { ProjectBrowser } from './project-browser'
 import { Kbd, KbdGroup } from '../components/ui/kbd'
 import './workspace.css'
 const ConversationPane = lazy(async () => ({ default: (await import('./pane')).ConversationPane }))
@@ -18,8 +19,10 @@ const lastSessionKey = 'threaddeck:chat-last-session'
 function rememberSession(session: Session) { try { localStorage.setItem(lastSessionKey, session.id) } catch { /* optional navigation preference */ } }
 
 export function SessionFinder({ sessions, projects, select, create, close, history, initialNewThread = false, currentProject }: { sessions: Session[]; projects: Project[]; select: (session: Session) => void; create: (project: Project) => void; close: () => void; history: () => void; initialNewThread?: boolean; currentProject?: Project }) {
+  const [browsing, setBrowsing] = useState(false)
   const [query, setQuery] = useState(''), [index, setIndex] = useState(0), [newThread, setNewThread] = useState(initialNewThread)
   const dialog = useRef<HTMLDialogElement>(null), input = useRef<HTMLInputElement>(null), results = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (!browsing) input.current?.focus() }, [browsing])
   useLayoutEffect(() => { const previous = document.activeElement, panel = dialog.current; panel?.showModal(); input.current?.focus(); return () => { panel?.close(); if (previous instanceof HTMLElement && previous.isConnected) previous.focus() } }, [])
   const hits = sessions.map(session => ({ session, score: query ? Math.max(fuzzyScore(query, session.title), fuzzyScore(query, projects.find(p => p.id === session.projectId)?.name || '')) : session.updatedAt })).filter(hit => hit.score > 0).sort((a, b) => b.score - a.score).slice(0, 100)
   const projectHits = projects.map(project => ({ project, score: query ? fuzzyScore(query, project.name) : 1 })).filter(hit => hit.score > 0).sort((a, b) => b.score - a.score)
@@ -27,6 +30,7 @@ export function SessionFinder({ sessions, projects, select, create, close, histo
   const toggleMode = () => { setNewThread(value => !value); setQuery(''); setIndex(0); input.current?.focus() }
   useEffect(() => { results.current?.querySelectorAll('button')[index]?.scrollIntoView?.({ block: 'nearest' }) }, [index, query, newThread])
   return <dialog ref={dialog} className="chat-session-finder" aria-label={newThread ? 'New thread / OpenCode session' : 'Find a session'} onKeyDown={e => {
+    if (browsing) return
     if (e.nativeEvent.isComposing || e.repeat || ['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) return
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'n') {
       e.preventDefault(); e.stopPropagation()
@@ -34,12 +38,16 @@ export function SessionFinder({ sessions, projects, select, create, close, histo
       else if (!e.shiftKey || !newThread) toggleMode()
     }
   }} onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === dialog.current) close() }}>
+    {!browsing && <>
     <header><Search size={18} /><input ref={input} aria-label={newThread ? 'Find a project' : 'Find a session'} placeholder={newThread ? 'Find a project…' : 'Find a conversation…'} value={query} onChange={e => { setQuery(e.target.value); setIndex(0) }} onKeyDown={e => { if (e.nativeEvent.isComposing) return; if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setIndex(i => Math.max(0, Math.min(count - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))) } if (e.key === 'Enter') { e.preventDefault(); if (newThread) { if (projectHits[index]) create(projectHits[index].project) } else if (hits[index]) select(hits[index].session) } }} /><button aria-label="Close session finder" onClick={close}><X size={18} /></button></header>
     <button className="chat-new-thread" aria-keyshortcuts="Control+N Meta+N" onClick={toggleMode}><Plus size={14} /><span>{newThread ? 'Back to sessions' : 'New thread / OpenCode session'}</span><kbd>Ctrl / ⌘ N</kbd></button>
     {newThread && currentProject && <button className="chat-new-thread" aria-keyshortcuts="Control+Shift+N Meta+Shift+N" onClick={() => create(currentProject)}><Plus size={14} /><span>New session in {currentProject.name}</span><KbdGroup><Kbd>Ctrl / ⌘</Kbd>+<Kbd>Shift</Kbd>+<Kbd>N</Kbd></KbdGroup></button>}
     {!newThread && <button className="chat-new-thread" onClick={history}>Search conversation history…</button>}
     <div ref={results} className="chat-finder-results">{newThread ? projectHits.map(({ project }, i) => <button key={project.id} className={index === i ? 'selected' : ''} onMouseMove={() => setIndex(i)} onClick={() => create(project)}><strong>{project.name}</strong><small>Create an OpenCode session and Discord thread</small></button>) : hits.map(({ session }, i) => <button key={session.id} className={index === i ? 'selected' : ''} onClick={() => select(session)} onMouseMove={() => setIndex(i)}><strong>{session.title}</strong><small>{projects.find(p => p.id === session.projectId)?.name} · {session.status}</small></button>)}{!count && <p className="chat-muted">{newThread ? 'No matching projects.' : 'No matching sessions.'}</p>}</div>
+    <button className="chat-new-thread" onClick={() => setBrowsing(true)}><Plus size={14} /><span>Discover / add project…</span></button>
     <footer>↑ ↓ select · Enter open · Esc return · Ctrl K</footer>
+    </>}
+    {browsing && <ProjectBrowser back={() => setBrowsing(false)} close={close} create={create} />}
   </dialog>
 }
 export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | null; children: ReactNode }) {
@@ -62,8 +70,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   }, [])
   const find = useCallback(() => { setNewThread(false); setFinder(true) }, [])
   const start = useCallback((project: Project) => {
-    const original = current.current.projects.find(item => item.id === project.id)
-    if (!original) return
+    const original = current.current.projects.find(item => item.id === project.id) || project
     setTarget({ project: original }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setDrawer(false)
   }, [])
   useEffect(() => {

@@ -7,6 +7,7 @@ import { source } from './source.ts'
 import { apiHandler } from './http.ts'
 import { createConversationSearch } from './search.ts'
 import { chatHandler } from './chat.ts'
+import { projectHandler } from './projects.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const port = Number(process.env.PORT ?? 43127)
@@ -16,11 +17,13 @@ const monitor = new Monitor(source)
 const search = createConversationSearch()
 const api = apiHandler(monitor, port, search)
 const chat = chatHandler(port)
+const projects = projectHandler(port)
 const vite = production ? null : await (await import('vite')).createServer({
   root, server: { middlewareMode: true, hmr: { port: port + 1, host: '127.0.0.1' } }, appType: 'spa',
 })
 const server = createServer((request, response) => {
   if (chat(request, response)) return
+  if (projects(request, response)) return
   if (api(request, response)) return
   if (vite) { vite.middlewares(request, response); return }
   void (async () => {

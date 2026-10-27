@@ -3,6 +3,34 @@ import { chromium, test, expect, type Page } from '@playwright/test'
 import type { Snapshot } from '../shared/model'
 
 const threadId = '100000000000000001', projectId = '100000000000000010'
+for (const width of [430, 1440]) test(`discovers and adds a project outside the session inventory at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1050 })
+  const submissions = await fixture(page)
+  const directory = '/home/me/projects', repo = `${directory}/new-repo`
+  let registrations = 0
+  await page.route('**/api/projects/browse*', async route => {
+    const selected = new URL(route.request().url()).searchParams.get('directory') === repo
+    await route.fulfill({ json: { directory: selected ? repo : directory, parent: '/home/me', registered: null, locations: [directory, '/home/me'], guilds: [], entries: selected ? [] : [{ name: 'new-repo', directory: repo, repository: true, registered: null }] } })
+  })
+  await page.route('**/api/projects/register', async route => {
+    expect(route.request().postDataJSON()).toEqual({ directory: repo })
+    registrations++
+    await route.fulfill({ json: { id: '100000000000000020', name: 'new-repo', directory: repo, sessions: [] } })
+  })
+  await page.keyboard.press('Control+k')
+  await page.getByRole('button', { name: 'Discover / add project…' }).click()
+  await expect(page.getByRole('textbox', { name: 'Folder path' })).toBeFocused()
+  await expect(page.getByRole('button', { name: /new-repo.*Git repository/ })).toBeVisible()
+  await page.screenshot({ path: `artifacts/project-discovery-${width}.png` })
+  await page.getByRole('button', { name: /new-repo.*Git repository/ }).click()
+  await expect(page.getByRole('textbox', { name: 'Folder path' })).toHaveValue(repo)
+  await page.getByRole('button', { name: 'Add project & start session' }).click()
+  await expect(page.getByRole('heading', { name: 'Start a conversation' })).toBeVisible()
+  await expect(page.locator('.chat-pane-header .chat-channel-name')).toContainText('new-repo')
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toBeFocused()
+  expect(registrations).toBe(1)
+  expect(submissions).toHaveLength(0)
+})
 for (const width of [430, 1440]) test(`new-session shortcut and advanced search controls at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })
   await fixture(page, 'submitted', true, undefined, 0, false)
