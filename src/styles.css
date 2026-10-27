@@ -402,7 +402,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .project-create[data-slot=button] { position: relative; z-index: 1; pointer-events: auto; flex-shrink: 0; width: 26px; height: 26px; padding: 4px; border: 0; background: transparent; color: var(--subtle); }
 .project-create[data-slot=button]:hover { background: var(--row); color: var(--accent-ink); }
 .projects-islands .island-header > .project-create { position: absolute; top: 0; right: 0; }
-/* Contextual motion: no mount animations or snapshot-driven entrances. */
+/* Contextual motion: thread movement and entry are handled by useThreadListMotion. */
 .connection-notice-region { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows 160ms var(--motion-ease), opacity var(--motion-fast) ease, visibility 0s 160ms; }
 .connection-notice-region[data-visible=true] { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-delay: 0s; }
 .connection-notice-clip { min-height: 0; overflow: hidden; }

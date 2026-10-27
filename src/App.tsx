@@ -18,7 +18,7 @@ import { StatePanels } from './components/state-panels'
 import { isDesign, type Design } from './lib/design'
 import { isDarkTheme, isLightTheme, type DarkTheme, type LightTheme } from './lib/theme'
 import { useSnapshot } from './hooks/use-snapshot'
-import { useChangeMotion } from './hooks/use-change-motion'
+import { useThreadListMotion } from './hooks/use-thread-list-motion'
 import { useUnread } from './hooks/use-unread'
 import { PinnedSessions, usePinned } from './hooks/use-pinned'
 import { DesktopTitlebar } from './components/desktop-titlebar'
@@ -91,7 +91,6 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const [visualCollapsed, setVisualCollapsed] = useState<Record<string, boolean>>({})
   const search = useRef<HTMLInputElement>(null)
   const results = useRef<HTMLDivElement>(null)
-  useChangeMotion(results, `${grouping}:${design}:${filter}`, 450)
   useEffect(() => { document.documentElement.dataset.appearance = appearance; persist('threaddeck:appearance', appearance) }, [appearance])
   useEffect(() => { document.documentElement.dataset.palette = palette; persist('threaddeck:palette', palette) }, [palette])
   useEffect(() => { document.documentElement.dataset.lightTheme = lightTheme; persist('threaddeck:light-theme', lightTheme) }, [lightTheme])
@@ -152,6 +151,8 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const activeProjects = verified ? projects.filter(p => p.sessions.some(s => isActive(s) || unread.has(s.id) || pins.pinned.has(s.id) || s.id === selectedSession)).length : 0
   const shown = projectOrder(visibleProjects(projects, query, filter, now, verified, unread, pins.pinned, selectedSession), verified, unread)
   const groups = stateGroups(shown, verified, unread)
+  const listOrder = grouping === 'state' ? groups.flatMap(group => [group.id, ...group.threads.map(({ session }) => session.id)]) : shown.flatMap(project => [project.id, ...sessionOrder(project.sessions, verified, unread).map(session => session.id)])
+  useThreadListMotion(results, `${grouping}:${design}:${filter}:${query}:${listOrder.join(',')}`)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
   return <PinnedSessions.Provider value={pins}>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design={design}>

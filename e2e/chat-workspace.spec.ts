@@ -137,6 +137,54 @@ for (const width of [430, 1440]) for (const design of ['classic', 'islands']) te
   await expect(row.locator('.session-flags .session-pin')).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
+test('threads animate reorder and arrivals but not unchanged snapshots or reduced-motion updates', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.addInitScript(() => {
+    const animate = Element.prototype.animate
+    Reflect.set(window, 'threadMotion', [])
+    Element.prototype.animate = function (keyframes, options) {
+      if (this instanceof HTMLElement && this.dataset.sessionId) {
+        const records: { id: string; frames: Keyframe[] }[] = Reflect.get(window, 'threadMotion')
+        if (Array.isArray(keyframes)) records.push({ id: this.dataset.sessionId, frames: keyframes })
+      }
+      return animate.call(this, keyframes, options)
+    }
+  })
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  const now = Date.now(), snapshot = unreadSnapshot(1), base = snapshot.projects[0].sessions[0]
+  snapshot.projects[0].sessions = [
+    { ...base, id: 'a', title: 'Unread A', updatedAt: now - 1000 },
+    { ...base, id: 'b', title: 'Unread B', updatedAt: now - 2000 },
+    { ...base, id: 'c', title: 'Working C', status: 'working', agentCount: 1, updatedAt: now - 3000 },
+  ]
+  await page.route('**/api/snapshot', route => route.fulfill({ json: { ...snapshot, checkedAt: Date.now(), lastSuccessAt: Date.now() } }))
+  await page.reload()
+  const titles = page.locator('.chat-manager .session-title')
+  await expect(titles).toHaveText(['Working C', 'Unread A', 'Unread B'])
+  expect(await page.evaluate(() => Reflect.get(window, 'threadMotion').length)).toBe(0)
+  snapshot.projects[0].sessions[1].updatedAt = now + 1000
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(titles).toHaveText(['Working C', 'Unread B', 'Unread A'])
+  await expect.poll(() => page.evaluate(() => {
+    const records: { id: string; frames: Keyframe[] }[] = Reflect.get(window, 'threadMotion')
+    return records.some(record => record.id === 'b' && String(record.frames[0].transform).startsWith('translate('))
+  })).toBe(true)
+  snapshot.projects[0].sessions.push({ ...base, id: 'd', title: 'Arriving D', updatedAt: now + 2000 })
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(titles).toHaveText(['Working C', 'Arriving D', 'Unread B', 'Unread A'])
+  await expect.poll(() => page.evaluate(() => {
+    const records: { id: string; frames: Keyframe[] }[] = Reflect.get(window, 'threadMotion')
+    return records.some(record => record.id === 'd' && record.frames[0].opacity === 0)
+  })).toBe(true)
+  const count = await page.evaluate(() => Reflect.get(window, 'threadMotion').length)
+  await Promise.all([page.waitForResponse('**/api/snapshot'), page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))])
+  expect(await page.evaluate(() => Reflect.get(window, 'threadMotion').length)).toBe(count)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  snapshot.projects[0].sessions[0].updatedAt = now + 3000
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(titles).toHaveText(['Working C', 'Unread A', 'Arriving D', 'Unread B'])
+  expect(await page.evaluate(() => Reflect.get(window, 'threadMotion').length)).toBe(count)
+})
 function unreadSnapshot(responseAt: number): Snapshot {
   const now = Date.now()
   return { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [
