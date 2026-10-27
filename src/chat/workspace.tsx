@@ -17,31 +17,26 @@ const sidebarMinWidth = 430, sidebarMaxRatio = .3
 const lastSessionKey = 'threaddeck:chat-last-session'
 function rememberSession(session: Session) { try { localStorage.setItem(lastSessionKey, session.id) } catch { /* optional navigation preference */ } }
 
-export function SessionFinder({ sessions, projects, select, create, close, history, initialNewThread = false, currentProject, newThreadShortcutAt = 0 }: { sessions: Session[]; projects: Project[]; select: (session: Session) => void; create: (project: Project) => void; close: () => void; history: () => void; initialNewThread?: boolean; currentProject?: Project; newThreadShortcutAt?: number }) {
+export function SessionFinder({ sessions, projects, select, create, close, history, initialNewThread = false, currentProject }: { sessions: Session[]; projects: Project[]; select: (session: Session) => void; create: (project: Project) => void; close: () => void; history: () => void; initialNewThread?: boolean; currentProject?: Project }) {
   const [query, setQuery] = useState(''), [index, setIndex] = useState(0), [newThread, setNewThread] = useState(initialNewThread)
-  const newThreadChord = useRef(newThreadShortcutAt)
   const dialog = useRef<HTMLDialogElement>(null), input = useRef<HTMLInputElement>(null), results = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => { const previous = document.activeElement, panel = dialog.current; panel?.showModal(); input.current?.focus(); return () => { panel?.close(); if (previous instanceof HTMLElement && previous.isConnected) previous.focus() } }, [])
   const hits = sessions.map(session => ({ session, score: query ? Math.max(fuzzyScore(query, session.title), fuzzyScore(query, projects.find(p => p.id === session.projectId)?.name || '')) : session.updatedAt })).filter(hit => hit.score > 0).sort((a, b) => b.score - a.score).slice(0, 100)
   const projectHits = projects.map(project => ({ project, score: query ? fuzzyScore(query, project.name) : 1 })).filter(hit => hit.score > 0).sort((a, b) => b.score - a.score)
   const count = newThread ? projectHits.length : hits.length
-  const toggleMode = () => { newThreadChord.current = 0; setNewThread(value => !value); setQuery(''); setIndex(0); input.current?.focus() }
+  const toggleMode = () => { setNewThread(value => !value); setQuery(''); setIndex(0); input.current?.focus() }
   useEffect(() => { results.current?.querySelectorAll('button')[index]?.scrollIntoView?.({ block: 'nearest' }) }, [index, query, newThread])
-  return <dialog ref={dialog} className="chat-session-finder" aria-label={newThread ? 'New thread / OpenCode session' : 'Find a session'} onPointerDownCapture={() => { newThreadChord.current = 0 }} onKeyDown={e => {
+  return <dialog ref={dialog} className="chat-session-finder" aria-label={newThread ? 'New thread / OpenCode session' : 'Find a session'} onKeyDown={e => {
     if (e.nativeEvent.isComposing || e.repeat || ['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) return
-    const n = e.key.toLowerCase() === 'n' && !e.altKey && !e.shiftKey
-    if (n && newThread && currentProject && newThreadChord.current && performance.now() - newThreadChord.current < 550) {
-      e.preventDefault(); e.stopPropagation(); newThreadChord.current = 0; create(currentProject); return
-    }
-    newThreadChord.current = 0
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'n') {
-      e.preventDefault(); e.stopPropagation(); toggleMode()
-      if (!newThread) newThreadChord.current = performance.now()
+      e.preventDefault(); e.stopPropagation()
+      if (e.shiftKey && currentProject) create(currentProject)
+      else if (!e.shiftKey || !newThread) toggleMode()
     }
   }} onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === dialog.current) close() }}>
     <header><Search size={18} /><input ref={input} aria-label={newThread ? 'Find a project' : 'Find a session'} placeholder={newThread ? 'Find a project…' : 'Find a conversation…'} value={query} onChange={e => { setQuery(e.target.value); setIndex(0) }} onKeyDown={e => { if (e.nativeEvent.isComposing) return; if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setIndex(i => Math.max(0, Math.min(count - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))) } if (e.key === 'Enter') { e.preventDefault(); if (newThread) { if (projectHits[index]) create(projectHits[index].project) } else if (hits[index]) select(hits[index].session) } }} /><button aria-label="Close session finder" onClick={close}><X size={18} /></button></header>
     <button className="chat-new-thread" aria-keyshortcuts="Control+N Meta+N" onClick={toggleMode}><Plus size={14} /><span>{newThread ? 'Back to sessions' : 'New thread / OpenCode session'}</span><kbd>Ctrl / ⌘ N</kbd></button>
-    {newThread && currentProject && <button className="chat-new-thread" onClick={() => create(currentProject)}><Plus size={14} /><span>New session in {currentProject.name}</span><KbdGroup><Kbd>Ctrl / ⌘ N</Kbd> then <Kbd>N</Kbd></KbdGroup></button>}
+    {newThread && currentProject && <button className="chat-new-thread" aria-keyshortcuts="Control+Shift+N Meta+Shift+N" onClick={() => create(currentProject)}><Plus size={14} /><span>New session in {currentProject.name}</span><KbdGroup><Kbd>Ctrl / ⌘</Kbd>+<Kbd>Shift</Kbd>+<Kbd>N</Kbd></KbdGroup></button>}
     {!newThread && <button className="chat-new-thread" onClick={history}>Search conversation history…</button>}
     <div ref={results} className="chat-finder-results">{newThread ? projectHits.map(({ project }, i) => <button key={project.id} className={index === i ? 'selected' : ''} onMouseMove={() => setIndex(i)} onClick={() => create(project)}><strong>{project.name}</strong><small>Create an OpenCode session and Discord thread</small></button>) : hits.map(({ session }, i) => <button key={session.id} className={index === i ? 'selected' : ''} onClick={() => select(session)} onMouseMove={() => setIndex(i)}><strong>{session.title}</strong><small>{projects.find(p => p.id === session.projectId)?.name} · {session.status}</small></button>)}{!count && <p className="chat-muted">{newThread ? 'No matching projects.' : 'No matching sessions.'}</p>}</div>
     <footer>↑ ↓ select · Enter open · Esc return · Ctrl K</footer>
@@ -59,13 +54,13 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const projects = snapshot?.projects || [], sessions = projects.flatMap(project => project.sessions), manager = useRef<HTMLElement>(null)
   const { markRead } = useUnread(projects)
   const current = useRef({ target, sessions, projects }); current.current = { target, sessions, projects }
-  const chord = useRef(0), spaces = useRef(0), newThreadChord = useRef(0)
+  const chord = useRef(0), spaces = useRef(0)
   const pendingFocus = useRef<'focus' | 'toggle' | null>(null)
   const open = useCallback((session: Session) => {
     const project = current.current.projects.find(p => p.id === session.projectId)
     if (project) { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setHistoryOpen(false); setDrawer(false) }
   }, [])
-  const find = useCallback(() => { newThreadChord.current = 0; setNewThread(false); setFinder(true) }, [])
+  const find = useCallback(() => { setNewThread(false); setFinder(true) }, [])
   const start = useCallback((project: Project) => {
     const original = current.current.projects.find(item => item.id === project.id)
     if (!original) return
@@ -114,7 +109,12 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
       if (p && !event.altKey && !event.shiftKey && chord.current && performance.now() - chord.current < 550) { event.preventDefault(); event.stopPropagation(); chord.current = 0; focus(true); return }
       if (ctrl && p && !event.altKey && !event.shiftKey) { event.preventDefault(); event.stopPropagation(); chord.current = performance.now(); focus(); return }
       chord.current = 0
-      if (ctrl && event.key.toLowerCase() === 'n' && !event.altKey && !event.shiftKey) { event.preventDefault(); event.stopPropagation(); newThreadChord.current = performance.now(); setNewThread(true); setFinder(true); return }
+      if (ctrl && event.key.toLowerCase() === 'n' && !event.altKey) {
+        event.preventDefault(); event.stopPropagation()
+        if (event.shiftKey && current.current.target) start(current.current.target.project)
+        else { setNewThread(true); setFinder(true) }
+        return
+      }
       if (ctrl && (event.key.toLowerCase() === 'k' || event.key === 'Tab' && Boolean(window.threaddeckDesktop))) { event.preventDefault(); event.stopPropagation(); setNewThread(false); setFinder(true); return }
       if (ctrl && event.key === 'Enter' && current.current.target && (event.target as HTMLElement).closest('.chat-composer')) { event.preventDefault(); event.stopPropagation(); window.dispatchEvent(new CustomEvent('threaddeck:composer-submit', { detail: event.shiftKey ? 'queue' : 'send' })); return }
       const el = event.target as HTMLElement
@@ -127,7 +127,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     window.addEventListener('input', typing, true); window.addEventListener('pointerdown', typing, true); window.addEventListener('threaddeck:pane-ready', flushFocus)
     window.addEventListener('keydown', key, true)
     return () => { window.removeEventListener('keydown', key, true); window.removeEventListener('input', typing, true); window.removeEventListener('pointerdown', typing, true); window.removeEventListener('threaddeck:pane-ready', flushFocus) }
-  }, [open])
+  }, [open, start])
   useEffect(() => {
     if (!drawer || !narrow) return
     const previous = document.activeElement
@@ -151,7 +151,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const maxWidth = Math.floor(viewportWidth * sidebarMaxRatio), sidebarWidth = Math.max(sidebarMinWidth, Math.min(width, maxWidth))
   const sidebarOpen = !target || (narrow ? drawer : sidebar)
   const toggleSidebar = () => { if (target) { if (narrow) setDrawer(value => !value); else setSidebar(value => !value) } }
-  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, create: project => { if (project) start(project); else { newThreadChord.current = 0; setNewThread(true); setFinder(true) } }, threadId: active?.threadId, ...(target && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, create: project => { if (project) start(project); else { setNewThread(true); setFinder(true) } }, threadId: active?.threadId, ...(target && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
     <style>{mobileManagerStyle}</style>
     {target && narrow && <button className="chat-drawer-backdrop" data-open={drawer} aria-hidden={!drawer} tabIndex={drawer ? 0 : -1} aria-label="Close sidebar" onClick={() => setDrawer(false)} />}
     <div className={`chat-sidebar-slot ${target && narrow ? 'mobile' : ''}`} data-open={sidebarOpen}>
@@ -167,7 +167,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     {selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} mobileSidebar={narrow} sidebarOpen={sidebarOpen} sidebar={toggleSidebar} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
     {!target && <main className="chat-pane chat-empty-workspace"><div><Layers2 size={36} strokeWidth={1.2} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find or start a thread <kbd>Ctrl K</kbd></button></div></main>}
     {!target && <button className="chat-manager-new" onClick={find}><Plus size={15} />New / find conversation <kbd>Ctrl K</kbd></button>}
-    {finder && <SessionFinder initialNewThread={newThread} currentProject={target?.project} newThreadShortcutAt={newThreadChord.current} sessions={sessions} projects={projects} select={open} create={start} close={() => { newThreadChord.current = 0; setFinder(false); setNewThread(false) }} history={() => { setFinder(false); setHistoryOpen(true) }} />}
+    {finder && <SessionFinder initialNewThread={newThread} currentProject={target?.project} sessions={sessions} projects={projects} select={open} create={start} close={() => { setFinder(false); setNewThread(false) }} history={() => { setFinder(false); setHistoryOpen(true) }} />}
     {historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} onSelect={hit => {
       const known = sessions.find(session => session.id === hit.id)
       if (known) { open(known); return true }

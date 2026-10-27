@@ -70,30 +70,35 @@ it('supports the Meta shortcut from any dialog control and resets when returning
 })
 
 function setupCurrentProject() {
-  vi.spyOn(performance, 'now').mockReturnValue(1000)
   const create = vi.fn()
-  render(<SessionFinder projects={projects} sessions={[]} currentProject={projects[1]} initialNewThread newThreadShortcutAt={900} create={create} select={vi.fn()} close={vi.fn()} history={vi.fn()} />)
+  render(<SessionFinder projects={projects} sessions={[]} currentProject={projects[1]} initialNewThread create={create} select={vi.fn()} close={vi.fn()} history={vi.fn()} />)
   return create
 }
 
-it.each([{}, { ctrlKey: true }, { metaKey: true }])('uses the current project for the second N with modifiers %j', modifiers => {
+it.each([{ ctrlKey: true }, { metaKey: true }])('uses the current project for Shift+N with modifiers %j', modifiers => {
   const create = setupCurrentProject()
-  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'n', ...modifiers })
+  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'N', shiftKey: true, ...modifiers })
   expect(create).toHaveBeenCalledExactlyOnceWith(projects[1])
 })
 
-it.each(['expired', 'interrupted', 'pointer', 'repeat', 'composing'])('does not create a thread for an %s chord', reason => {
+it.each([{ ctrlKey: true }, { shiftKey: true }, {}, { ctrlKey: true, shiftKey: true, altKey: true }, { ctrlKey: true, shiftKey: true, repeat: true }, { ctrlKey: true, shiftKey: true, isComposing: true }])('does not create a thread for other N key events %j', modifiers => {
   const create = setupCurrentProject(), input = screen.getByRole('textbox')
-  if (reason === 'expired') vi.mocked(performance.now).mockReturnValue(1500)
-  if (reason === 'interrupted') fireEvent.keyDown(input, { key: 'x' })
-  if (reason === 'pointer') fireEvent.pointerDown(input)
-  fireEvent.keyDown(input, { key: 'n', repeat: reason === 'repeat', isComposing: reason === 'composing' })
+  fireEvent.keyDown(input, { key: 'n', ...modifiers })
   expect(create).not.toHaveBeenCalled()
 })
 
-it('provides an explicit current-project action independent of the chord timer', () => {
+it('keeps Ctrl+N toggling between projects and sessions without creating a thread', () => {
   const create = setupCurrentProject()
-  vi.mocked(performance.now).mockReturnValue(5000)
+  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'n', ctrlKey: true })
+  expect(screen.getByRole('textbox', { name: 'Find a session' })).toBeTruthy()
+  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'n', ctrlKey: true })
+  expect(screen.getByRole('textbox', { name: 'Find a project' })).toBeTruthy()
+  expect(create).not.toHaveBeenCalled()
+})
+
+it('provides an explicit current-project action advertising Ctrl+Shift+N', () => {
+  const create = setupCurrentProject()
+  expect(screen.getByRole('button', { name: /New session in Kimaki/ }).getAttribute('aria-keyshortcuts')).toBe('Control+Shift+N Meta+Shift+N')
   fireEvent.click(screen.getByRole('button', { name: /New session in Kimaki/ }))
   expect(create).toHaveBeenCalledExactlyOnceWith(projects[1])
 })
