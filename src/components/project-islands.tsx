@@ -35,7 +35,7 @@ export function ProjectIslands({ projects, verified, now, unread, markRead, mark
         </div>
         <ProjectCollapse id={`visual-sessions-${project.id}`} collapsed={closed}>
           <div className="visual-session-grid">
-            {sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} graphical verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)}
+            {sessionOrder(project.sessions, verified, unread).map(session => <SessionRow key={session.id} session={session} graphical verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)}
             {project.sessions.length === 0 && <p className="project-empty">No recent Discord sessions.</p>}
           </div>
         </ProjectCollapse>

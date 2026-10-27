@@ -182,6 +182,32 @@ test('leaves new responses unread while reading older messages, then marks read 
   await page.getByRole('button', { name: 'Scroll to latest message', exact: true }).click()
   await expect.poll(receipt).toBe(responseAt)
 })
+test('working and unread threads reorder by latest update when a turn finishes', async ({ page }) => {
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  const base = unreadSnapshot(1), project = base.projects[0], session = project.sessions[0], now = Date.now()
+  project.sessions = [
+    { ...session, id: 'old-unread', title: 'Old unread', updatedAt: now - 3000 },
+    { ...session, id: 'old-working', title: 'Old working', status: 'working', agentCount: 1, updatedAt: now - 4000 },
+    { ...session, id: 'new-unread', title: 'New unread', updatedAt: now - 1000 },
+    { ...session, id: 'new-working', title: 'New working', status: 'working', agentCount: 1, updatedAt: now - 2000 },
+  ]
+  await page.route('**/api/snapshot', route => route.fulfill({ json: { ...base, checkedAt: Date.now(), lastSuccessAt: Date.now() } }))
+  await page.reload()
+  const titles = page.locator('.chat-manager .session-title')
+  await expect(titles).toHaveText(['New working', 'Old working', 'New unread', 'Old unread'])
+  project.sessions[1] = { ...project.sessions[1], status: 'idle', agentCount: 0, updatedAt: now + 1000 }
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(page.getByRole('button', { name: 'Mark Old working as read', exact: true })).toBeVisible()
+  await expect(titles).toHaveText(['New working', 'Old working', 'New unread', 'Old unread'])
+  project.sessions[0] = { ...project.sessions[0], updatedAt: now + 2000 }
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(titles).toHaveText(['New working', 'Old unread', 'Old working', 'New unread'])
+  await page.getByRole('button', { name: 'Group threads', exact: true }).click()
+  await page.getByRole('menuitemradio', { name: 'By state', exact: true }).click()
+  await expect(page.locator('.chat-manager .state-heading')).toHaveText(['Working 1 thread', 'Needs attention 3 threads'])
+  await expect(page.locator('.state-panel-attention .session-title')).toHaveText(['Old unread', 'Old working', 'New unread'])
+  await page.screenshot({ path: 'artifacts/production-chat/thread-activity-order.png', animations: 'disabled' })
+})
 for (const width of [430, 1440]) test(`author avatars have their own rail with aligned published and outgoing content at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })
   await fixture(page, 'submitted', true, undefined, 0, false)

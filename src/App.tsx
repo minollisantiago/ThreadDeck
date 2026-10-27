@@ -62,7 +62,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
     </div>
     <ProjectCollapse id={`sessions-${project.id}`} collapsed={collapsed}>
       <div className="project-sessions">
-        {project.sessions.length ? sessionOrder(project.sessions, verified).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)
+        {project.sessions.length ? sessionOrder(project.sessions, verified, unread).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)
           : <p className="project-empty">No recent Discord sessions.</p>}
       </div>
     </ProjectCollapse>

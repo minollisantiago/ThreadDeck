@@ -6,17 +6,17 @@ export const isGrouping = (value: unknown): value is Grouping => value === 'proj
 
 export function stateGroups(projects: Project[], verified: boolean, unread: ReadonlySet<string>) {
   const groups = [
-    { id: 'attention', label: 'Needs attention' },
     { id: 'working', label: 'Working' },
+    { id: 'attention', label: 'Needs attention' },
     { id: 'idle', label: 'Idle' },
     { id: 'unknown', label: 'Status unavailable' },
   ].map(group => ({ ...group, threads: [] as { session: Session; project: Project }[] }))
   for (const project of projects) for (const session of project.sessions) {
-    const state = unread.has(session.id) || verified && isAttention(session.status) ? 'attention'
-      : !verified ? 'unknown' : session.agentCount > 0 || session.status === 'working' ? 'working' : 'idle'
+    const state = verified && (session.agentCount > 0 || session.status === 'working') ? 'working'
+      : unread.has(session.id) || verified && isAttention(session.status) ? 'attention' : !verified ? 'unknown' : 'idle'
     groups.find(group => group.id === state)!.threads.push({ session, project })
   }
-  for (const group of groups) group.threads.sort((a, b) => b.session.updatedAt - a.session.updatedAt || a.session.id.localeCompare(b.session.id))
+  for (const group of groups) group.threads.sort((a, b) => compareSessions(a.session, b.session, verified, unread))
   return groups.filter(group => group.threads.length > 0)
 }
 
@@ -38,8 +38,12 @@ export function projectOrder(projects: Project[], verified: boolean, unread: Rea
     return active(b) - active(a) || a.name.localeCompare(b.name)
   })
 }
-export function sessionOrder(sessions: Session[], verified: boolean) {
-  return [...sessions].sort((a, b) => Number(verified && b.agentCount > 0) - Number(verified && a.agentCount > 0))
+function compareSessions(a: Session, b: Session, verified: boolean, unread: ReadonlySet<string>) {
+  const priority = (session: Session) => verified && (session.agentCount > 0 || session.status === 'working') ? 0 : unread.has(session.id) ? 1 : verified && isAttention(session.status) ? 2 : 3
+  return priority(a) - priority(b) || b.updatedAt - a.updatedAt || a.id.localeCompare(b.id)
+}
+export function sessionOrder(sessions: Session[], verified: boolean, unread: ReadonlySet<string> = new Set()) {
+  return [...sessions].sort((a, b) => compareSessions(a, b, verified, unread))
 }
 export function relativeTime(timestamp: number, now: number) {
   const seconds = Math.max(0, Math.floor((now - timestamp) / 1000))

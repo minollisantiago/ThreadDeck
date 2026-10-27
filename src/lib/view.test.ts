@@ -6,13 +6,13 @@ const projects: Project[] = [
   { id: 'one', name: 'Alpha', directory: '/alpha', sessions: [{ id: 'a', title: 'Fix layout', projectId: 'one', guildId: null, threadId: '1', status: 'working', updatedAt: 100, agentCount: 1 }] },
   { id: 'two', name: 'Beta', directory: '/beta', sessions: [{ id: 'b', title: 'Ask a question', projectId: 'two', guildId: null, threadId: '2', status: 'input', updatedAt: 10, agentCount: 0 }] },
 ]
-it('groups across projects with attention first, no duplicates and newest activity first', () => {
+it('groups across projects with working first, no duplicates and newest activity first', () => {
   const mixed = projects.map(project => ({ ...project, sessions: [...project.sessions] }))
   mixed[0].sessions.push({ ...projects[0].sessions[0], id: 'idle', status: 'idle', agentCount: 0 })
   mixed[1].sessions.push({ ...projects[1].sessions[0], id: 'unread', status: 'working', agentCount: 1, updatedAt: 200 })
   const groups = stateGroups(mixed, true, new Set(['unread']))
-  expect(groups.map(group => group.id)).toEqual(['attention', 'working', 'idle'])
-  expect(groups[0].threads.map(thread => thread.session.id)).toEqual(['unread', 'b'])
+  expect(groups.map(group => group.id)).toEqual(['working', 'attention', 'idle'])
+  expect(groups[0].threads.map(thread => thread.session.id)).toEqual(['unread', 'a'])
   expect(groups.flatMap(group => group.threads)).toHaveLength(4)
   expect(groups[0].threads[0].project.name).toBe('Beta')
   expect(mixed[1].sessions.map(session => session.id)).toEqual(['b', 'unread'])
@@ -57,12 +57,25 @@ it('orders active projects first without mutating the source', () => {
   expect(projectOrder([idle, projects[1]], true).map(p => p.id)).toEqual(['two', 'one'])
   expect(projects[0].name).toBe('Alpha')
 })
-it('puts working sessions first while preserving the order within each group', () => {
+it('puts working sessions first and orders the remaining statuses by latest update', () => {
   const idle = { ...projects[0].sessions[0], id: 'idle', status: 'idle' as const, agentCount: 0 }
   const working = projects[0].sessions[0]
   const attention = projects[1].sessions[0]
   const sessions = [idle, working, attention, { ...working, id: 'other-working', agentCount: 2 }]
-  expect(sessionOrder(sessions, true).map(s => s.id)).toEqual(['a', 'other-working', 'idle', 'b'])
+  expect(sessionOrder(sessions, true).map(s => s.id)).toEqual(['a', 'other-working', 'b', 'idle'])
   expect(sessions.map(s => s.id)).toEqual(['idle', 'a', 'b', 'other-working'])
-  expect(sessionOrder(sessions, false)).toEqual(sessions)
+  expect(sessionOrder(sessions, false).map(s => s.id)).toEqual(['a', 'idle', 'other-working', 'b'])
+})
+it('orders working and unread flags newest first, including a just-finished response', () => {
+  const base = projects[0].sessions[0]
+  const sessions = [
+    { ...base, id: 'old-unread', status: 'idle' as const, agentCount: 0, updatedAt: 300 },
+    { ...base, id: 'old-working', updatedAt: 100 },
+    { ...base, id: 'new-unread', status: 'idle' as const, agentCount: 0, updatedAt: 500 },
+    { ...base, id: 'new-working', updatedAt: 400 },
+  ]
+  const unread = new Set(['old-unread', 'new-unread'])
+  expect(sessionOrder(sessions, true, unread).map(session => session.id)).toEqual(['new-working', 'old-working', 'new-unread', 'old-unread'])
+  const finished = sessions.map(session => session.id === 'old-working' ? { ...session, status: 'idle' as const, agentCount: 0, updatedAt: 600 } : session)
+  expect(sessionOrder(finished, true, new Set([...unread, 'old-working'])).map(session => session.id)).toEqual(['new-working', 'old-working', 'new-unread', 'old-unread'])
 })
