@@ -28,6 +28,7 @@ export function ConversationPane({ target, focusRequest, sidebar, close, created
   const [outgoing, setOutgoing] = useState<Outgoing[]>(() => pending?.optimistic ? [{ ...pending, state: 'accepted', messageIds: [] }] : [])
   const submissionLock = useRef(Boolean(pending))
   const [receipt, setReceipt] = useState<OperationReceipt | null>(null), [operationError, setOperationError] = useState(''), [newMessages, setNewMessages] = useState(false)
+  const [aboveLatest, setAboveLatest] = useState(false)
   const transcript = useRef<HTMLDivElement>(null), following = useRef(true), initialized = useRef(false), count = useRef(0), savingPage = useRef(false)
   const latest = useRef({ draft, pending, created, target }); latest.current = { draft, pending, created, target }
   const links = session ? discordLinks(session) : null
@@ -35,7 +36,7 @@ export function ConversationPane({ target, focusRequest, sidebar, close, created
   const deliveredReply = Boolean(session?.responseAt != null && conversation.messages.some(message => message.author.bot && Date.parse(message.edited_timestamp || message.timestamp) >= session.responseAt!))
   useEffect(() => {
     const request = (event: Event) => {
-      if (transcript.current) scrolls.set(key, transcript.current.scrollTop)
+      if (transcript.current && initialized.current) scrolls.set(key, transcript.current.scrollTop)
       setPreview(null)
       if ((event as CustomEvent).detail === 'toggle') setExpanded(value => !value)
       requestAnimationFrame(() => window.dispatchEvent(new Event('threaddeck:composer-focus')))
@@ -113,7 +114,7 @@ export function ConversationPane({ target, focusRequest, sidebar, close, created
   }, [conversation.messages, receipt])
   useLayoutEffect(() => {
     const node = transcript.current
-    if (node && !expanded && !preview && scrolls.has(key)) { node.scrollTop = scrolls.get(key)!; following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80 }
+    if (node && !expanded && !preview && scrolls.has(key)) { node.scrollTop = scrolls.get(key)!; following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; setAboveLatest(!following.current) }
   }, [expanded, preview])
   useLayoutEffect(() => {
     const node = transcript.current
@@ -122,12 +123,14 @@ export function ConversationPane({ target, focusRequest, sidebar, close, created
     else if (!savingPage.current && following.current) node.scrollTop = node.scrollHeight
     else if (conversation.messages.length > count.current && !following.current) setNewMessages(true)
     count.current = conversation.messages.length
+    setAboveLatest(!following.current)
     if (following.current && !preview && session && deliveredReply) markRead(session)
   }, [conversation.messages, outgoing, expanded, preview, session?.responseAt, info, bridgeError, conversation.loading, conversation.error])
   function remember() {
     const node = transcript.current
     if (!node) return
     scrolls.set(key, node.scrollTop); following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80
+    setAboveLatest(!following.current)
     if (following.current) { setNewMessages(false); if (session && deliveredReply && info && !bridgeError && !conversation.loading && !conversation.error) markRead(session) }
   }
   const block = bridgeError || conversation.error
@@ -141,11 +144,11 @@ export function ConversationPane({ target, focusRequest, sidebar, close, created
         {!session && <div className="chat-welcome"><h2>Start a conversation</h2><p>Your first prompt creates a linked Kimaki session and Discord thread in {project.name}.</p></div>}
         {session && <PublishedMessages messages={conversation.messages} threadId={session.threadId} discordUrl={links?.browser} preview={(name, url) => { remember(); setPreview({ name, url }) }} />}
         {outgoing.filter(item => !item.messageIds.some(id => conversation.messages.some(message => message.id === id))).map(item => <OutgoingMessage key={item.id} text={item.text} files={item.attachments || item.files.map(id => ({ id, name: 'Attached file' }))} state={item.state} queued={item.delivery === 'queue'} canRestore={!draft.conflict && !draft.draft.text && !draft.draft.files.length} restore={() => { if (!draft.conflict && !draft.current.current.text && !draft.current.current.files.length) draft.save({ text: item.text, files: item.attachments || [], anchor: item.text.length, head: item.text.length }) }} />)}
-        {newMessages && <button className="chat-new-messages" onClick={() => { if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight; setNewMessages(false) }}>New messages <ArrowDown size={13} /></button>}
       </> }</div>}
       {!block && conversation.stale && <p className="chat-error">Discord connection is stale. The transcript may be incomplete.</p>}
       {draft.conflict && <div className="chat-error" role="alert">This draft changed in another window. <button onClick={draft.keep}>Keep my draft</button><button onClick={draft.reload}>Load saved draft</button></div>}
       {draft.storageError && <p className="chat-error">Draft is in memory only: browser storage is unavailable.</p>}
+      {aboveLatest && !expanded && !block && !loading && <div className="chat-scroll-anchor"><button className="chat-jump-latest" aria-label="Scroll to latest message" title="Scroll to latest message" onClick={() => { if (transcript.current) { transcript.current.scrollTop = transcript.current.scrollHeight; remember() } }}><ArrowDown size={16} />{newMessages ? 'New messages' : 'Jump to latest'}</button></div>}
       <PromptComposer model={session?.model} draft={draft.draft} change={draft.save} expanded={expanded && !block && !loading} toggle={() => { remember(); setExpanded(value => !value) }} enabled={!loading && !block && !conversation.stale && !draft.conflict} busy={busy && !loading && !block && !conversation.stale} pending={Boolean(pending)} catalog={catalog} submit={submit} stop={() => { if (session && confirm('Stop the current turn and clear its queued prompts?')) void chatRequest(`threads/${session.threadId}/abort`, z.object({ stopped: z.boolean() }), jsonRequest({})).catch(error => setOperationError(error.message)) }} />
       {(operationError || pending && ['unknown', 'failed'].includes(receipt?.state || '')) && <div className="chat-operation" role="status"><strong>{receipt?.state || 'Submission needs attention'}</strong>{receipt?.state === 'unknown' && <span>Delivery uncertain. Your prompt was saved. Inspect Discord before deciding to send again.</span>}{operationError && <span>{operationError}</span>}{pending && <small>Operation {pending.id}</small>}{pending && <button onClick={() => { if (confirm('This does not undo the submission. Only clear the delivery guard after checking Discord and confirming it is safe to submit again.')) { localStorage.removeItem(pendingKey); setPending(null); setReceipt(null); submissionLock.current = false } }}>Resolve delivery guard…</button>}</div>}
     </>}

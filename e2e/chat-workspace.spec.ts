@@ -35,6 +35,37 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
   }
   return submissions
 }
+for (const width of [430, 1440]) test(`jump to latest floats above the composer while reading older messages at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1050 })
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'scroll:0', before: null, stale: false, messages: Array.from({ length: 30 }, (_, index) => ({
+    id: String(100000000000000100n + BigInt(index)), channel_id: threadId,
+    author: { id: index % 2 ? 'bot' : 'user', username: index % 2 ? 'Kimaki' : 'You', bot: Boolean(index % 2) },
+    timestamp: '2026-10-26T07:02:00Z', content: `Message ${index + 1}\n\nA conversation long enough to scroll through earlier replies.`, attachments: [], components: [], embeds: [],
+  })) } }))
+  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await expect(page.getByText('Message 30', { exact: false })).toBeVisible()
+  const transcript = page.getByLabel('Conversation messages', { exact: true })
+  const jump = page.getByRole('button', { name: 'Scroll to latest message', exact: true })
+  await expect(jump).toHaveCount(0)
+  const input = page.getByRole('textbox', { name: 'Write a prompt' })
+  await input.fill('Keep this draft')
+  await transcript.evaluate(node => { node.scrollTop = node.scrollHeight / 2 })
+  await expect(jump).toBeVisible()
+  const button = await jump.boundingBox(), composer = await page.locator('.chat-composer-box').boundingBox()
+  expect(Math.abs(button!.x + button!.width / 2 - (composer!.x + composer!.width / 2))).toBeLessThan(2)
+  expect(button!.y + button!.height).toBeLessThan(composer!.y)
+  await transcript.evaluate(node => { node.scrollTop = 0 })
+  await expect(jump).toBeVisible()
+  await jump.click()
+  await expect(jump).toHaveCount(0)
+  expect(await transcript.evaluate(node => node.scrollHeight - node.scrollTop - node.clientHeight)).toBeLessThan(2)
+  await expect(input).toHaveValue('Keep this draft')
+  await transcript.evaluate(node => { node.scrollTop = 0 })
+  await expect(jump).toBeVisible()
+  await transcript.evaluate(node => { node.scrollTop = node.scrollHeight })
+  await expect(jump).toHaveCount(0)
+})
 test.describe('message clocks', () => {
   test.use({ locale: 'en-GB', timezoneId: 'America/Los_Angeles' })
   for (const width of [430, 1440]) test(`shows local dates beside authors without pushing clocks to the edge at ${width}px`, async ({ page }) => {

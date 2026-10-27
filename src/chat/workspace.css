@@ -101,7 +101,8 @@
 .chat-image-dialog { position: fixed; inset: 0; margin: auto; width: fit-content; height: fit-content; min-width: min(180px, 96vw); max-width: 96vw; max-height: 94dvh; padding: 44px 18px 18px; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; color: var(--text); }
 .chat-image-dialog::backdrop { background: #000b; }.chat-image-dialog button { position: absolute; top: 10px; right: 14px; font-size: 12px; }.chat-image-dialog .chat-image-preview { display: grid; place-items: center; }.chat-image-dialog img { max-height: min(80dvh, calc(94dvh - 64px)); max-width: min(90vw, calc(96vw - 38px)); }
 .chat-load-earlier { display: block; margin: 0 auto 24px; color: var(--accent-ink) !important; font-size: 12px; }
-.chat-new-messages { display: flex; gap: 8px; align-items: center; position: sticky; bottom: 0; margin: 0 auto; padding: 10px 14px; background: var(--row); color: var(--accent-ink) !important; font-size: 12px; }
+.chat-scroll-anchor { position: relative; height: 0; flex-shrink: 0; z-index: 2; }
+.chat-jump-latest { display: flex; gap: 8px; align-items: center; position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 9px 14px; border: 1px solid var(--rule) !important; border-radius: 999px; background: var(--surface); color: var(--accent-ink) !important; box-shadow: 0 3px 12px #0002; font-size: 12px; }
 .chat-composer { width: 100%; max-width: 930px; margin: 0 auto; padding: 0 34px 14px; flex-shrink: 0; position: relative; }
 .chat-composer-box { position: relative; background: var(--surface); border: 1px solid var(--rule); border-radius: 15px; overflow: hidden; }
 .dragging-files .chat-composer-box { border-color: var(--accent); outline: 1px dashed var(--accent); outline-offset: 4px; }
