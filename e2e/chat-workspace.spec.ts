@@ -52,6 +52,7 @@ for (const width of [430, 1440]) test(`jump to latest floats above the composer 
   await input.fill('Keep this draft')
   await transcript.evaluate(node => { node.scrollTop = node.scrollHeight / 2 })
   await expect(jump).toBeVisible()
+  await expect(jump).toHaveText('')
   const button = await jump.boundingBox(), composer = await page.locator('.chat-composer-box').boundingBox()
   expect(Math.abs(button!.x + button!.width / 2 - (composer!.x + composer!.width / 2))).toBeLessThan(2)
   expect(button!.y + button!.height).toBeLessThan(composer!.y)

@@ -27,9 +27,9 @@ export function ConversationPane({ target, focusRequest, sidebar, close, created
   const [pending, setPending] = useState<Pending | null>(() => { try { const saved = pendingSchema.parse(JSON.parse(localStorage.getItem(pendingKey) || 'null')); return { ...saved, attachments: saved.attachments?.map(file => ({ ...file, available: false })) } } catch { return null } })
   const [outgoing, setOutgoing] = useState<Outgoing[]>(() => pending?.optimistic ? [{ ...pending, state: 'accepted', messageIds: [] }] : [])
   const submissionLock = useRef(Boolean(pending))
-  const [receipt, setReceipt] = useState<OperationReceipt | null>(null), [operationError, setOperationError] = useState(''), [newMessages, setNewMessages] = useState(false)
+  const [receipt, setReceipt] = useState<OperationReceipt | null>(null), [operationError, setOperationError] = useState('')
   const [aboveLatest, setAboveLatest] = useState(false)
-  const transcript = useRef<HTMLDivElement>(null), following = useRef(true), initialized = useRef(false), count = useRef(0), savingPage = useRef(false)
+  const transcript = useRef<HTMLDivElement>(null), following = useRef(true), initialized = useRef(false), savingPage = useRef(false)
   const latest = useRef({ draft, pending, created, target }); latest.current = { draft, pending, created, target }
   const links = session ? discordLinks(session) : null
   const busy = session?.status === 'working' || Boolean(session?.agentCount)
@@ -121,8 +121,6 @@ export function ConversationPane({ target, focusRequest, sidebar, close, created
     if (!node || !info || bridgeError || conversation.loading || conversation.error) return
     if (!initialized.current && conversation.messages.length) { node.scrollTop = scrolls.get(key) ?? node.scrollHeight; following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80; initialized.current = true }
     else if (!savingPage.current && following.current) node.scrollTop = node.scrollHeight
-    else if (conversation.messages.length > count.current && !following.current) setNewMessages(true)
-    count.current = conversation.messages.length
     setAboveLatest(!following.current)
     if (following.current && !preview && session && deliveredReply) markRead(session)
   }, [conversation.messages, outgoing, expanded, preview, session?.responseAt, info, bridgeError, conversation.loading, conversation.error])
@@ -131,7 +129,7 @@ export function ConversationPane({ target, focusRequest, sidebar, close, created
     if (!node) return
     scrolls.set(key, node.scrollTop); following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80
     setAboveLatest(!following.current)
-    if (following.current) { setNewMessages(false); if (session && deliveredReply && info && !bridgeError && !conversation.loading && !conversation.error) markRead(session) }
+    if (following.current && session && deliveredReply && info && !bridgeError && !conversation.loading && !conversation.error) markRead(session)
   }
   const block = bridgeError || conversation.error
   const loading = !block && (!info || conversation.loading)
@@ -148,7 +146,7 @@ export function ConversationPane({ target, focusRequest, sidebar, close, created
       {!block && conversation.stale && <p className="chat-error">Discord connection is stale. The transcript may be incomplete.</p>}
       {draft.conflict && <div className="chat-error" role="alert">This draft changed in another window. <button onClick={draft.keep}>Keep my draft</button><button onClick={draft.reload}>Load saved draft</button></div>}
       {draft.storageError && <p className="chat-error">Draft is in memory only: browser storage is unavailable.</p>}
-      {aboveLatest && !expanded && !block && !loading && <div className="chat-scroll-anchor"><button className="chat-jump-latest" aria-label="Scroll to latest message" title="Scroll to latest message" onClick={() => { if (transcript.current) { transcript.current.scrollTop = transcript.current.scrollHeight; remember() } }}><ArrowDown size={16} />{newMessages ? 'New messages' : 'Jump to latest'}</button></div>}
+      {aboveLatest && !expanded && !block && !loading && <div className="chat-scroll-anchor"><button className="chat-jump-latest" aria-label="Scroll to latest message" title="Scroll to latest message" onClick={() => { if (transcript.current) { transcript.current.scrollTop = transcript.current.scrollHeight; remember() } }}><ArrowDown size={16} /></button></div>}
       <PromptComposer model={session?.model} draft={draft.draft} change={draft.save} expanded={expanded && !block && !loading} toggle={() => { remember(); setExpanded(value => !value) }} enabled={!loading && !block && !conversation.stale && !draft.conflict} busy={busy && !loading && !block && !conversation.stale} pending={Boolean(pending)} catalog={catalog} submit={submit} stop={() => { if (session && confirm('Stop the current turn and clear its queued prompts?')) void chatRequest(`threads/${session.threadId}/abort`, z.object({ stopped: z.boolean() }), jsonRequest({})).catch(error => setOperationError(error.message)) }} />
       {(operationError || pending && ['unknown', 'failed'].includes(receipt?.state || '')) && <div className="chat-operation" role="status"><strong>{receipt?.state || 'Submission needs attention'}</strong>{receipt?.state === 'unknown' && <span>Delivery uncertain. Your prompt was saved. Inspect Discord before deciding to send again.</span>}{operationError && <span>{operationError}</span>}{pending && <small>Operation {pending.id}</small>}{pending && <button onClick={() => { if (confirm('This does not undo the submission. Only clear the delivery guard after checking Discord and confirming it is safe to submit again.')) { localStorage.removeItem(pendingKey); setPending(null); setReceipt(null); submissionLock.current = false } }}>Resolve delivery guard…</button>}</div>}
     </>}
