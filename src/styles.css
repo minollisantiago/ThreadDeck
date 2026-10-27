@@ -435,6 +435,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .search-field .search-shortcuts kbd { position: static; display: block; }
 .app-tooltip { z-index: 100; max-width: min(360px, calc(100vw - 24px)); padding: 8px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--text); box-shadow: 0 8px 24px #0003; font: 11px/1.7 var(--font); white-space: pre-line; overflow-wrap: anywhere; }
 .app-tooltip-arrow { fill: var(--surface); }
+[data-radix-popper-content-wrapper]:has(> .app-tooltip-cursor) { pointer-events: none; }
 .toolbar .advanced-search { order: 1; flex-shrink: 0; }
 @media(max-width:600px) {
   .toolbar:has(.chat-create-thread) { grid-template-columns: minmax(0, 1fr) 40px 40px; }
