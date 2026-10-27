@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { z } from 'zod'
-import { ArrowDown, ArrowLeft, Menu } from 'lucide-react'
+import { ArrowDown } from 'lucide-react'
 import { discordLinks, type Project, type Session } from '../../shared/model'
 import { catalogSchema, chatFileSchema, chatInfoSchema, receiptSchema, type ChatCatalog, type ChatInfo, type OperationReceipt } from '../../shared/chat'
 import { ChatRequestError, chatRequest, jsonRequest } from './api'
@@ -12,13 +12,14 @@ import { useConversation } from './use-conversation'
 import { ChatState } from './chat-state'
 import { OutgoingMessage } from './outgoing-message'
 import { ConversationSkeleton } from './conversation-skeleton'
+import { SidebarToggle } from './sidebar-toggle'
 
 export type ChatTarget = { session: Session; project: Project } | { session?: undefined; project: Project }
 const pendingSchema = z.object({ id: z.uuid(), text: z.string(), files: z.array(z.string()), attachments: z.array(chatFileSchema.extend({ available: z.boolean().optional() })).optional(), optimistic: z.boolean().optional(), delivery: z.enum(['send', 'queue']).optional() })
 type Pending = z.infer<typeof pendingSchema>
 type Outgoing = Pending & { state: OperationReceipt['state']; messageIds: string[] }
 const scrolls = new Map<string, number>()
-export function ConversationPane({ target, focusRequest, sidebar, close, created, markRead }: { target: ChatTarget; focusRequest: number; sidebar: () => void; close: () => void; created: (session: Session, project: Project) => void; markRead: (session: Session) => void }) {
+export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarOpen, sidebar, created, markRead }: { target: ChatTarget; focusRequest: number; mobileSidebar: boolean; sidebarOpen: boolean; sidebar: () => void; created: (session: Session, project: Project) => void; markRead: (session: Session) => void }) {
   const { session, project } = target, key = session?.id || `new:${project.id}`, pendingKey = `threaddeck:chat-operation:${key}`
   const [retry, setRetry] = useState(0)
   const draft = useDraft(key), conversation = useConversation(session?.threadId, retry)
@@ -134,7 +135,7 @@ export function ConversationPane({ target, focusRequest, sidebar, close, created
   const block = bridgeError || conversation.error
   const loading = !block && (!info || conversation.loading)
   return <main className="chat-pane" data-chat-ready>
-    <header className="chat-pane-header"><button aria-label="Toggle session sidebar" onClick={sidebar}><Menu size={18} /></button><div><span className="chat-channel-name" title={`# ${project.name}`}><span className="channel-hash" aria-hidden="true">#</span> {project.name}</span><strong>{links && session ? <a className="chat-thread-title" href={links.app} title="Open this thread in Discord">{session.title}</a> : session?.title || 'New conversation'}</strong></div>{links && <a href={links.app}>Discord ↗</a>}<button aria-label="Close conversation" onClick={close}><ArrowLeft size={16} /></button></header>
+    <header className="chat-pane-header">{mobileSidebar && <SidebarToggle open={sidebarOpen} toggle={sidebar} />}<div><span className="chat-channel-name" title={`# ${project.name}`}><span className="channel-hash" aria-hidden="true">#</span> {project.name}</span><strong>{links && session ? <a className="chat-thread-title" href={links.app} title="Open this thread in Discord">{session.title}</a> : session?.title || 'New conversation'}</strong></div>{links && <a href={links.app}>Discord ↗</a>}</header>
     {preview ? <HtmlPreview name={preview.name} url={preview.url} close={() => setPreview(null)} /> : <>
       {(!expanded || block || loading) && <div ref={transcript} className={`chat-transcript ${block || loading ? 'chat-transcript-state' : ''}`} tabIndex={0} aria-label="Conversation messages" aria-busy={loading} onScroll={remember}>
         {block ? <ChatState title="Can’t connect to this conversation" detail={block}><button onClick={() => setRetry(value => value + 1)}>Reconnect</button>{links && <a href={links.app}>Continue in Discord ↗</a>}</ChatState> : loading ? session ? <ConversationSkeleton /> : <ChatState loading title="Preparing your workspace" detail="Connecting to Kimaki before your next thread." /> : <>

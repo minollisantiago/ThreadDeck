@@ -9,6 +9,7 @@ import { SelectedSession, SessionNavigation, WorkspaceControls } from './navigat
 import type { ChatTarget } from './pane'
 import { mobileManagerStyle } from './mobile-style'
 import { ConversationSkeleton } from './conversation-skeleton'
+import { SidebarToggle } from './sidebar-toggle'
 import './workspace.css'
 const ConversationPane = lazy(async () => ({ default: (await import('./pane')).ConversationPane }))
 const sidebarMinWidth = 430, sidebarMaxRatio = .3
@@ -115,7 +116,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
       if (document.querySelector('dialog[open]')) return
       if (event.key === 'Escape' && !document.querySelector('[popover]:popover-open')) { event.preventDefault(); setDrawer(false) }
       if (event.key === 'Tab' && manager.current) {
-        const controls = [...manager.current.querySelectorAll<HTMLElement>('button,input,a')].filter(el => el.getBoundingClientRect().width > 0)
+        const controls = [...manager.current.querySelectorAll<HTMLElement>('button,input,a,select')].filter(el => !el.hasAttribute('disabled') && el.getBoundingClientRect().width > 0)
         const first = controls[0], last = controls.at(-1)
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
@@ -127,17 +128,22 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const active = target?.session ? sessions.find(s => s.id === target.session!.id) || target.session : undefined
   const selected = target ? { ...target, ...(active && { session: active }) } : null
   const maxWidth = Math.floor(viewportWidth * sidebarMaxRatio), sidebarWidth = Math.max(sidebarMinWidth, Math.min(width, maxWidth))
-  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, create: () => { setNewThread(true); setFinder(true) }, threadId: active?.threadId }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+  const sidebarOpen = !target || (narrow ? drawer : sidebar)
+  const toggleSidebar = () => { if (target) { if (narrow) setDrawer(value => !value); else setSidebar(value => !value) } }
+  return <SelectedSession.Provider value={active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, create: () => { setNewThread(true); setFinder(true) }, threadId: active?.threadId, ...(target && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!target ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
     <style>{mobileManagerStyle}</style>
-    {target && narrow && drawer && <button className="chat-drawer-backdrop" aria-label="Close sidebar" onClick={() => setDrawer(false)} />}
-    {(!target || !narrow && sidebar || narrow && drawer) && <aside ref={manager} className={`chat-manager ${target && narrow ? 'drawer' : ''}`} aria-label="Session manager" {...(target && narrow ? { role: 'dialog', 'aria-modal': true } : {})}>{children}</aside>}
+    {target && narrow && <button className="chat-drawer-backdrop" data-open={drawer} aria-hidden={!drawer} tabIndex={drawer ? 0 : -1} aria-label="Close sidebar" onClick={() => setDrawer(false)} />}
+    <div className={`chat-sidebar-slot ${target && narrow ? 'mobile' : ''}`} data-open={sidebarOpen}>
+      <aside id="session-manager" ref={manager} inert={!sidebarOpen} aria-hidden={!sidebarOpen} data-open={sidebarOpen} className={`chat-manager ${target && narrow ? 'drawer' : ''}`} aria-label="Session manager" {...(target && narrow && drawer ? { role: 'dialog', 'aria-modal': true } : {})}>{children}</aside>
+      {target && !narrow && !sidebar && <SidebarToggle open={false} toggle={toggleSidebar} className="chat-sidebar-reopen" />}
+    </div>
     {target && !narrow && sidebar && <div className="chat-resizer" role="separator" tabIndex={0} aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin={sidebarMinWidth} aria-valuemax={maxWidth} aria-valuenow={sidebarWidth} onPointerDown={event => {
       const element = event.currentTarget; element.setPointerCapture(event.pointerId)
       const move = (e: PointerEvent) => setWidth(Math.max(sidebarMinWidth, Math.min(maxWidth, e.clientX)))
       const stop = () => { element.removeEventListener('pointermove', move); element.removeEventListener('pointerup', stop); element.removeEventListener('pointercancel', stop) }
       element.addEventListener('pointermove', move); element.addEventListener('pointerup', stop); element.addEventListener('pointercancel', stop)
     }} onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(Math.max(sidebarMinWidth, Math.min(maxWidth, sidebarWidth + (e.key === 'ArrowRight' ? 20 : -20)))) } }} />}
-    {selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} sidebar={() => narrow ? setDrawer(value => !value) : setSidebar(value => !value)} close={() => setTarget(null)} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
+    {selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} mobileSidebar={narrow} sidebarOpen={sidebarOpen} sidebar={toggleSidebar} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
     {!target && <main className="chat-pane chat-empty-workspace"><div><Layers2 size={36} strokeWidth={1.2} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find or start a thread <kbd>Ctrl K</kbd></button></div></main>}
     {!target && <button className="chat-manager-new" onClick={find}><Plus size={15} />New / find conversation <kbd>Ctrl K</kbd></button>}
     {finder && <SessionFinder initialNewThread={newThread} sessions={sessions} projects={projects} select={open} create={project => { setTarget({ project }); setFocusRequest(value => value + 1); setFinder(false); setDrawer(false) }} close={() => { setFinder(false); setNewThread(false) }} history={() => { setFinder(false); setHistoryOpen(true) }} />}

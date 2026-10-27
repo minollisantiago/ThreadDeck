@@ -23,6 +23,7 @@ import { isActive, isAttention, type Project, type Session, type Snapshot } from
 import { snapshotStaleAfterMs } from '../shared/update-timing'
 import { WorkspaceControls } from './chat/navigation'
 import { ChatWorkspace } from './chat/workspace'
+import { SidebarToggle } from './chat/sidebar-toggle'
 import { isGrouping, projectOrder, sessionOrder, stateGroups, visibleProjects, workingCount, type Filter, type Grouping } from './lib/view'
 
 function saved<T>(key: string, fallback: T, validate: (value: unknown) => value is T): T {
@@ -141,6 +142,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   return <>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design={design}>
     <header className="page-header">
       <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><h1>ThreadDeck</h1></div>
+      {workspace?.toggleSidebar && <SidebarToggle open={Boolean(workspace.sidebarOpen)} toggle={workspace.toggleSidebar} />}
       <HeaderControls compact={workspace?.compact} appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
     </header>
 
