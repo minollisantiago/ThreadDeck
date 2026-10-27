@@ -18,7 +18,7 @@ for (const width of [430, 1440]) test(`new-session shortcut and advanced search 
   await expect(page.getByRole('tooltip', { name: /Ctrl\s*\+\s*N/ })).toBeHidden()
   await advanced.hover()
   await expect(page.getByRole('tooltip', { name: /Double Space/ })).toBeVisible()
-  await expect(page.getByRole('tooltip', { name: /Double Space/ }).locator('[data-slot="kbd"]')).toHaveText('Double Space')
+  await expect(page.getByRole('tooltip', { name: /Ctrl\s*\+\s*K.*Double Space/ }).locator('[data-slot="kbd"]')).toHaveText(['Ctrl', 'K', 'Double Space'])
   await advanced.click()
   await expect(page.getByRole('dialog', { name: 'Find a session', exact: true })).toBeVisible()
   await page.getByRole('textbox', { name: 'Find a session', exact: true }).fill('prll')
