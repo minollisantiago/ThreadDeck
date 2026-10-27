@@ -30,7 +30,7 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
   const flags = useRef<HTMLDivElement>(null)
   useChangeMotion(flags, `${status}:${unread}:${unread ? session.responseAt ?? '' : ''}`, 120, 2)
   const Icon = status === 'working' ? LoaderCircle : status === 'idle' ? CirclePause : status === 'permission' ? ShieldQuestion : CircleAlert
-  return <TooltipHint followCursor label={<div className="session-tooltip"><strong>{session.title}</strong><span>Updated {relativeTime(session.updatedAt, now)}</span><time dateTime={new Date(session.updatedAt).toISOString()}>{new Date(session.updatedAt).toLocaleString()}</time></div>}><div ref={row} tabIndex={0} aria-haspopup="menu" className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''} ${graphical ? 'session-tile' : ''}`} data-state={status} data-selected={selected} onContextMenu={event => {
+  return <TooltipHint followCursor disabled={Boolean(menu)} label={<div className="session-tooltip"><strong>{session.title}</strong><span>Updated {relativeTime(session.updatedAt, now)}</span><time dateTime={new Date(session.updatedAt).toISOString()}>{new Date(session.updatedAt).toLocaleString()}</time></div>}><div ref={row} tabIndex={0} aria-haspopup="menu" className={`session-row ${attention || unread ? 'session-attention' : ''} ${unread ? 'session-unread' : ''} ${graphical ? 'session-tile' : ''}`} data-state={status} data-selected={selected} onContextMenu={event => {
     event.preventDefault()
     event.stopPropagation()
     setMenu({ x: event.clientX, y: event.clientY })

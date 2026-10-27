@@ -16,13 +16,15 @@ export function TooltipContent({ className, sideOffset = 6, container, children,
 }
 
 /** Keep the trigger's DOM/layout intact, including in native top-layer dialogs and popovers. */
-export function TooltipHint({ label, children, onTriggerFocus, followCursor = false }: { label: React.ReactNode; children: React.ReactElement; onTriggerFocus?: React.FocusEventHandler<HTMLElement>; followCursor?: boolean }) {
+export function TooltipHint({ label, children, onTriggerFocus, followCursor = false, disabled = false }: { label: React.ReactNode; children: React.ReactElement; onTriggerFocus?: React.FocusEventHandler<HTMLElement>; followCursor?: boolean; disabled?: boolean }) {
   const provided = React.useContext(ProviderContext)
   const [container, setContainer] = React.useState<HTMLElement>()
+  const [open, setOpen] = React.useState(false)
+  React.useEffect(() => { if (disabled) setOpen(false) }, [disabled])
   const [cursor, setCursor] = React.useState<{ side: 'left' | 'right'; offset: number; align: number; width: number } | null>(null)
   const trigger = React.useCallback((node: HTMLElement | null) => { setContainer(node?.closest<HTMLElement>('dialog,[popover]') ?? undefined) }, [])
   if (!label) return children
-  const tooltip = <Tooltip disableHoverableContent={followCursor || undefined}><TooltipTrigger asChild ref={trigger} onFocus={event => { setCursor(null); onTriggerFocus?.(event) }} onPointerMove={followCursor ? event => {
+  const tooltip = <Tooltip open={!disabled && open} onOpenChange={next => setOpen(!disabled && next)} disableHoverableContent={followCursor || undefined}><TooltipTrigger asChild ref={trigger} onFocus={event => { setCursor(null); onTriggerFocus?.(event) }} onPointerMove={followCursor ? event => {
     if (event.pointerType === 'touch') return
     const rect = event.currentTarget.getBoundingClientRect(), right = window.innerWidth - event.clientX
     // Offset Radix's row anchor to the pointer. Keep a 20px horizontal gap;
