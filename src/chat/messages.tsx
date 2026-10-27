@@ -22,7 +22,7 @@ function ImageViewer({ src, name, opener, close }: { src: string; name: string; 
   useLayoutEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => { dialog?.close(); if (opener.isConnected) opener.focus() } }, [opener])
   return <dialog className="chat-image-dialog" ref={ref} aria-label={name} onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === ref.current) close() }}><button autoFocus onClick={close}>Close image</button><ImagePreview key={src} src={src} name={name} /></dialog>
 }
-export function PublishedMessages({ messages, threadId, discordUrl, preview }: { messages: PublishedMessage[]; threadId: string; discordUrl?: string; preview: (name: string, url: string) => void }) {
+export function PublishedMessages({ messages, threadId, discordUrl, preview, busy = false, stale = false }: { messages: PublishedMessage[]; threadId: string; discordUrl?: string; preview: (name: string, url: string) => void; busy?: boolean; stale?: boolean }) {
   const [image, setImage] = useState<{ src: string; name: string; opener: HTMLElement } | null>(null)
   function imageView(url: string, name: string, key: string, width?: number | null, height?: number | null): ReactNode {
     return <div key={key} className="chat-image"><button aria-label={`Enlarge ${name}`} onClick={event => setImage({ src: url, name, opener: event.currentTarget })}><ImagePreview key={url} src={url} name={name} lazy width={width} height={height} /></button><span>{name}<a href={url} download={name}>Download</a></span></div>
@@ -58,7 +58,8 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview }: {
     }
     return <div key={key} className="chat-action-unavailable"><span>{item.label || 'Discord interaction'}</span>{discordUrl ? <a href={discordUrl}>Respond in Discord</a> : <span>Not available in this client yet</span>}</div>
   }
-  return <>{groupPublishedMessages(messages).map(group => {
+  const groups = groupPublishedMessages(messages)
+  return <>{groups.map((group, groupIndex) => {
     const first = group.messages[0], operator = localOperatorPrompt(first), author = operator ? 'You' : first.author.global_name || first.author.username, role = group.role === 'assistant' ? 'assistant' : 'user'
     return <section className={`chat-message-group ${role}`} key={group.id} aria-label={`Messages from ${author}`} data-message-group={group.id}>
     <div className="chat-avatar-rail" aria-hidden="true"><span className="chat-avatar">{role === 'assistant' ? <HushAvatar /> : author.slice(0, 1)}</span></div>
@@ -70,5 +71,5 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview }: {
     {message.embeds.map((raw, i) => { const embed = embedSchema.safeParse(raw); return embed.success ? <div className="chat-container" key={i}>{embed.data.title && <strong>{embed.data.title}</strong>}{embed.data.description && <ChatMarkdown text={embed.data.description} />}{embed.data.fields?.map((field, n) => <div key={n}><strong>{field.name}</strong><ChatMarkdown text={field.value} /></div>)}{(embed.data.image || embed.data.thumbnail) && mediaView(embed.data.image || embed.data.thumbnail, `embed-${i}`, message, used)}</div> : null })}
     {message.attachments.some(file => !used.has(file.id)) && <div className="chat-attachments">{message.attachments.filter(file => !used.has(file.id)).map(file => fileView(message, file))}</div>}
     {message.edited_timestamp && <TooltipHint label={new Date(message.edited_timestamp).toLocaleString()}><small className="chat-message-edited">edited</small></TooltipHint>}
-  </article></TooltipHint> })}{role === 'assistant' && <CopyMessage markdown={publishedMarkdown(group.messages)} />}</div></section> })}{image && <ImageViewer src={image.src} name={image.name} opener={image.opener} close={() => setImage(null)} />}</>
+  </article></TooltipHint> })}{role === 'assistant' && !(groupIndex === groups.length - 1 && (busy || stale)) && <CopyMessage markdown={publishedMarkdown(group.messages)} />}</div></section> })}{image && <ImageViewer src={image.src} name={image.name} opener={image.opener} close={() => setImage(null)} />}</>
 }

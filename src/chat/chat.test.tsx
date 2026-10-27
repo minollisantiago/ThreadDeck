@@ -109,6 +109,20 @@ it('reports clipboard failures without claiming success and allows retry', async
   expect(screen.getByRole('status').textContent).toBe('Markdown copied')
   expect(writeText).toHaveBeenCalledTimes(2)
 })
+it('hides copy for an in-progress answer while keeping completed earlier answers copyable', () => {
+  const prompt = { ...message, id: '100000000000000003', author: { id: 'human', username: 'Operator' }, content: 'Next task' }
+  const partial = { ...message, id: '100000000000000004', content: 'Partial answer' }
+  const props = { threadId: message.channel_id, preview: () => {} }
+  const { container, rerender } = render(<PublishedMessages {...props} messages={[message, prompt, partial]} busy />)
+  expect(screen.getAllByRole('button', { name: 'Copy Markdown' })).toHaveLength(1)
+  expect(container.querySelector('[data-message-group="100000000000000004"] .chat-message-actions')).toBeNull()
+  const complete = { ...partial, content: 'Complete answer' }
+  rerender(<PublishedMessages {...props} messages={[message, prompt, complete]} stale />)
+  expect(screen.getAllByRole('button', { name: 'Copy Markdown' })).toHaveLength(1)
+  rerender(<PublishedMessages {...props} messages={[message, prompt, complete]} />)
+  expect(screen.getAllByRole('button', { name: 'Copy Markdown' })).toHaveLength(2)
+  expect(screen.getByText('Complete answer')).toBeTruthy()
+})
 it('keeps previews inert, removes active navigation and places restrictive CSP first', () => {
   const html = safePreview('<html><head><meta http-equiv="refresh" content="0;url=https://evil.example"><script>fetch("https://evil.example")</script><base href="https://evil.example"></head><body onload="alert(1)"><iframe src="https://evil.example"></iframe><h1>Safe heading</h1></body></html>')
   expect(html).not.toContain('<script'); expect(html).not.toContain('<iframe'); expect(html).not.toContain('<base'); expect(html).not.toContain('http-equiv="refresh"'); expect(html).not.toContain('onload')
