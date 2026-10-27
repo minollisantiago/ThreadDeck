@@ -9,8 +9,11 @@ const projects: Project[] = [
   { id: 'b', name: 'Kimaki', directory: '/kimaki', sessions: [] },
   { id: 'c', name: 'Kitchen', directory: '/kitchen', sessions: [] },
 ]
-beforeEach(() => { Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute('open', '') } }) })
-afterEach(() => { cleanup(); Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal') })
+beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute('open', '') } })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute('open') } })
+})
+afterEach(() => { cleanup(); Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal'); Reflect.deleteProperty(HTMLDialogElement.prototype, 'close') })
 
 function setup() {
   const create = vi.fn(), select = vi.fn()
@@ -21,7 +24,7 @@ function setup() {
 it('shows the new-thread shortcut and selects the first project on click', () => {
   const { create } = setup()
   const action = screen.getByRole('button', { name: /New thread \/ OpenCode session/ })
-  expect(action.querySelector('kbd')?.textContent).toBe('Ctrl / ⌘ Shift N')
+  expect(action.querySelector('kbd')?.textContent).toBe('Ctrl / ⌘ N')
   fireEvent.click(action)
   const input = screen.getByRole('textbox', { name: 'Find a project' })
   expect(document.activeElement).toBe(input)
@@ -32,7 +35,7 @@ it('shows the new-thread shortcut and selects the first project on click', () =>
 
 it('navigates projects, resets selection on fuzzy filtering, and handles no results', () => {
   const { create } = setup()
-  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'N', ctrlKey: true, shiftKey: true })
+  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'n', ctrlKey: true })
   const input = screen.getByRole('textbox', { name: 'Find a project' })
   fireEvent.keyDown(input, { key: 'ArrowUp' })
   expect(screen.getByRole('button', { name: /ThreadDeck/ }).classList.contains('selected')).toBe(true)
@@ -56,12 +59,12 @@ it('navigates projects, resets selection on fuzzy filtering, and handles no resu
 
 it('supports the Meta shortcut from any dialog control and resets when returning to sessions', () => {
   const { select } = setup()
-  fireEvent.keyDown(screen.getByRole('button', { name: 'Close session finder' }), { key: 'n', metaKey: true, shiftKey: true })
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Close session finder' }), { key: 'n', metaKey: true })
   const input = screen.getByRole('textbox', { name: 'Find a project' })
   fireEvent.keyDown(input, { key: 'ArrowDown' })
   fireEvent.mouseMove(screen.getByRole('button', { name: /Kitchen/ }))
   expect(screen.getByRole('button', { name: /Kitchen/ }).classList.contains('selected')).toBe(true)
-  fireEvent.keyDown(input, { key: 'n', metaKey: true, shiftKey: true })
+  fireEvent.keyDown(input, { key: 'n', metaKey: true })
   fireEvent.keyDown(screen.getByRole('textbox', { name: 'Find a session' }), { key: 'Enter' })
   expect(select).toHaveBeenCalledOnce()
 })

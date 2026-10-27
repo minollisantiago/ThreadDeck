@@ -347,14 +347,15 @@ it('toggles state grouping, shows project pills, preserves filters and restores 
   groupThreads('project')
   expect(screen.getByRole('button', { name: /Alpha/ }).getAttribute('aria-expanded')).toBe('false')
 })
-it('persists grouping independently of appearance and supports state tiles and project search', () => {
+it('persists grouping independently of appearance and supports state tiles and project search', async () => {
   const { unmount, container } = render(<Dashboard snapshot={snapshot} now={now} />)
   groupThreads('state')
   fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
   expect(container.querySelector('.state-panel .session-tile')).not.toBeNull()
   unmount()
   render(<Dashboard snapshot={snapshot} now={now} />)
-  expect(screen.getByRole('button', { name: 'Group threads' }).getAttribute('title')).toBe('Group threads by state')
+  fireEvent.focus(screen.getByRole('button', { name: 'Group threads' }))
+  expect((await screen.findByRole('tooltip', { name: 'Group threads by state' })).textContent).toBe('Group threads by state')
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Alpha' } })
   expect(screen.getByRole('link', { name: 'Build a switchboard' })).toBeTruthy()
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Beta' } })

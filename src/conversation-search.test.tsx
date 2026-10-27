@@ -10,7 +10,7 @@ function mockSearch() {
 it('opens with double Space, focuses history search, searches beyond dashboard inventory and restores focus', async () => {
   mockSearch()
   render(<Dashboard snapshot={null} />)
-  const trigger = screen.getByRole('button', { name: 'Search shortcuts' })
+  const trigger = screen.getByRole('button', { name: 'Advanced search' })
   trigger.focus(); trigger.blur()
   fireEvent.keyDown(document.body, { key: ' ', code: 'Space' })
   expect(screen.queryByRole('dialog')).toBeNull()
@@ -46,7 +46,7 @@ it('does not capture spaces in text fields, on buttons, held keys or modified sh
 it('offers a clickable shortcut and reports network errors without stale results', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
   render(<Dashboard snapshot={null} />)
-  const trigger = screen.getByRole('button', { name: 'Search shortcuts' })
+  const trigger = screen.getByRole('button', { name: 'Advanced search' })
   trigger.focus(); fireEvent.click(trigger)
   await screen.findByText('Search unavailable. Retrying…')
   fireEvent.click(screen.getByRole('button', { name: 'Close conversation search' }))

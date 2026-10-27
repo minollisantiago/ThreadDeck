@@ -8,6 +8,7 @@ import { ImagePreview } from './image-preview'
 import { discordAttachmentUrl, publishedAttachments } from '../../shared/discord-attachments'
 import { displayPublishedMessage, groupPublishedMessages, localOperatorPrompt } from './message-groups'
 import { formatMessageTime } from './message-time'
+import { TooltipHint } from '../components/ui/tooltip'
 
 export function attachmentUrl(threadId: string, messageId: string, id: string) { return `/api/chat/threads/${threadId}/messages/${messageId}/attachments/${id}` }
 const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().optional(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
@@ -57,13 +58,13 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview }: {
   return <>{groupPublishedMessages(messages).map(group => {
     const first = group.messages[0], operator = localOperatorPrompt(first), author = operator ? 'You' : first.author.global_name || first.author.username, role = group.role === 'assistant' ? 'assistant' : 'user'
     return <section className={`chat-message-group ${role}`} key={group.id} aria-label={`Messages from ${author}`} data-message-group={group.id}>
-    <div className="chat-message-meta"><span className="chat-avatar">{role === 'assistant' ? 'K' : author.slice(0, 1)}</span><strong>{author}</strong><time dateTime={first.timestamp} title={new Date(first.timestamp).toLocaleString()}>{formatMessageTime(first.timestamp)}</time>{operator?.queued && <small>Queued</small>}</div>
-    {group.messages.map((raw, index) => { const message = { ...displayPublishedMessage(raw), attachments: publishedAttachments(raw) }, used = new Set<string>(); return <article className={`chat-message ${role}`} key={message.id} data-message-id={message.id} title={new Date(message.timestamp).toLocaleString()}>
+    <div className="chat-message-meta"><span className="chat-avatar">{role === 'assistant' ? 'K' : author.slice(0, 1)}</span><strong>{author}</strong><TooltipHint label={new Date(first.timestamp).toLocaleString()}><time dateTime={first.timestamp}>{formatMessageTime(first.timestamp)}</time></TooltipHint>{operator?.queued && <small>Queued</small>}</div>
+    {group.messages.map((raw, index) => { const message = { ...displayPublishedMessage(raw), attachments: publishedAttachments(raw) }, used = new Set<string>(); return <TooltipHint key={message.id} label={new Date(message.timestamp).toLocaleString()}><article className={`chat-message ${role}`} data-message-id={message.id}>
     {index > 0 && <time className="sr-only" dateTime={message.timestamp}>{new Date(message.timestamp).toLocaleString()}</time>}
     {message.content && <ChatMarkdown text={message.content} />}
     {message.components.map((item, i) => component(item, `${message.id}-${i}`, message, used))}
     {message.embeds.map((raw, i) => { const embed = embedSchema.safeParse(raw); return embed.success ? <div className="chat-container" key={i}>{embed.data.title && <strong>{embed.data.title}</strong>}{embed.data.description && <ChatMarkdown text={embed.data.description} />}{embed.data.fields?.map((field, n) => <div key={n}><strong>{field.name}</strong><ChatMarkdown text={field.value} /></div>)}{(embed.data.image || embed.data.thumbnail) && mediaView(embed.data.image || embed.data.thumbnail, `embed-${i}`, message, used)}</div> : null })}
     {message.attachments.some(file => !used.has(file.id)) && <div className="chat-attachments">{message.attachments.filter(file => !used.has(file.id)).map(file => fileView(message, file))}</div>}
-    {message.edited_timestamp && <small className="chat-message-edited" title={new Date(message.edited_timestamp).toLocaleString()}>edited</small>}
-  </article> })}</section> })}{image && <ImageViewer src={image.src} name={image.name} opener={image.opener} close={() => setImage(null)} />}</>
+    {message.edited_timestamp && <TooltipHint label={new Date(message.edited_timestamp).toLocaleString()}><small className="chat-message-edited">edited</small></TooltipHint>}
+  </article></TooltipHint> })}</section> })}{image && <ImageViewer src={image.src} name={image.name} opener={image.opener} close={() => setImage(null)} />}</>
 }

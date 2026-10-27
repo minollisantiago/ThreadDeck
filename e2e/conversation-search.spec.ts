@@ -27,15 +27,16 @@ test('search keeps its footer and dialog stable while results are pending or emp
   expect(await dialog.boundingBox()).toEqual(originalDialog)
 })
 
-test('history shortcut is only advertised in the slash indicator tooltip', async ({ page }) => {
+test('advanced search has a dedicated button and a shadcn shortcut tooltip', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('.history-search-trigger')).toHaveCount(0)
-  const shortcut = page.getByRole('button', { name: 'Search shortcuts' })
+  const shortcut = page.getByRole('button', { name: 'Advanced search' })
   const tooltip = page.getByRole('tooltip', { name: /Double Space/ })
   await expect(tooltip).not.toBeVisible()
   await shortcut.hover()
   await expect(tooltip).toBeVisible()
   await expect(tooltip).toContainText('Double Space')
+  await expect(tooltip.locator('[data-slot="kbd"]')).toHaveText('Double Space')
   await shortcut.click()
   await expect(page.getByRole('dialog', { name: 'Search conversations' })).toBeVisible()
 })
@@ -68,7 +69,7 @@ for (const width of [430, 1280]) test(`conversation finder supports double Space
   await page.screenshot({ path: `artifacts/conversation-search-${width}.png` })
   await page.keyboard.press('Escape')
   await expect(dialog).not.toBeVisible()
-  const trigger = page.getByRole('button', { name: 'Search shortcuts' })
+  const trigger = page.getByRole('button', { name: 'Advanced search' })
   await trigger.click()
   await page.keyboard.press('Escape')
   await expect(trigger).toBeFocused()

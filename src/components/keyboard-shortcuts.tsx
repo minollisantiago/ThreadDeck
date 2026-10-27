@@ -15,7 +15,7 @@ export function KeyboardShortcuts({ workspace, threadId, close, restoreFocus }: 
     { title: 'Navigation', shortcuts: [
       ...(workspace ? [
         ['Ctrl / ⌘ K', 'Find a session or start a conversation'],
-        ['Ctrl / ⌘ Shift N', 'New thread / OpenCode session, inside the session finder'],
+        ['Ctrl / ⌘ N', 'New thread / OpenCode session'],
         ...(window.threaddeckDesktop ? [['Ctrl Tab', 'Open the session finder (desktop)']] : []),
       ] : []),
       ['Space, Space', workspace ? 'Find a session, outside text fields and controls' : 'Search conversation history, outside text fields and controls'],

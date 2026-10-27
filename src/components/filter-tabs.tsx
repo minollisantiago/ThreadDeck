@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Clock3 } from 'lucide-react'
 import { Button } from './ui/button'
+import { TooltipHint } from './ui/tooltip'
 import type { Filter } from '../lib/view'
 
 const filters = [
@@ -40,7 +41,7 @@ export function FilterTabs({ filter, setFilter }: { filter: Filter; setFilter: (
   }, [filter])
   return <div className="session-filter-scroll">
     <div ref={group} className="filter-group session-filters" role="group" aria-label="Filter sessions" data-motion-direction={direction}>
-      {filters.map(([value, label, shortLabel]) => <Button key={value} variant="ghost" className={filter === value ? 'filter-selected' : ''} aria-label={label} aria-pressed={filter === value} title={value === 'recent' ? 'Updated in the last 24 hours' : undefined} onClick={() => setFilter(value)}>{value === 'recent' && <Clock3 />}<span className="filter-label-full">{label}</span><span className="filter-label-short" aria-hidden="true">{shortLabel}</span></Button>)}
+      {filters.map(([value, label, shortLabel]) => <TooltipHint key={value} label={value === 'recent' ? 'Updated in the last 24 hours' : undefined}><Button variant="ghost" className={filter === value ? 'filter-selected' : ''} aria-label={label} aria-pressed={filter === value} onClick={() => setFilter(value)}>{value === 'recent' && <Clock3 />}<span className="filter-label-full">{label}</span><span className="filter-label-short" aria-hidden="true">{shortLabel}</span></Button></TooltipHint>)}
       {indicator && <span className="filter-indicator" aria-hidden="true" style={{ width: indicator.width, transform: `translate3d(${indicator.x}px, ${indicator.y}px, 0)` }} />}
     </div>
   </div>

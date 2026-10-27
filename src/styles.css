@@ -429,9 +429,13 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .search-shortcuts { position: absolute; right: 12px; top: 10px; }
 .search-shortcuts>button { display: block; padding: 0; color: var(--subtle); }
 .search-field .search-shortcuts kbd { position: static; display: block; }
-.search-shortcuts-tooltip { position: absolute; z-index: 10; top: calc(100% + 10px); right: 0; width: max-content; max-width: calc(100vw - 48px); padding: 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--muted); box-shadow: 0 8px 24px #0003; font-size: 11px; line-height: 1.7; visibility: hidden; opacity: 0; pointer-events: none; }
-.search-shortcuts-tooltip span { display: block; }
-.search-shortcuts:hover .search-shortcuts-tooltip, .search-shortcuts:focus-within .search-shortcuts-tooltip { visibility: visible; opacity: 1; }
+.app-tooltip { z-index: 100; max-width: min(360px, calc(100vw - 24px)); padding: 8px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--text); box-shadow: 0 8px 24px #0003; font: 11px/1.7 var(--font); white-space: pre-line; overflow-wrap: anywhere; }
+.app-tooltip-arrow { fill: var(--surface); }
+.toolbar .advanced-search { order: 1; flex-shrink: 0; }
+@media(max-width:600px) {
+  .toolbar:has(.chat-create-thread) { grid-template-columns: minmax(0, 1fr) 40px 40px; }
+  .toolbar .advanced-search { grid-column: 2; grid-row: 1; width: 40px; height: 40px; }
+}
 .conversation-search { width: min(700px, calc(100vw - 24px)); height: min(660px, 85dvh); max-height: 85dvh; margin: 8vh auto auto; padding: 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 24px 100px #0006; }
 .conversation-search[open] { display: flex; flex-direction: column; }
 .conversation-search::backdrop { background: #0008; backdrop-filter: blur(4px); }

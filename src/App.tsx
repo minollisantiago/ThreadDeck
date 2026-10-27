@@ -1,5 +1,7 @@
 import { useContext, useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, Hash, Layers2, Plus, Search, X } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, Hash, Layers2, Plus, Search, SearchCode, X } from 'lucide-react'
+import { TooltipHint } from './components/ui/tooltip'
+import { Kbd, KbdGroup } from './components/ui/kbd'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { HeaderControls, palettes, type Palette } from './components/header-controls'
@@ -41,12 +43,12 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
   const active = unreadCount > 0 || verified && project.sessions.some(isActive)
   return <section className={`project-panel ${active ? 'project-active' : ''}`} aria-labelledby={`heading-${project.id}`}>
     <div className="project-heading" data-connected={!collapsed && project.sessions.length > 0}>
-      <button className="project-toggle" type="button" title={project.name} onClick={toggle} aria-expanded={!collapsed} aria-controls={`sessions-${project.id}`}>
+      <TooltipHint label={project.name}><button className="project-toggle" type="button" onClick={toggle} aria-expanded={!collapsed} aria-controls={`sessions-${project.id}`}>
         <span className="sr-only">{project.name} {project.sessions.length} {project.sessions.length === 1 ? 'session' : 'sessions'}{verified && attention > 0 ? ` ${attention} ${attention === 1 ? 'needs' : 'need'} attention` : ''}{unreadCount > 0 ? ` ${unreadCount} unread` : ''}{verified && working > 0 ? ` ${working} working` : ''}{!verified ? ' Status unavailable' : !active ? ' No working threads' : ''}</span>
-      </button>
+      </button></TooltipHint>
       <ChevronDown className={`chevron ${collapsed ? 'is-closed' : ''}`} aria-hidden="true" />
       <Hash className="project-channel-icon" aria-hidden="true" />
-      <span className="project-name" id={`heading-${project.id}`} title={project.name} aria-hidden="true">{project.name}</span>
+      <TooltipHint label={project.name}><span className="project-name" id={`heading-${project.id}`} aria-hidden="true">{project.name}</span></TooltipHint>
       <span className="project-pills">
         <span className="project-total" aria-hidden="true">{project.sessions.length} {project.sessions.length === 1 ? 'session' : 'sessions'}</span>
         {verified && attention > 0 && <span className="project-attention" aria-hidden="true"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</span>}
@@ -158,10 +160,11 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
 
     <main>
       <div className="toolbar">
-        <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <div className="search-shortcuts"><button type="button" aria-label="Search shortcuts" aria-describedby="search-shortcuts-tooltip" onClick={openFinder}><kbd>/</kbd></button><div className="search-shortcuts-tooltip" id="search-shortcuts-tooltip" role="tooltip"><span><strong>/</strong> — Filter projects or sessions</span><span><strong>Double Space</strong> — {workspace ? 'Find sessions' : 'Search chat logs'}</span><span>Outside text fields and controls</span></div></div>}</div>
+        <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <div className="search-shortcuts"><TooltipHint label={<>Filter projects or sessions <Kbd>/</Kbd> — outside text fields</>}><button type="button" aria-label="Search shortcuts" onClick={() => search.current?.focus()}><kbd>/</kbd></button></TooltipHint></div>}</div>
+        <TooltipHint label={<>Advanced search — {workspace ? 'fuzzy session finder' : 'search chat logs'} <Kbd>Double Space</Kbd></>}><Button variant="outline" size="icon" className="advanced-search" aria-label="Advanced search" aria-haspopup="dialog" onClick={openFinder}><SearchCode aria-hidden="true" /></Button></TooltipHint>
         <div className="filter-toolbar">
         <FilterTabs filter={filter} setFilter={setFilter} />
-         {workspace?.create && <Button variant="outline" size="icon" className="chat-create-thread" aria-label="New thread / OpenCode session" title="Start a new thread / OpenCode session" onClick={() => workspace.create?.()}><Plus aria-hidden="true" /></Button>}
+         {workspace?.create && <TooltipHint label={<>Start a new thread / OpenCode session <KbdGroup><Kbd>Ctrl</Kbd>+<Kbd>N</Kbd></KbdGroup> / <KbdGroup><Kbd>⌘</Kbd><Kbd>N</Kbd></KbdGroup></>}><Button variant="outline" size="icon" className="chat-create-thread" aria-label="New thread / OpenCode session" aria-keyshortcuts="Control+N Meta+N" onClick={() => workspace.create?.()}><Plus aria-hidden="true" /></Button></TooltipHint>}
         </div>
       </div>
 
