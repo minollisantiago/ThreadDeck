@@ -159,7 +159,7 @@
 .chat-composer-tools { display: flex; align-items: center; gap: 9px; padding: 10px; color: var(--muted); font-size: 11px; }
 .chat-composer-tools .chat-model { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 45%; }.chat-model svg { flex-shrink: 0; }.chat-model-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-composer-tools > button { display: inline-flex; align-items: center; gap: 6px; padding: 7px; flex-shrink: 0; }
-.chat-tool-spacer { flex: 1; }.chat-composer-tools .chat-send { padding: 9px 12px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent-ink); }
+.chat-tool-spacer { flex: 1; }.chat-composer-tools .chat-send { justify-content: center; width: 34px; height: 34px; padding: 9px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent-ink); }
 :root[data-appearance=light] .chat-composer-tools .chat-send:disabled { color: var(--subtle); background: var(--row); opacity: 1; }
 .chat-composer-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 10px; font-size: 10px; color: var(--subtle); }
 .chat-composer-feedback { margin-left: auto; text-align: right; }
