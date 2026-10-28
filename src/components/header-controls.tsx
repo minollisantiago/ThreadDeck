@@ -69,7 +69,7 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
       <div className="header-actions">
       <TooltipHint label={`Switch to ${design === 'classic' ? 'islands' : 'list'} view`}><Button variant="outline" size="icon" aria-label={`Switch to ${design === 'classic' ? 'islands' : 'list'} view`} onClick={() => setDesign(design === 'classic' ? 'islands' : 'classic')}>{design === 'classic' ? <Network aria-hidden="true" /> : <List aria-hidden="true" />}</Button></TooltipHint>
        <Button ref={theme} variant="outline" size="icon" aria-label={`Switch to ${appearance === 'dark' ? 'light' : 'dark'} mode`} onClick={() => setAppearance(appearance === 'dark' ? 'light' : 'dark')}>{appearance === 'dark' ? <Sun /> : <Moon />}</Button>
-       <TooltipHint label="View ThreadDeck on GitHub"><Button asChild variant="outline" size="icon"><a href="https://github.com/minollisantiago/ThreadDeck" target="_blank" rel="noopener noreferrer" aria-label="ThreadDeck on GitHub"><Github aria-hidden="true" /></a></Button></TooltipHint>
+       <TooltipHint label="View ThreadDeck on GitHub"><Button asChild variant="outline" size="icon"><a href="https://github.com/minollisantiago/ThreadDeck" data-chat-external target="_blank" rel="noopener noreferrer" aria-label="ThreadDeck on GitHub"><Github aria-hidden="true" /></a></Button></TooltipHint>
        <TooltipHint label="Keyboard shortcuts"><Button ref={shortcuts} variant="outline" size="icon" aria-label="Keyboard shortcuts" aria-haspopup="dialog" onClick={() => {
          const popover = controls.current?.matches(':popover-open')
          restoreTo.current = popover ? trigger.current : shortcuts.current

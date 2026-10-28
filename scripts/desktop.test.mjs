@@ -197,6 +197,30 @@ test('narrow default fills available height without covering the taskbar', () =>
   assert.deepEqual(mobileBounds({ x: -1920, y: 20, width: 1920, height: 1040 }), { x: -1920, y: 20, width: 430, height: 1040 })
   assert.equal(mobileBounds({ x: 0, y: 0, width: 360, height: 800 }).width, 360)
 })
+test('the header GitHub button can open its repository from the desktop shell', () => {
+  const header = readFileSync(new URL('../src/components/header-controls.tsx', import.meta.url), 'utf8')
+  const tag = header.match(/<a\b[^>]*href="https:\/\/github\.com\/[^>]+>/)?.[0]
+  assert.ok(tag, 'GitHub button has a repository URL')
+  const url = tag.match(/href="([^"]+)"/)[1], handlers = {}, sent = []
+  class Element {
+    href = url
+    closest() { return this }
+    hasAttribute(name) { return new RegExp(`\\s${name}(?:\\s|=|>)`).test(tag) }
+  }
+  vm.runInNewContext(readFileSync(new URL('../electron/preload.cjs', import.meta.url), 'utf8'), {
+    require: () => ({ contextBridge: { exposeInMainWorld() {} }, ipcRenderer: { send: (...args) => sent.push(args) } }),
+    window: { addEventListener: (name, callback) => { handlers[name] = callback } },
+    Element, URL, location: { origin: 'http://127.0.0.1:43127' },
+  })
+  for (const [type, button] of [['click', 0], ['auxclick', 1]]) {
+    let prevented = false
+    handlers[type]({ button, target: new Element(), preventDefault: () => { prevented = true } })
+    assert.equal(prevented, true)
+    const [channel, target] = sent.at(-1)
+    assert.equal(channel === 'open-chat-link' ? chatExternalLink(target) : externalLink(target), true, 'Electron must allow the GitHub button URL through to shell.openExternal')
+    assert.equal(target, 'https://github.com/minollisantiago/ThreadDeck')
+  }
+})
 test('only Discord thread links can leave the desktop shell', () => {
   for (const url of ['https://discord.com/channels/123/456', 'discord://-/channels/123/456']) assert.equal(externalLink(url), true)
   for (const url of ['file:///etc/passwd', 'javascript:alert(1)', 'https://discord.com.evil.test/channels/123', 'https://example.com', 'http://discord.com/channels/123', 'discord://settings', 'not a URL']) assert.equal(externalLink(url), false, url)
