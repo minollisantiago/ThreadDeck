@@ -138,6 +138,18 @@ only missing ones; closing it leaves reused services untouched.
 The native client opens before WSL starts, with a branded scanner-logo loading
 screen, live startup stages, and retry/log controls if anything fails.
 
+The Windows tray shows working-agent, attention and unread-response counts. Its
+icon uses a circle for work, an exclamation mark for attention, and a square for
+unread replies. Right-click to open attention/unread threads, pause notifications,
+or enable **Close to tray** (off by default). **Quit ThreadDeck** always exits.
+Tray preferences persist locally. Hidden windows keep monitoring the backend.
+Native Windows notifications announce input/approval requests, failed agents,
+new completed responses and disconnections; clicking opens the relevant thread.
+They omit response text, suppress updates for the focused thread, group updates
+observed together, and do not replay historical activity on startup or reconnect.
+Windows notification settings / Do Not Disturb control delivery. “Finished
+responding” means a response ended, not that the overall task is complete.
+
 Keep `npm run kimaki` for the existing browser dashboard. For a **native Windows
 Electron window** alongside Discord, use this separate command from WSL:
 

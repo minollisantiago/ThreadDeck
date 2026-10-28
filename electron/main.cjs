@@ -6,6 +6,7 @@ const { startupController } = require('./startup.cjs')
 const { readFileSync } = require('node:fs')
 const { colors, savedAppearance } = require('./appearance.cjs')
 const { readWindowState, fitWindowBounds, saveWindowState } = require('./window-state.cjs')
+const { trayController } = require('./tray.cjs')
 
 const configFile = process.argv.find(arg => arg.startsWith('--launch-services='))?.slice('--launch-services='.length)
 let config
@@ -20,6 +21,12 @@ let controller
 let attempt = 0
 let startupState
 let appearance
+let tray
+let pendingSession = null
+let desktopReady = false
+const sendSession = () => {
+  if (desktopReady && pendingSession) { window.webContents.send('open-session', pendingSession); pendingSession = null }
+}
 const loadSplash = () => window.loadFile(path.join(__dirname, 'startup.html'), { query: { appearance } })
 const initialState = () => ({ stages: {
   wsl: { state: 'working', detail: 'Starting Windows Subsystem for Linux', hidden: !configFile },
@@ -29,7 +36,7 @@ const initialState = () => ({ stages: {
 const notifyStartup = () => { if (window && !window.isDestroyed()) window.webContents.send('startup-progress', startupState) }
 app.setName('ThreadDeck')
 app.setAppUserModelId(appId)
-app.on('before-quit', () => { quitting = true; attempt++; void controller?.stop() })
+app.on('before-quit', () => { quitting = true; attempt++; tray?.stop(); tray = null; void controller?.stop() })
 const lease = process.argv.find(arg => arg.startsWith('--supervisor-lease='))?.slice('--supervisor-lease='.length)
 if (lease) {
   const checkLease = () => {
@@ -54,6 +61,10 @@ async function beginStartup() {
         const response = await fetch(`${origin}/api/snapshot`, { signal: AbortSignal.timeout(1500) })
         if (response.ok) {
           if (!configFile) { startupState.stages.backend = { state: 'ready', detail: 'Dashboard backend is ready' }; notifyStartup() }
+          if (process.platform === 'win32' && !tray && !quitting) {
+            try { tray = trayController({ app, window, origin, openSession: id => { pendingSession = id; sendSession() } }) }
+            catch (error) { console.error('Could not initialize tray:', error.message) }
+          }
           await window.loadURL(origin)
           controller?.ready()
           return
@@ -122,6 +133,12 @@ app.whenReady().then(async () => {
   window.webContents.on('will-attach-webview', event => event.preventDefault())
   window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
   window.webContents.session.setPermissionCheckHandler(() => false)
+  const isDashboard = event => event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
+    && event.senderFrame.url.startsWith(`${origin}/`)
+  window.webContents.on('did-start-loading', () => { desktopReady = false; tray?.viewing(null) })
+  ipcMain.on('desktop-ready', event => { if (isDashboard(event)) { desktopReady = true; sendSession() } })
+  ipcMain.on('desktop-viewing', (event, id) => { if (isDashboard(event)) tray?.viewing(id) })
+  ipcMain.on('desktop-receipts', (event, receipts) => { if (isDashboard(event)) tray?.receipts(receipts) })
   ipcMain.on('window-control', (event, action) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) return
     if (action === 'minimize') window.minimize()
@@ -147,9 +164,10 @@ app.whenReady().then(async () => {
   window.on('maximize', notify)
   window.on('unmaximize', notify)
   window.webContents.on('did-finish-load', notify)
-  window.on('close', () => {
+  window.on('close', event => {
     try { saveWindowState(stateFile, window.getNormalBounds(), window.isMaximized()) }
     catch (error) { console.error(`Could not save window size: ${error.message}`) }
+    if (!quitting && tray?.closeToTray()) { event.preventDefault(); tray.hide() }
   })
   window.on('closed', () => { quitting = true; attempt++; void controller?.stop() })
   await loadSplash()

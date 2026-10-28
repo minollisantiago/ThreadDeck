@@ -22,6 +22,14 @@ window.addEventListener('DOMContentLoaded', () => {
   new MutationObserver(syncAppearance).observe(document.documentElement, { attributes: true, attributeFilter: ['data-appearance'] })
 })
 contextBridge.exposeInMainWorld('threaddeckDesktop', {
+  viewing: id => ipcRenderer.send('desktop-viewing', id),
+  readReceipts: receipts => ipcRenderer.send('desktop-receipts', receipts),
+  onOpenSession: callback => {
+    const listener = (_event, id) => callback(id)
+    ipcRenderer.on('open-session', listener)
+    ipcRenderer.send('desktop-ready')
+    return () => ipcRenderer.removeListener('open-session', listener)
+  },
   botMode: () => ipcRenderer.invoke('bot-mode'),
   onBotMode: callback => {
     const listener = (_event, mode) => callback(mode)

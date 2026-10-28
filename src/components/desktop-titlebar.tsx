@@ -7,6 +7,9 @@ declare global {
     threaddeckDesktop?: {
       control: (action: 'minimize' | 'maximize' | 'close') => void
       onMaximized: (callback: (maximized: boolean) => void) => () => void
+      viewing?: (id: string | null) => void
+      readReceipts?: (receipts: Record<string, number>) => void
+      onOpenSession?: (callback: (id: string) => void) => () => void
       botMode?: () => Promise<'fork' | 'regular' | null>
       onBotMode?: (callback: (mode: 'fork' | 'regular' | null) => void) => () => void
     }

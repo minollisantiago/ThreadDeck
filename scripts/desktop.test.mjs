@@ -4,11 +4,145 @@ import { createRequire } from 'node:module'
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import vm from 'node:vm'
+import { EventEmitter } from 'node:events'
 const require = createRequire(import.meta.url)
 const { externalLink, chatExternalLink, mobileBounds } = require('../electron/policy.cjs')
 const { appId, taskbarDetails } = require('../electron/taskbar.cjs')
 const { colors, parseAppearance } = require('../electron/appearance.cjs')
 const { readWindowState, fitWindowBounds, saveWindowState } = require('../electron/window-state.cjs')
+const { agentStatus } = require('../electron/agent-status.cjs')
+
+const agent = (extra = {}) => ({ id: 'ses_a', projectId: 'project', threadId: 'thread', title: 'Test agent', status: 'idle', agentCount: 0, responseAt: 100, ...extra })
+const snapshot = (sessions, extra = {}) => ({ health: 'connected', attentionAvailable: true, projects: [{ name: 'Project', sessions }], ...extra })
+
+test('tray baselines startup and reconnect without replaying old responses or requests', () => {
+  const model = agentStatus()
+  assert.deepEqual(model.update(snapshot([agent()])), [])
+  assert.equal(model.summary().unread.length, 1)
+  model.update({ health: 'stale' })
+  assert.deepEqual(model.update(snapshot([agent({ responseAt: 200, status: 'input' })])), [])
+  assert.equal(model.summary().attention.length, 1)
+  assert.deepEqual(model.update(snapshot([agent(), agent({ id: 'new', status: 'permission' })])), [])
+})
+test('tray notifies once for completed responses, never mere idle transitions or renames', () => {
+  const model = agentStatus()
+  model.update(snapshot([agent({ status: 'working', agentCount: 2 })]))
+  assert.deepEqual(model.update(snapshot([agent()])), [])
+  const next = snapshot([agent({ responseAt: 200 })])
+  assert.equal(model.update(next)[0].kind, 'response')
+  assert.deepEqual(model.update(next), [])
+  assert.deepEqual(model.update(snapshot([agent({ responseAt: 200, title: 'Renamed' })])), [])
+})
+test('tray prioritizes requests and failures over responses and suppresses the focused thread', () => {
+  for (const kind of ['input', 'permission', 'error']) {
+    const model = agentStatus()
+    model.update(snapshot([agent()]))
+    const next = snapshot([agent({ status: kind, responseAt: 200 })])
+    assert.equal(model.update(next)[0].kind, kind)
+    assert.deepEqual(model.update(next), [])
+    model.update(snapshot([agent()]))
+    assert.deepEqual(model.update(next, 'ses_a'), [])
+    assert.deepEqual(model.update(next), [])
+  }
+})
+test('tray shares monotonic validated read receipts with the workspace', () => {
+  const model = agentStatus()
+  model.update(snapshot([agent()]))
+  model.receipts({ 'project:thread': 200, bad: -1, invalid: '200', infinite: Infinity })
+  model.receipts({ 'project:thread': 50 })
+  assert.equal(model.summary().unread.length, 0)
+  assert.deepEqual(model.update(snapshot([agent({ responseAt: 200 })])), [])
+  assert.equal(model.update(snapshot([agent({ responseAt: 300 })]))[0].kind, 'response')
+  model.update(snapshot([agent({ responseAt: 300, agentCount: 3, status: 'working' })]))
+  assert.equal(model.summary().working, 3)
+  assert.equal(model.summary().unread.length, 0)
+})
+test('unavailable attention inventory cannot announce an approval request', () => {
+  const model = agentStatus()
+  model.update(snapshot([agent()]))
+  assert.deepEqual(model.update(snapshot([agent({ status: 'permission' })], { attentionAvailable: false })), [])
+})
+test('tray remembers response watermarks across work and does not mistake old responses for completions', () => {
+  const model = agentStatus()
+  model.update(snapshot([agent()]))
+  model.update(snapshot([agent({ status: 'working', agentCount: 1, responseAt: undefined })]))
+  assert.deepEqual(model.update(snapshot([agent()])), [])
+  const startup = agentStatus()
+  startup.update(snapshot([agent({ status: 'working', agentCount: 1, responseAt: undefined })], { checkedAt: 200 }))
+  assert.deepEqual(startup.update(snapshot([agent()])), [])
+  assert.equal(startup.update(snapshot([agent({ responseAt: 300 })]))[0].kind, 'response')
+})
+
+test('native tray groups notifications, navigates, persists settings, and stops polling on exit', async () => {
+  const timers = new Map(), notices = [], saved = []
+  let menu, tray, next = snapshot([agent()]), focused = false, hidden = false, quit = false
+  class FakeTray extends EventEmitter {
+    constructor() { super(); tray = this }
+    setImage() {}
+    setToolTip(value) { this.tooltip = value }
+    setContextMenu(value) { menu = value }
+    destroy() { this.destroyed = true }
+  }
+  class FakeNotification extends EventEmitter {
+    static isSupported() { return true }
+    constructor(options) { super(); this.options = options; notices.push(this) }
+    show() {}
+    close() { this.closed = true }
+  }
+  const module = { exports: {} }
+  vm.runInNewContext(readFileSync(new URL('../electron/tray.cjs', import.meta.url), 'utf8'), {
+    module, __dirname: '/desktop', Buffer, console, AbortController,
+    require: name => name === 'electron' ? { Tray: FakeTray, Notification: FakeNotification, Menu: { buildFromTemplate: items => items }, nativeImage: { createFromPath: () => ({}), createFromBitmap: () => ({}) } }
+      : name === 'node:fs' ? { readFileSync: () => '{}', writeFileSync: (_file, text) => saved.push(JSON.parse(text)) }
+        : name === './agent-status.cjs' ? { agentStatus } : require(name),
+    setTimeout: (fn, ms) => { const id = {}; timers.set(id, { fn, ms }); return id },
+    clearTimeout: id => timers.delete(id),
+    fetch: async () => ({ ok: true, json: async () => next }),
+  })
+  const opened = [], calls = []
+  const controller = module.exports.trayController({
+    app: { getPath: () => '/settings', quit: () => { quit = true } },
+    window: { isMinimized: () => true, restore: () => calls.push('restore'), show: () => { hidden = false }, focus: () => calls.push('focus'), hide: () => { hidden = true }, isFocused: () => focused, isVisible: () => !hidden },
+    origin: 'http://127.0.0.1:43127', openSession: id => opened.push(id),
+  })
+  const settle = () => new Promise(resolve => setImmediate(resolve))
+  const poll = async () => {
+    const [id, timer] = [...timers].find(([, timer]) => timer.ms === 3000)
+    timers.delete(id); timer.fn(); await settle()
+  }
+  await settle()
+  assert.equal(notices.length, 0)
+  assert.match(tray.tooltip, /1 unread/)
+  controller.receipts({ 'project:thread': 100 })
+  assert.match(tray.tooltip, /0 unread/)
+  next = snapshot([agent({ responseAt: 200 }), agent({ id: 'ses_b', threadId: 'b' })])
+  await poll()
+  assert.equal(notices[0].options.title, 'Project · Finished responding')
+  notices[0].emit('click')
+  assert.deepEqual(opened, ['ses_a'])
+  assert.deepEqual(calls, ['restore', 'focus'])
+  next = snapshot([agent({ status: 'input', responseAt: 200 }), agent({ id: 'ses_b', threadId: 'b', status: 'permission' })])
+  await poll()
+  assert.equal(notices[1].options.title, '2 agents have updates')
+  menu.find(item => item.label?.startsWith('Close to tray')).click({ checked: true })
+  assert.equal(controller.closeToTray(), true)
+  assert.equal(saved.at(-1).closeToTray, true)
+  controller.hide(); assert.equal(hidden, true)
+  menu.find(item => item.label === 'Pause notifications').click({ checked: true })
+  next = snapshot([agent({ responseAt: 300 })]); await poll()
+  assert.equal(notices.length, 2)
+  menu.find(item => item.label === 'Pause notifications').click({ checked: false })
+  controller.viewing('ses_a'); focused = true; hidden = false
+  next = snapshot([agent({ responseAt: 400 })]); await poll()
+  assert.equal(notices.length, 2)
+  menu.find(item => item.label === 'Quit ThreadDeck').click()
+  assert.equal(quit, true)
+  controller.stop()
+  assert.equal(tray.destroyed, true)
+  assert.equal(timers.size, 0)
+  assert.ok(notices.every(notice => notice.closed))
+})
 
 test('window dimensions survive relaunch without turning the saved width into the minimum width', () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'threaddeck-window-')), filename = path.join(directory, 'window-state.json')

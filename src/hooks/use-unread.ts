@@ -19,6 +19,7 @@ export function useUnread(projects: Project[]) {
       const merged = { ...load() }
       for (const [key, value] of Object.entries(read)) merged[key] = Math.max(merged[key] ?? 0, value)
       localStorage.setItem(storageKey, JSON.stringify(merged))
+      window.threaddeckDesktop?.readReceipts?.(merged)
       window.dispatchEvent(new Event('threaddeck:read-receipts'))
     } catch { /* Storage may be unavailable. */ }
   }, [read])

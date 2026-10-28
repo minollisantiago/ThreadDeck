@@ -56,6 +56,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const [newThread, setNewThread] = useState(false)
   const [focusRequest, setFocusRequest] = useState(0)
   const restored = useRef(false), [missingSession, setMissingSession] = useState(false)
+  const [desktopSession, setDesktopSession] = useState<string | null>(null)
   const [viewportWidth, setViewportWidth] = useState(innerWidth), [sidebar, setSidebar] = useState(() => localStorage.getItem('threaddeck:chat-sidebar') !== 'false')
   const narrow = viewportWidth < Math.ceil(sidebarMinWidth / sidebarMaxRatio)
   const [width, setWidth] = useState(() => Number(localStorage.getItem('threaddeck:chat-sidebar-width')) || 430)
@@ -69,12 +70,22 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     if (project) { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setHistoryOpen(false); setDrawer(false) }
   }, [])
   const find = useCallback(() => { setNewThread(false); setFinder(true) }, [])
+  useEffect(() => window.threaddeckDesktop?.onOpenSession?.(setDesktopSession), [])
+  useEffect(() => {
+    if (!desktopSession) return
+    const session = sessions.find(item => item.id === desktopSession)
+    if (session) { restored.current = true; open(session); setDesktopSession(null) }
+  }, [desktopSession, sessions, open])
+  useEffect(() => {
+    window.threaddeckDesktop?.viewing?.(target?.session?.id ?? null)
+    return () => window.threaddeckDesktop?.viewing?.(null)
+  }, [target?.session?.id])
   const start = useCallback((project: Project) => {
     const original = current.current.projects.find(item => item.id === project.id) || project
     setTarget({ project: original }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setDrawer(false)
   }, [])
   useEffect(() => {
-    if (restored.current || !snapshot || snapshot.health !== 'connected' || finder || historyOpen) return
+    if (restored.current || desktopSession || !snapshot || snapshot.health !== 'connected' || finder || historyOpen) return
     if (target) { restored.current = true; return } // Never replace explicit navigation.
     let saved: string | null = null
     try { saved = localStorage.getItem(lastSessionKey) } catch { /* optional navigation preference */ }
@@ -84,7 +95,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     // A connected backend can still have an incomplete startup inventory. Keep
     // watching subsequent snapshots rather than consuming the restore attempt.
     else setMissingSession(true)
-  }, [snapshot, open, target, finder, historyOpen])
+  }, [snapshot, open, target, finder, historyOpen, desktopSession])
   useEffect(() => {
     if (!target) return
     restored.current = true; setMissingSession(false)
