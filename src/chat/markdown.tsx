@@ -1,6 +1,8 @@
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useState } from 'react'
+import { Check, Copy } from 'lucide-react'
+import { Button } from '../components/ui/button'
 
 export function ChatMarkdown({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -11,9 +13,9 @@ export function ChatMarkdown({ text }: { text: string }) {
       try { const url = new URL(href || ''); safe = url.protocol === 'https:' && !url.username && !url.password } catch { /* no navigation for relative/unsafe links */ }
       return safe ? <a data-chat-external href={href} target="_blank" rel="noreferrer noopener">{children}</a> : <span>{children}</span>
     },
-    pre: ({ children }) => <div className="chat-code"><button onClick={async event => {
+    pre: ({ children }) => <div className="chat-code"><Button variant="ghost" size="icon" aria-label={copied ? 'Code copied' : 'Copy code'} onClick={async event => {
       const text = event.currentTarget.parentElement?.querySelector('pre')?.textContent || ''
       try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch { setCopied(false) }
-    }}>{copied ? 'Copied' : 'Copy'}</button><pre>{children}</pre></div>,
+    }}>{copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}</Button><pre>{children}</pre></div>,
   }}>{text}</Markdown></div>
 }

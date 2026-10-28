@@ -120,8 +120,8 @@
 .chat-markdown table { display: block; overflow: auto; width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 12px; }
 .chat-markdown :is(th,td) { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--rule); }
 .chat-code { position: relative; margin: 18px 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; }
-.chat-code pre { overflow: auto; margin: 0; padding: 26px 20px; font: 12px/1.9 var(--font); color: var(--text); }
-.chat-code > button { position: absolute; top: 8px; right: 10px; color: var(--subtle); font-size: 10px; }
+.chat-code pre { overflow: auto; margin: 0; padding: 52px 20px 26px; font: 12px/1.9 var(--font); color: var(--text); }
+.chat-code > button { position: absolute; top: 10px; right: 10px; color: var(--subtle); }
 .chat-container { padding: 17px; border: 1px solid var(--rule); border-left: 3px solid var(--chat-container-accent, var(--accent)); border-radius: 12px; background: var(--surface); margin: 16px 0; }
 .chat-component-group { display: grid; gap: 10px; }.chat-component-group hr { border-color: var(--rule); }
 .chat-action-unavailable { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 10px; border: 1px solid var(--rule); border-radius: 8px; font-size: 11px; color: var(--muted); }

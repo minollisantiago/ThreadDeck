@@ -82,6 +82,18 @@ it('displays literal HTML as text without executing or dropping it', () => {
   expect(container.textContent).toContain('<script>window.unsafe = true</script>')
   expect(container.querySelector('script')).toBeNull()
 })
+it('renders an icon-only ghost copy button for code blocks and copies the code text', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+  render(<ChatMarkdown text={'```ts\nconst answer = 42\n```'} />)
+  const button = screen.getByRole('button', { name: 'Copy code' })
+  expect(button.textContent).toBe('')
+  expect(button.querySelector('svg')).toBeTruthy()
+  expect(button.className).toContain('hover:bg-secondary')
+  await act(async () => { fireEvent.click(button) })
+  expect(writeText).toHaveBeenCalledWith('const answer = 42\n')
+  expect(screen.getByRole('button', { name: 'Code copied' }).textContent).toBe('')
+})
 it('copies one complete agent group as published Markdown and uses the latest edits', async () => {
   const writeText = vi.fn().mockResolvedValue(undefined)
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
