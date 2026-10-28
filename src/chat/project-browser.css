@@ -1,7 +1,9 @@
 .chat-project-browser header strong { flex: 1; font-size: 14px; }
 .chat-project-browser > p, .chat-project-browser > label { display: block; padding: 0 20px; font-size: 12px; line-height: 1.6; }
+.chat-project-browser > header + p { padding-top: 16px; }
 .chat-project-browser form { display: flex; gap: 8px; margin: 12px 20px; }
 .chat-project-browser form input, .chat-project-browser select { min-width: 0; flex: 1; padding: 9px; background: var(--ground); border: 1px solid var(--rule); border-radius: 6px; color: var(--text); }
+.chat-project-browser form input:focus-visible { outline: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent); }
 .chat-project-browser form button, .chat-project-browser nav button, .chat-project-start { padding: 8px 12px; border: 1px solid var(--rule); border-radius: 6px; }
 .chat-project-browser nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 12px; }
 .chat-project-browser nav button { max-width: 100%; overflow-wrap: anywhere; font-size: 10px; color: var(--subtle); }
