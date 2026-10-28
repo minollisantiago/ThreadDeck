@@ -32,9 +32,8 @@ function PreviewPermission({ choose }: { choose: (trusted: boolean) => void }) {
   useLayoutEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => dialog?.close() }, [])
   return <dialog ref={ref} className="chat-preview-permission" aria-labelledby="preview-permission-title" onCancel={event => { event.preventDefault(); choose(false) }}>
     <h2 id="preview-permission-title">Trust this HTML file?</h2>
-    <p>Interactive preview runs the file’s JavaScript and allows network requests. It can send information to external sites. Only enable it for files you trust.</p>
-    <p>The file remains isolated from ThreadDeck’s page and storage. Your choice applies only to this opening.</p>
-    <div><button autoFocus onClick={() => choose(false)}>Use safe static preview</button><button onClick={() => choose(true)}>Trust and open interactive preview</button></div>
+    <p>Interactive preview runs the file’s JavaScript and allows network requests. It can send information to external sites. <strong>Only enable it for files you trust.</strong></p>
+    <div><button autoFocus onClick={() => choose(false)}>Safe preview</button><button onClick={() => choose(true)}>Interactive preview</button></div>
   </dialog>
 }
 

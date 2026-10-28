@@ -144,8 +144,9 @@
 .chat-preview-permission::backdrop { background: #000b; }
 .chat-preview-permission h2 { font-size: 18px; margin: 0 0 12px; }
 .chat-preview-permission p { margin: 12px 0; color: var(--muted); }
-.chat-preview-permission > div { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
-.chat-preview-permission button { padding: 8px 12px; border: 1px solid var(--rule); border-radius: 8px; color: var(--accent-ink); }
+.chat-preview-permission p strong { color: var(--warning); font-weight: 700; }
+.chat-preview-permission > div { display: flex; gap: 12px; margin-top: 20px; }
+.chat-preview-permission button { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid var(--rule); border-radius: 8px; color: var(--accent-ink); }
 .chat-load-earlier { display: block; margin: 0 auto 24px; color: var(--accent-ink) !important; font-size: 12px; }
 .chat-scroll-anchor { position: relative; height: 0; flex-shrink: 0; z-index: 2; }
 .chat-jump-latest { display: flex; align-items: center; justify-content: center; position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); width: 36px; height: 36px; padding: 0; border: 1px solid var(--rule) !important; border-radius: 50%; background: var(--surface); color: var(--accent-ink) !important; box-shadow: 0 3px 12px #0002; }
