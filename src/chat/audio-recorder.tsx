@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Mic, Square } from 'lucide-react'
 import { audioTime } from '../../shared/audio'
 import { TooltipHint } from '../components/ui/tooltip'
+import { AudioMessage } from './audio-message'
 import './audio.css'
 
 const limit = 10 * 1024 * 1024, maxSeconds = 300
@@ -79,7 +80,7 @@ export function AudioRecorder({ enabled, attached, onRecord, onBusy, controls }:
   return <><div className="chat-recorder">
     {controls === undefined && trigger}
     {(state === 'starting' || state === 'recording') && <div className="chat-recording"><span role="status">{state === 'starting' ? 'Waiting for microphone permission…' : `Recording ${audioTime(seconds)} / 5:00`}</span><button type="button" onClick={cancel}>Cancel recording</button>{state === 'recording' && <button type="button" onClick={() => recorder.current?.stop()}><Square size={12} />Stop recording</button>}</div>}
-    {preview && <div className="chat-recording"><audio controls src={preview} aria-label="Recording preview" /><span role="status">{state === 'saving' ? 'Attaching recording…' : state === 'failed' ? 'Recording not attached' : 'Ready to send'}</span>{state === 'failed' && <><button type="button" disabled={!enabled} onClick={() => { if (saved.current) void attach(saved.current, generation.current) }}>Retry attachment</button><button type="button" onClick={cancel}>Discard recording</button></>}</div>}
+    {preview && <div className="chat-recording-preview"><AudioMessage key={preview} src={preview} name="Recording preview" blob={saved.current || undefined} duration={seconds} preview /><div className="chat-recording-preview-status"><span role="status">{state === 'saving' ? 'Attaching recording…' : state === 'failed' ? 'Recording not attached' : 'Ready to send'}</span>{state === 'failed' && <><button type="button" disabled={!enabled} onClick={() => { if (saved.current) void attach(saved.current, generation.current) }}>Retry attachment</button><button type="button" onClick={cancel}>Discard recording</button></>}</div></div>}
     {error && <p className="chat-error" role="alert">{error}</p>}
   </div>{controls && createPortal(trigger, controls)}</>
 }

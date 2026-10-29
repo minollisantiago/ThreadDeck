@@ -4,16 +4,17 @@ import type { Snapshot } from '../shared/model'
 
 const threadId = '100000000000000001', projectId = '100000000000000010'
 test('records native browser audio, stages the true container and sends an explicit audio prompt', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 1050 })
   await page.addInitScript(() => {
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => {
-      const context = new AudioContext(), oscillator = context.createOscillator(), destination = context.createMediaStreamDestination()
-      oscillator.connect(destination); oscillator.start()
+      const context = new AudioContext(), oscillator = context.createOscillator(), destination = context.createMediaStreamDestination(), gain = context.createGain()
+      oscillator.connect(gain); gain.connect(destination); oscillator.start()
+      for (let step = 0; step < 40; step++) gain.gain.setValueAtTime(.1 + (step * 17 % 23) / 25, step * .05)
       ;(window as unknown as { recordingContext: AudioContext }).recordingContext = context
       return destination.stream
     } })
   })
-  const submissions = await fixture(page, 'submitted', true, undefined, 0, false)
-  await page.route('**/api/chat/info', route => route.fulfill({ json: { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['audio-prompt', 'files', 'prompt'] } }))
+  const submissions = await fixture(page, 'submitted', true, undefined, 0, false, true)
   let uploadName = ''
   let uploadBytes: Buffer = Buffer.alloc(0)
   await page.route('**/api/chat/files?*', route => {
@@ -23,18 +24,40 @@ test('records native browser audio, stages the true container and sends an expli
   })
   await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
   const record = page.getByRole('button', { name: 'Record audio prompt' })
+  await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
   await expect(record).toHaveText('')
   await expect(record).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   const recordBox = await record.boundingBox(), sendBox = await page.getByRole('button', { name: 'Send', exact: true }).boundingBox()
-  expect(sendBox!.x - (recordBox!.x + recordBox!.width)).toBeCloseTo(9, 0)
+  expect(sendBox!.x - (recordBox!.x + recordBox!.width)).toBeCloseTo(5, 0)
   expect(recordBox!.y).toBeCloseTo(sendBox!.y, 0)
   await page.locator('.chat-composer').screenshot({ path: 'artifacts/audio-record-button.png' })
   await page.getByRole('button', { name: 'Record audio prompt' }).click()
   await expect(page.getByRole('button', { name: 'Stop recording' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled()
-  await page.waitForFunction(() => (window as unknown as { recordingContext: AudioContext }).recordingContext.currentTime > .15)
+  await page.waitForFunction(() => (window as unknown as { recordingContext: AudioContext }).recordingContext.currentTime > 1.2)
   await page.getByRole('button', { name: 'Stop recording' }).click()
   await expect(page.getByText('Ready to send')).toBeVisible()
+  await expect(page.locator('.chat-recorder .chat-audio-track')).toHaveAttribute('data-waveform', 'ready')
+  await expect(page.locator('.chat-recorder .chat-audio-waveform rect')).toHaveCount(64)
+  await expect(page.locator('.chat-recorder audio[controls]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Play Recording preview' })).toHaveCSS('border-radius', '50%')
+  const speed = page.getByRole('button', { name: /Playback speed for Recording preview/ })
+  for (const value of ['1.5×', '1.75×', '2×', '1×']) { await speed.click(); await expect(speed).toHaveText(value) }
+  await page.getByRole('button', { name: 'Adjust volume for Recording preview' }).click()
+  await expect(page.locator('.chat-recorder .chat-audio-controls')).toHaveCSS('border-width', '0px')
+  await expect(page.locator('.chat-recorder .chat-audio-volume-popover')).toHaveCSS('border-width', '0px')
+  const volume = page.getByRole('slider', { name: 'Volume for Recording preview' })
+  await expect(volume).toHaveAttribute('aria-orientation', 'vertical')
+  const volumeBox = await volume.boundingBox()
+  expect(volumeBox!.height).toBeGreaterThan(volumeBox!.width * 3)
+  await volume.press('Home')
+  for (let step = 0; step < 7; step++) await volume.press('ArrowUp')
+  await expect(page.locator('.chat-recorder audio')).toHaveJSProperty('volume', .35)
+  await page.locator('.chat-composer').screenshot({ path: 'artifacts/audio-recording-discord-preview-volume.png' })
+  await volume.press('Escape')
+  await page.getByRole('textbox', { name: 'Write a prompt' }).focus()
+  await page.mouse.move(0, 0)
+  await page.locator('.chat-composer').screenshot({ path: 'artifacts/audio-recording-discord-preview.png' })
   expect(uploadName).toMatch(/\.webm$/)
   expect(uploadBytes.subarray(0, 4).toString('hex')).toBe('1a45dfa3')
   await expect(page.getByRole('checkbox', { name: 'Audio prompt' })).toBeChecked()
@@ -45,8 +68,7 @@ test('records native browser audio, stages the true container and sends an expli
 })
 test('plays a real audio attachment lazily and stages it through Use as prompt', async ({ page }) => {
   await page.setViewportSize({ width: 430, height: 1050 })
-  await fixture(page, 'submitted', true, undefined, 0, false)
-  await page.route('**/api/chat/info', route => route.fulfill({ json: { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['audio-prompt', 'files', 'prompt'] } }))
+  await fixture(page, 'submitted', true, undefined, 0, false, true)
   await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'audio:0', before: null, stale: false, messages: [{ id: '100000000000000002', channel_id: threadId, timestamp: '2026-10-29T00:00:00Z', author: { id: 'human', username: 'Human' }, attachments: [{ id: '100000000000000003', filename: 'voice.wav', size: 16044, content_type: 'audio/wav', duration_secs: 1 }] }] } }))
   const wav = Buffer.alloc(16044)
   wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(16000, 40)
@@ -184,7 +206,7 @@ test('Ctrl+N keeps toggling finder modes while Ctrl+Shift+N creates in the curre
 })
 test.use({ viewport: { width: 1440, height: 1050 }, colorScheme: 'dark' })
 test.beforeEach(async ({ page }) => { await page.route('**/api/events', route => route.abort()) })
-async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted', bridge = true, historyGate?: Promise<void>, extraSessions = 0, openChat = true) {
+async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted', bridge = true, historyGate?: Promise<void>, extraSessions = 0, openChat = true, audio = false) {
   const now = Date.now(), submissions: Record<string, unknown>[] = []
   const snapshot: Snapshot = { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [
     { id: 'ses_stream', threadId, guildId: '100000000000000099', projectId, title: 'Stream workspace', status: 'input', agentCount: 0, updatedAt: now, responseAt: Date.parse('2026-10-24T00:00:00Z'), model: { id: 'gpt-6.1-sol', providerID: 'openai', variant: 'high' } },
@@ -194,7 +216,7 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
   await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
   await page.route('**/api/chat/**', async route => {
     const url = new URL(route.request().url())
-    if (url.pathname === '/api/chat/info') return route.fulfill({ status: bridge ? 200 : 503, json: bridge ? { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort'] } : { code: 'bridge_required', error: 'Activate the local Kimaki fork to chat here' } })
+    if (url.pathname === '/api/chat/info') return route.fulfill({ status: bridge ? 200 : 503, json: bridge ? { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort', ...(audio ? ['audio-prompt'] : [])] } : { code: 'bridge_required', error: 'Activate the local Kimaki fork to chat here' } })
     if (url.pathname.endsWith('/changes')) return // Deliberately pending long poll; never reaches a real backend.
     if (url.pathname.endsWith('/catalog')) return route.fulfill({ json: { entries: [{ kind: 'skill', name: 'research', description: 'Investigate primary sources' }, { kind: 'command', name: 'review', description: 'Review changes' }] } })
     if (url.pathname.endsWith('/messages') && historyGate) await historyGate

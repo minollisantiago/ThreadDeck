@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { AudioMessage } from './audio-message'
 import { AudioRecorder, recordingExtension } from './audio-recorder'
 import { PromptComposer } from './composer'
 import { PublishedMessages } from './messages'
 import { publishedMessageSchema } from '../../shared/chat'
+import { discordAudioPeaks, sampleAudioPeaks, useRecordingWaveform } from './audio-waveform'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 function media() {
@@ -22,7 +23,7 @@ it('loads audio only on demand, pauses the previous clip, seeks and changes spee
   expect(play).toHaveBeenCalledTimes(1)
   fireEvent.change(screen.getByLabelText('Seek a.ogg'), { target: { value: '8' } })
   expect(elements[0].currentTime).toBe(8)
-  fireEvent.change(screen.getByLabelText('Playback speed for a.ogg'), { target: { value: '1.5' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Playback speed for a.ogg: 1×' }))
   expect(elements[0].playbackRate).toBe(1.5)
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Play b.mp3' })))
   expect(screen.getByRole('button', { name: 'Play a.ogg' })).toBeTruthy()
@@ -40,9 +41,51 @@ it('renders a Discord Ogg voice note as an audio bubble with optional forwarding
   const forward = vi.fn()
   const message = publishedMessageSchema.parse({ id: '100000000000000002', channel_id: '100000000000000001', timestamp: '2026-10-29T00:00:00Z', author: { id: 'human', username: 'Human' }, attachments: [{ id: '100000000000000003', filename: 'voice.ogg', size: 100, content_type: 'audio/ogg', duration_secs: 31 }] })
   render(<PublishedMessages messages={[message]} threadId={message.channel_id} preview={() => {}} forwardAudio={forward} />)
-  expect(screen.getByText('0:00 / 0:31')).toBeTruthy()
+  expect(screen.getByLabelText('Remaining time for voice.ogg').textContent).toBe('0:31')
   fireEvent.click(screen.getByRole('button', { name: 'Use as prompt' }))
   expect(forward).toHaveBeenCalledWith('voice.ogg', expect.stringContaining('/attachments/100000000000000003'))
+})
+it('cycles playback speeds in the requested order and wraps back to 1× without a dropdown', () => {
+  media()
+  const { container } = render(<AudioMessage src="/a" name="a.ogg" />)
+  const audio = container.querySelector('audio')!
+  expect(screen.queryByRole('combobox')).toBeNull()
+  for (const speed of [1.5, 1.75, 2, 1]) {
+    fireEvent.click(screen.getByRole('button', { name: /Playback speed for a.ogg/ }))
+    expect(screen.getByRole('button', { name: /Playback speed for a.ogg/ }).textContent).toBe(`${speed}×`)
+    expect(audio.playbackRate).toBe(speed)
+  }
+})
+it('adjusts real media volume, supports mute/restore and closes volume on Escape', () => {
+  media()
+  const { container } = render(<AudioMessage src="/a" name="a.ogg" />)
+  const audio = container.querySelector('audio')!
+  const button = screen.getByRole('button', { name: 'Adjust volume for a.ogg' })
+  fireEvent.click(button)
+  expect(screen.getByRole('slider', { name: 'Volume for a.ogg' }).getAttribute('aria-orientation')).toBe('vertical')
+  fireEvent.change(screen.getByRole('slider', { name: 'Volume for a.ogg' }), { target: { value: '.35' } })
+  expect(audio.volume).toBe(.35)
+  fireEvent.click(screen.getByRole('button', { name: 'Mute a.ogg' }))
+  expect(audio.volume).toBe(0)
+  fireEvent.click(screen.getByRole('button', { name: 'Unmute a.ogg' }))
+  expect(audio.volume).toBe(.35)
+  fireEvent.keyDown(button, { key: 'Escape' })
+  expect(screen.queryByRole('slider', { name: 'Volume for a.ogg' })).toBeNull()
+  expect(document.activeElement).toBe(button)
+})
+it('samples real signal energy for recording previews and validates Discord waveform metadata', async () => {
+  expect(sampleAudioPeaks(new Float32Array([0, 0, .25, -.25, .5, -.5, 1, -1]), 4)).toEqual([0, .25, .5, 1])
+  expect(sampleAudioPeaks(new Float32Array(8), 4)).toEqual([0, 0, 0, 0])
+  expect(discordAudioPeaks('AAH/')).toEqual([0, 1 / 255, 1])
+  expect(discordAudioPeaks('%%%')).toEqual([])
+  const close = vi.fn().mockResolvedValue(undefined)
+  vi.stubGlobal('AudioContext', class { state = 'running'; close = close; decodeAudioData = async () => ({ duration: 3, getChannelData: () => new Float32Array([0, .5, 1, .5]) }) })
+  const blob = new Blob(['audio'])
+  Object.defineProperty(blob, 'arrayBuffer', { value: async () => new ArrayBuffer(4) })
+  const { result } = renderHook(() => useRecordingWaveform(blob))
+  await waitFor(() => expect(result.current?.duration).toBe(3))
+  expect(result.current?.peaks).toHaveLength(64)
+  expect(close).toHaveBeenCalled()
 })
 
 class Recorder {
@@ -77,6 +120,8 @@ it('records true WebM bytes, attaches without dictation review, releases the mic
   expect(file.type).toBe('audio/webm;codecs=opus')
   expect(stop).toHaveBeenCalled()
   expect(onBusy).toHaveBeenLastCalledWith(false)
+  expect(screen.getByRole('button', { name: 'Play Recording preview' })).toBeTruthy()
+  expect(screen.queryByRole('combobox')).toBeNull()
   unmount(); expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:recording')
 })
 it('cancels recording without uploading and releases late permission grants after navigation', async () => {
