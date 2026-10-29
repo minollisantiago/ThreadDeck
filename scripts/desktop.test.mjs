@@ -78,8 +78,8 @@ test('native tray groups notifications, navigates, persists settings, and stops 
   const timers = new Map(), notices = [], saved = []
   let menu, tray, next = snapshot([agent()]), focused = false, hidden = false, quit = false
   class FakeTray extends EventEmitter {
-    constructor() { super(); tray = this }
-    setImage() {}
+    constructor(icon) { super(); tray = this; this.icon = icon }
+    setImage() { assert.fail('Agent status must not replace the ThreadDeck tray icon') }
     setToolTip(value) { this.tooltip = value }
     setContextMenu(value) { menu = value }
     destroy() { this.destroyed = true }
@@ -112,6 +112,7 @@ test('native tray groups notifications, navigates, persists settings, and stops 
     timers.delete(id); timer.fn(); await settle()
   }
   await settle()
+  assert.equal(tray.icon, '/desktop/ThreadDeck.ico')
   assert.equal(notices.length, 0)
   assert.match(tray.tooltip, /1 unread/)
   controller.receipts({ 'project:thread': 100 })

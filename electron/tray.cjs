@@ -1,4 +1,4 @@
-const { Tray, Menu, Notification, nativeImage } = require('electron')
+const { Tray, Menu, Notification } = require('electron')
 const { readFileSync, writeFileSync } = require('node:fs')
 const path = require('node:path')
 const { agentStatus } = require('./agent-status.cjs')
@@ -12,7 +12,7 @@ function trayController({ app, window, origin, openSession }) {
   } catch { /* First launch or unavailable preferences. */ }
   const model = agentStatus(), icon = path.join(__dirname, 'ThreadDeck.ico')
   const tray = new Tray(icon)
-  let stopped = false, timer, request, activeSession = null, latestIcon = '', disconnected = false
+  let stopped = false, timer, request, activeSession = null, disconnected = false
   const notifications = new Set()
   const show = () => { if (window.isMinimized()) window.restore(); window.show(); window.focus() }
   const open = id => { show(); openSession(id) }
@@ -21,23 +21,9 @@ function trayController({ app, window, origin, openSession }) {
     catch (error) { console.error('Could not save tray settings:', error.message) }
     render()
   }
-  // Shape + color distinguish attention (!), unread (square), and working (circle).
-  function statusIcon(kind) {
-    if (kind === 'idle') return nativeImage.createFromPath(icon)
-    const size = 32, pixels = Buffer.alloc(size * size * 4)
-    const color = kind === 'attention' ? [40, 180, 255] : kind === 'unread' ? [100, 220, 100] : [255, 180, 80]
-    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-      const visible = kind === 'attention' ? x >= 13 && x <= 18 && (y >= 4 && y <= 20 || y >= 25 && y <= 29)
-        : kind === 'unread' ? x >= 5 && x <= 26 && y >= 5 && y <= 26 : (x - 16) ** 2 + (y - 16) ** 2 <= 12 ** 2
-      if (visible) { const i = (y * size + x) * 4; pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255 }
-    }
-    return nativeImage.createFromBitmap(pixels, { width: size, height: size })
-  }
   function render() {
     if (stopped) return
     const { health, attention, unread, working } = model.summary()
-    const kind = attention.length ? 'attention' : unread.length ? 'unread' : working ? 'working' : 'idle'
-    if (kind !== latestIcon) { tray.setImage(statusIcon(kind)); latestIcon = kind }
     tray.setToolTip(`ThreadDeck · ${working} working · ${attention.length} need you · ${unread.length} unread${health !== 'connected' ? ' · disconnected' : ''}`)
     const items = new Map([...attention, ...unread].map(session => [session.id, session]))
     tray.setContextMenu(Menu.buildFromTemplate([

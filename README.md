@@ -138,9 +138,9 @@ only missing ones; closing it leaves reused services untouched.
 The native client opens before WSL starts, with a branded scanner-logo loading
 screen, live startup stages, and retry/log controls if anything fails.
 
-The Windows tray shows working-agent, attention and unread-response counts. Its
-icon uses a circle for work, an exclamation mark for attention, and a square for
-unread replies. Right-click to open attention/unread threads, pause notifications,
+The Windows tray always uses the ThreadDeck app icon. Its tooltip and menu show
+working-agent, attention and unread-response counts.
+Right-click to open attention/unread threads, pause notifications,
 or enable **Close to tray** (off by default). **Quit ThreadDeck** always exits.
 Tray preferences persist locally. Hidden windows keep monitoring the backend.
 Native Windows notifications announce input/approval requests, failed agents,
