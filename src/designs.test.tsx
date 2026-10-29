@@ -53,7 +53,7 @@ it('islands preserves filtering, unread actions, links and unknown states', () =
   rerender(<Dashboard snapshot={snapshot} transportError now={now} />)
   expect(container.querySelector('[data-state=working]')).toBeNull()
   expect(screen.getAllByText('Unknown')).toHaveLength(3)
-  expect(screen.getByText('Status unavailable')).toBeTruthy()
+  expect(screen.getByRole('img', { name: 'Working status unavailable in Alpha' })).toBeTruthy()
 })
 
 it('switches layouts without losing search or the original list collapse preference', () => {

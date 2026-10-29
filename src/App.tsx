@@ -11,6 +11,7 @@ import { ThreadOptions } from './components/thread-options'
 import { FilterTabs } from './components/filter-tabs'
 import { ProjectUnreadPill } from './components/project-unread-pill'
 import { ProjectCreateButton } from './components/project-create-button'
+import { ProjectActivity } from './components/project-activity'
 import { SessionRow } from './components/session-row'
 import { ProjectIslands } from './components/project-islands'
 import { ProjectCollapse } from './components/project-collapse'
@@ -53,15 +54,12 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
       <Hash className="project-channel-icon" aria-hidden="true" />
       <TooltipHint label={project.name}><span className="project-name" id={`heading-${project.id}`} aria-hidden="true">{project.name}</span></TooltipHint>
       <span className="project-pills">
+        <ProjectActivity count={working} verified={verified} projectName={project.name} />
         <span className="project-total" aria-hidden="true">{project.sessions.length} {project.sessions.length === 1 ? 'session' : 'sessions'}</span>
-        {verified && attention > 0 && <span className="project-attention" aria-hidden="true"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</span>}
+        {verified && attention > 0 && <span className="project-attention" aria-hidden="true"><CircleAlert aria-hidden="true" />{attention}<span className="project-attention-label">{attention === 1 ? 'needs' : 'need'} attention</span></span>}
         <ProjectUnreadPill count={unreadCount} projectName={project.name} describedBy={`heading-${project.id}`} className="project-unread" markRead={() => markProjectRead(project.id)} />
         <ProjectCreateButton project={project} />
       </span>
-      {(!verified || working > 0 || !active) && <span className="project-summary" aria-hidden="true">
-        {verified && working > 0 && <span className="working-summary"><i />{working} working</span>}
-        {(!verified || !active) && <span>{verified ? 'No working threads' : 'Status unavailable'}</span>}
-      </span>}
     </div>
     <ProjectCollapse id={`sessions-${project.id}`} collapsed={collapsed}>
       <div className="project-sessions">

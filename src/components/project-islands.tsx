@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import { ChevronDown, CircleAlert, Radio } from 'lucide-react'
+import { ChevronDown, CircleAlert } from 'lucide-react'
 import { isAttention, type Project, type Session } from '../../shared/model'
 import { sessionOrder, workingCount } from '../lib/view'
 import { SessionRow } from './session-row'
@@ -8,6 +8,7 @@ import { ProjectCollapse } from './project-collapse'
 import { ProjectUnreadPill } from './project-unread-pill'
 import { ProjectCreateButton } from './project-create-button'
 import { PinnedSessions } from '../hooks/use-pinned'
+import { ProjectActivity } from './project-activity'
 
 export function ProjectIslands({ projects, verified, now, unread, markRead, markProjectRead, collapsed, toggle }: {
   projects: Project[]; verified: boolean; now: number
@@ -32,7 +33,8 @@ export function ProjectIslands({ projects, verified, now, unread, markRead, mark
         </button>
         <ProjectCreateButton project={project} />
         <div className="visual-project-stats">
-          {verified ? <><Badge className={`status ${working ? 'status-working' : 'status-idle'}`}><Radio aria-hidden="true" />{working} working</Badge>{attention > 0 && <Badge className="status status-input"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</Badge>}</> : <span>Status unavailable</span>}
+          <ProjectActivity count={working} verified={verified} projectName={project.name} />
+          {verified && attention > 0 && <Badge className="status status-input"><CircleAlert aria-hidden="true" />{attention} {attention === 1 ? 'needs' : 'need'} attention</Badge>}
           <ProjectUnreadPill count={unreadCount} projectName={project.name} describedBy={`visual-heading-${project.id}`} className="status visual-unread" markRead={() => markProjectRead(project.id)} />
         </div>
         </div>

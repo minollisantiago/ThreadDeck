@@ -1,0 +1,20 @@
+.project-activity-slot { display: inline-flex; align-items: center; justify-content: center; width: 48px; min-width: 48px; height: 26px; flex-shrink: 0; }
+.project-activity { display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 48px; height: 22px; padding: 2px 6px; border-radius: var(--pill-radius); pointer-events: auto; }
+.project-activity-count { display: block; width: 3ch; text-align: center; font-size: 10px; line-height: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.project-activity-slot[data-state=idle] .project-activity { visibility: hidden; }
+.visual-project-stats .project-activity-slot { height: 28px; }
+.project-activity-loader { display: grid; grid-template-columns: repeat(3, 3px); grid-template-rows: repeat(3, 3px); gap: 1.5px; width: 12px; height: 12px; flex-shrink: 0; }
+.project-activity-loader i { display: block; width: 3px; height: 3px; border-radius: .7px; background: currentColor; opacity: .3; animation: project-activity-matrix 1.3s ease-in-out infinite; }
+@keyframes project-activity-matrix { 0%, 100% { opacity: .3; transform: scale(.65); } 45% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .project-activity-loader i { animation: none; opacity: .8; transform: none; } }
+
+/* Reserve the activity slot even when idle; no second header row on status changes. */
+.project-panel:not(.state-panel) { container: project-card / inline-size; }
+.project-panel .project-heading .project-pills { flex-wrap: nowrap; max-width: none; gap: 6px; }
+.project-panel .project-heading .project-attention { white-space: nowrap; order: 0; }
+@container project-card (max-width: 520px) {
+  .project-heading .project-pills { font-size: 10px; gap: 5px; }
+  .project-heading :is(.project-total, .project-unread) { padding: 2px 7px; }
+  .project-attention-label { display: none; }
+}
+@container project-card (max-width: 370px) { .project-heading .project-total { display: none; } }
