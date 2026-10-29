@@ -15,9 +15,10 @@ import { ConversationSkeleton } from './conversation-skeleton'
 import { SidebarToggle } from './sidebar-toggle'
 import { localOperatorPrompt } from './message-groups'
 import { TooltipHint } from '../components/ui/tooltip'
+import { isPublished, publicationNonce } from './publication'
 
 export type ChatTarget = { session: Session; project: Project } | { session?: undefined; project: Project }
-const pendingSchema = z.object({ id: z.uuid(), text: z.string(), files: z.array(z.string()), attachments: z.array(chatFileSchema.extend({ available: z.boolean().optional() })).optional(), optimistic: z.boolean().optional(), delivery: z.enum(['send', 'queue']).optional() })
+const pendingSchema = z.object({ id: z.uuid(), nonce: z.string().optional(), text: z.string(), files: z.array(z.string()), attachments: z.array(chatFileSchema.extend({ available: z.boolean().optional() })).optional(), optimistic: z.boolean().optional(), delivery: z.enum(['send', 'queue']).optional() })
 type Pending = z.infer<typeof pendingSchema>
 type Outgoing = Pending & { state: OperationReceipt['state']; messageIds: string[] }
 const scrolls = new Map<string, number>()
@@ -30,6 +31,14 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
   const [pending, setPending] = useState<Pending | null>(() => { try { const saved = pendingSchema.parse(JSON.parse(localStorage.getItem(pendingKey) || 'null')); return { ...saved, attachments: saved.attachments?.map(file => ({ ...file, available: false })) } } catch { return null } })
   const [outgoing, setOutgoing] = useState<Outgoing[]>(() => pending?.optimistic ? [{ ...pending, state: 'accepted', messageIds: [] }] : [])
   const submissionLock = useRef(Boolean(pending))
+  useEffect(() => {
+    if (!pending || pending.nonce) return
+    let cancelled = false
+    void publicationNonce(pending.id).then(nonce => {
+      if (!cancelled) setOutgoing(previous => previous.map(item => item.id === pending.id ? { ...item, nonce } : item))
+    }).catch(() => {}) // Older/unsupported clients can still reconcile by receipt IDs.
+    return () => { cancelled = true }
+  }, [pending?.id])
   const [receipt, setReceipt] = useState<OperationReceipt | null>(null), [operationError, setOperationError] = useState('')
   const [aboveLatest, setAboveLatest] = useState(false)
   const transcript = useRef<HTMLDivElement>(null), following = useRef(true), initialized = useRef(false), savingPage = useRef(false)
@@ -110,6 +119,11 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     setOutgoing(previous => [...previous, { ...operation, state: 'accepted', messageIds: [] }])
     draft.save({ text: '', head: 0, anchor: 0, files: [] }); setExpanded(false)
     try {
+      const nonce = await publicationNonce(id).catch(() => undefined)
+      const correlated = { ...operation, nonce }
+      localStorage.setItem(pendingKey, JSON.stringify(correlated))
+      setPending(correlated)
+      setOutgoing(previous => previous.map(item => item.id === id ? { ...item, nonce } : item))
       const invocation = catalog.entries.map(entry => ({ ...entry, prefix: `/${entry.name}${entry.kind === 'skill' ? '-skill' : ''}` })).sort((a, b) => b.prefix.length - a.prefix.length).find(entry => current.text === entry.prefix || current.text.startsWith(`${entry.prefix} `) || current.text.startsWith(`${entry.prefix}\n`))
       const response = await chatRequest('submit', receiptSchema, jsonRequest({ requestId: id, ...(session ? { threadId: session.threadId } : { projectId: project.id }),
         ...(invocation ? { kind: invocation.kind, name: invocation.name, text: current.text.slice(invocation.prefix.length).trimStart() } : { text: current.text }),
@@ -128,8 +142,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     return () => window.removeEventListener('threaddeck:composer-submit', handler)
   }, [info, bridgeError, pending, draft.conflict, conversation.stale, conversation.error, conversation.loading, preview, catalog])
   useEffect(() => {
-    const ids = new Set(conversation.messages.map(message => message.id))
-    setOutgoing(previous => previous.filter(item => !item.messageIds.some(id => ids.has(id))))
+    setOutgoing(previous => previous.filter(item => !isPublished(item, conversation.messages)))
   }, [conversation.messages, receipt])
   useLayoutEffect(() => {
     const node = transcript.current
@@ -160,7 +173,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
         {conversation.before && <button className="chat-load-earlier" onClick={async () => { const el = transcript.current; if (!el) return; const height = el.scrollHeight; savingPage.current = true; try { await conversation.earlier(); requestAnimationFrame(() => { el.scrollTop += el.scrollHeight - height; savingPage.current = false }) } catch { savingPage.current = false; setOperationError('Could not load earlier messages') } }}>Load earlier messages</button>}
         {!session && <div className="chat-welcome"><h2>Start a conversation</h2><p>Your first prompt creates a linked Kimaki session and Discord thread in {project.name}.</p></div>}
         {session && <PublishedMessages messages={conversation.messages} threadId={session.threadId} busy={busy} stale={conversation.stale} discordUrl={links?.browser} preview={(name, url) => { remember(); setPreview({ name, url }) }} />}
-        {outgoing.filter(item => !item.messageIds.some(id => conversation.messages.some(message => message.id === id))).map(item => <OutgoingMessage key={item.id} text={item.text} files={item.attachments || item.files.map(id => ({ id, name: 'Attached file' }))} state={item.state} queued={item.delivery === 'queue'} canRestore={!draft.conflict && !draft.draft.text && !draft.draft.files.length} restore={() => { if (!draft.conflict && !draft.current.current.text && !draft.current.current.files.length) draft.save({ text: item.text, files: item.attachments || [], anchor: item.text.length, head: item.text.length }) }} />)}
+        {outgoing.filter(item => !isPublished(item, conversation.messages)).map(item => <OutgoingMessage key={item.id} text={item.text} files={item.attachments || item.files.map(id => ({ id, name: 'Attached file' }))} state={item.state} queued={item.delivery === 'queue'} canRestore={!draft.conflict && !draft.draft.text && !draft.draft.files.length} restore={() => { if (!draft.conflict && !draft.current.current.text && !draft.current.current.files.length) draft.save({ text: item.text, files: item.attachments || [], anchor: item.text.length, head: item.text.length }) }} />)}
       </> }</div>}
       {!block && conversation.stale && <p className="chat-error">Discord connection is stale. The transcript may be incomplete.</p>}
       {draft.conflict && <div className="chat-error" role="alert">This draft changed in another window. <button onClick={draft.keep}>Keep my draft</button><button onClick={draft.reload}>Load saved draft</button></div>}
