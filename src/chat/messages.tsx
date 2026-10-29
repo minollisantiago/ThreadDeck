@@ -1,5 +1,4 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { FileCode, FileText } from 'lucide-react'
 import { z } from 'zod'
 import { type PublishedMessage } from '../../shared/chat'
 import { ChatMarkdown } from './markdown'
@@ -14,6 +13,7 @@ import { publishedMarkdown } from './published-markdown'
 import { HushAvatar } from './hush-avatar'
 import { inlineAudioType } from '../../shared/audio'
 import { AudioMessage } from './audio-message'
+import { AttachmentRow } from './attachment-row'
 
 export function attachmentUrl(threadId: string, messageId: string, id: string) { return `/api/chat/threads/${threadId}/messages/${messageId}/attachments/${id}` }
 const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().optional(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
@@ -33,7 +33,7 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview, for
     const url = attachmentUrl(threadId, message.id, file.id)
     if (!(file.width && file.height) && inlineAudioType(file.filename, file.content_type)) return <AudioMessage key={file.id} src={url} name={file.filename} duration={typeof file.duration_secs === 'number' ? file.duration_secs : undefined} waveform={typeof file.waveform === 'string' ? file.waveform : undefined} forward={forwardAudio ? () => forwardAudio(file.filename, url) : undefined} />
     const html = /\.html?$/i.test(file.filename) || file.content_type?.split(';')[0].trim().toLowerCase() === 'text/html'
-    return inlineImageType(file.filename, file.content_type) ? imageView(url, file.filename, file.id, file.width, file.height) : <div key={file.id} className="chat-file">{html ? <FileCode size={20} /> : <FileText size={20} />}<strong>{file.filename}</strong><small>{file.size ? `${Math.ceil(file.size / 1024)} KiB` : 'Attachment'}</small>{html && <button onClick={() => preview(file.filename, url)}>Preview HTML</button>}<a href={url} download={file.filename}>Download</a></div>
+    return inlineImageType(file.filename, file.content_type) ? imageView(url, file.filename, file.id, file.width, file.height) : <AttachmentRow key={file.id} name={file.filename} size={file.size} url={url} preview={html ? () => preview(file.filename, url) : undefined} />
   }
   function mediaView(value: unknown, key: string, message: PublishedMessage, used: Set<string>, description?: string): ReactNode {
     const parsed = mediaSchema.safeParse(value)

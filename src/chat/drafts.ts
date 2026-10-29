@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import { chatFileSchema } from '../../shared/chat'
 
-const schema = z.object({ text: z.string(), anchor: z.number().int().nonnegative(), head: z.number().int().nonnegative(), revision: z.string(), files: z.array(chatFileSchema.extend({ available: z.boolean().optional() })) })
+export const draftFileSchema = chatFileSchema.extend({ available: z.boolean().optional(), size: z.number().int().nonnegative().optional() })
+const schema = z.object({ text: z.string(), anchor: z.number().int().nonnegative(), head: z.number().int().nonnegative(), revision: z.string(), files: z.array(draftFileSchema) })
 export type Draft = z.infer<typeof schema>
 const cache = new Map<string, Draft>()
 const empty = (): Draft => ({ text: '', anchor: 0, head: 0, revision: '', files: [] })

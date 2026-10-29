@@ -4,7 +4,7 @@ import { ArrowDown } from 'lucide-react'
 import { discordLinks, type Project, type Session } from '../../shared/model'
 import { catalogSchema, chatFileSchema, chatInfoSchema, receiptSchema, type ChatCatalog, type ChatInfo, type OperationReceipt } from '../../shared/chat'
 import { ChatRequestError, chatRequest, jsonRequest } from './api'
-import { useDraft } from './drafts'
+import { draftFileSchema, useDraft } from './drafts'
 import { PromptComposer } from './composer'
 import { PublishedMessages } from './messages'
 import { HtmlPreview } from './html-preview'
@@ -18,7 +18,7 @@ import { TooltipHint } from '../components/ui/tooltip'
 import { isPublished, publicationNonce } from './publication'
 
 export type ChatTarget = { session: Session; project: Project } | { session?: undefined; project: Project }
-const pendingSchema = z.object({ id: z.uuid(), nonce: z.string().optional(), text: z.string(), files: z.array(z.string()), attachments: z.array(chatFileSchema.extend({ available: z.boolean().optional() })).optional(), optimistic: z.boolean().optional(), delivery: z.enum(['send', 'queue']).optional() })
+const pendingSchema = z.object({ id: z.uuid(), nonce: z.string().optional(), text: z.string(), files: z.array(z.string()), attachments: z.array(draftFileSchema).optional(), optimistic: z.boolean().optional(), delivery: z.enum(['send', 'queue']).optional() })
 type Pending = z.infer<typeof pendingSchema>
 type Outgoing = Pending & { state: OperationReceipt['state']; messageIds: string[] }
 const scrolls = new Map<string, number>()

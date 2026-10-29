@@ -12,6 +12,7 @@ import type { Session } from '../../shared/model'
 import { TooltipHint } from '../components/ui/tooltip'
 import { inlineAudioType } from '../../shared/audio'
 import { AudioRecorder } from './audio-recorder'
+import { AttachmentRow } from './attachment-row'
 
 export function PromptComposer({ draft, change, expanded, toggle, enabled, busy, pending, catalog, submit, stop, model, audioEnabled = false, onBusyChange }: {
   draft: Draft; change: (patch: Partial<Draft>) => void; expanded: boolean; toggle: () => void
@@ -67,7 +68,7 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
       for (const file of files) {
         const uploaded = await chatRequest(`files?name=${encodeURIComponent(file.name)}`, chatFileSchema, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file })
         const audioPrompt = audioEnabled && Boolean(inlineAudioType(file.name, file.type)) && !latest.current.draft.files.some(file => file.audioPrompt)
-        latest.current.change({ files: [...latest.current.draft.files, { ...uploaded, ...(audioPrompt && { audioPrompt: true }), available: true }] })
+        latest.current.change({ files: [...latest.current.draft.files, { ...uploaded, size: file.size, ...(audioPrompt && { audioPrompt: true }), available: true }] })
       }
     } catch (error) { setUploadError(error instanceof Error ? error.message : 'Upload failed'); if (recorded) throw error } finally { uploadLock.current = false; setUploading(false) }
   }
@@ -95,7 +96,7 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
       {busy && <div className="chat-composer-status" role="status" aria-label="Agent activity"><span className="chat-agent-activity"><span className="chat-activity-dots" aria-hidden="true"><i /><i /><i /></span><span>Agent is working…</span></span></div>}
       {dragging && <div className="chat-drop-hint" aria-hidden="true"><Paperclip size={22} /><strong>Drop files to attach</strong><span>Up to 10 files · 10 MiB each</span></div>}
       {expanded ? <div ref={mount} className="chat-editor-mount" /> : <textarea ref={input} aria-label="Write a prompt" value={draft.text} placeholder="Ask anything, / for commands and skills, or attach files…" onChange={event => change({ text: event.target.value, anchor: event.target.selectionStart, head: event.target.selectionEnd })} onSelect={event => { const el = event.currentTarget, anchor = el.selectionDirection === 'backward' ? el.selectionEnd : el.selectionStart, head = el.selectionDirection === 'backward' ? el.selectionStart : el.selectionEnd; if (anchor !== latest.current.draft.anchor || head !== latest.current.draft.head) change({ anchor, head }) }} />}
-      {draft.files.length > 0 && <div className="chat-staged-files">{draft.files.map(file => <span key={file.id}>{file.name}{file.available === false && ' · reattach after reload'}{audioEnabled && inlineAudioType(file.name) && <label className="chat-audio-prompt-toggle"><input type="checkbox" checked={Boolean(file.audioPrompt)} onChange={event => change({ files: draft.files.map(item => ({ ...item, audioPrompt: item.id === file.id ? event.target.checked : false })) })} />Audio prompt</label>}<button disabled={uploading || recording} aria-label={`Remove ${file.name}`} onClick={() => change({ files: draft.files.filter(f => f.id !== file.id) })}>×</button></span>)}</div>}
+      {draft.files.length > 0 && <div className="chat-staged-files">{draft.files.map(file => audioEnabled && inlineAudioType(file.name) ? <span key={file.id}>{file.name}{file.available === false && ' · reattach after reload'}<label className="chat-audio-prompt-toggle"><input type="checkbox" checked={Boolean(file.audioPrompt)} onChange={event => change({ files: draft.files.map(item => ({ ...item, audioPrompt: item.id === file.id ? event.target.checked : false })) })} />Audio prompt</label><button disabled={uploading || recording} aria-label={`Remove ${file.name}`} onClick={() => change({ files: draft.files.filter(f => f.id !== file.id) })}>×</button></span> : <AttachmentRow key={file.id} name={file.name} size={file.size} available={file.available} disabled={uploading || recording} remove={() => change({ files: draft.files.filter(f => f.id !== file.id) })} />)}</div>}
       {audioEnabled && <AudioRecorder controls={recordControls} enabled={enabled && !pending && !uploading} attached={draft.files.some(file => Boolean(file.audioPrompt))} onBusy={setRecording} onRecord={file => uploadFiles([file], true)} />}
       {draft.files.some(file => file.audioPrompt) && <p className="chat-audio-notice">Kimaki transcribes and runs your audio when you send. Recording and transcript are published to Discord.</p>}
       <div className="chat-composer-tools"><button aria-label="Attach files" disabled={!enabled || uploading || draft.files.length >= 10} onClick={() => fileInput.current?.click()}><Paperclip size={17} /></button><input hidden ref={fileInput} type="file" multiple onChange={async event => {

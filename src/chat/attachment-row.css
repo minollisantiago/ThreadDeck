@@ -1,0 +1,24 @@
+/* Quiet, single-line attachments. Image thumbnails and audio players keep their own layouts. */
+.chat-attachment-row, .chat-staged-files > .chat-attachment-row {
+  display: grid; grid-template-columns: 17px minmax(0, 1fr) max-content max-content;
+  align-items: center; column-gap: 11px; width: 100%; min-width: 0; min-height: 48px;
+  padding: 6px 9px 6px 13px; border: 1px solid var(--rule); border-radius: 9px;
+  background: var(--surface); font-size: 11px; text-align: left;
+}
+.chat-attachments > .chat-attachment-row { flex: 0 0 100%; }
+.chat-attachments:has(> .chat-attachment-row) { row-gap: 8px; }
+.chat-attachment-icon { color: var(--accent-ink); }
+.chat-attachment-name { display: block; width: fit-content; min-width: 0; max-width: min(100%, 38ch); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-weight: 500; outline-offset: 3px; }
+.chat-attachment-size { white-space: nowrap; color: var(--subtle); font-size: 10px; font-variant-numeric: tabular-nums; }
+.chat-attachment-actions { display: inline-flex; align-items: center; gap: 2px; }
+.chat-attachment-actions :is(button, a) { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 7px; border-radius: 6px; }
+.chat-attachment-actions svg { width: 15px; height: 15px; }
+.chat-attachment-remove { display: inline-flex; }
+.chat-attachment-readiness { display: inline-grid; place-items: center; width: 24px; height: 30px; color: var(--working); }
+.chat-attachment-row[data-unavailable=true] { border-color: color-mix(in srgb, var(--warning) 45%, var(--rule)); }
+.chat-attachment-row[data-unavailable=true] :is(.chat-attachment-readiness, .chat-attachment-icon) { color: var(--warning); }
+.chat-attachment-row:hover { background: color-mix(in srgb, var(--row) 60%, var(--surface)); }
+@media (max-width: 600px) {
+  .chat-attachment-row, .chat-staged-files > .chat-attachment-row { column-gap: 7px; min-height: 44px; padding-left: 9px; font-size: 10px; }
+  .chat-attachment-size { font-size: 9px; }
+}
