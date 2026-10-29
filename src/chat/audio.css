@@ -15,5 +15,9 @@
 .chat-recording audio { max-width: 100%; height: 36px; }
 .chat-audio-prompt-toggle { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
 .chat-recorder:not(:empty) { padding: 0 14px 8px; }
-.chat-recorder > button, .chat-recording button { display: inline-flex; align-items: center; gap: 7px; padding: 7px; border-radius: 6px; color: var(--accent-ink); font-size: 11px; }
+.chat-recording button { display: inline-flex; align-items: center; gap: 7px; padding: 7px; border-radius: 6px; color: var(--accent-ink); font-size: 11px; }
+.chat-record-control { display: inline-flex; flex-shrink: 0; }
+.chat-record-control:empty { display: none; }
+.chat-record-button { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 7px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); }
+.chat-record-button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .chat-audio-notice { padding: 0 14px 8px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }

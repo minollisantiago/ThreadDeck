@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Mic, Square } from 'lucide-react'
 import { audioTime } from '../../shared/audio'
+import { TooltipHint } from '../components/ui/tooltip'
 import './audio.css'
 
 const limit = 10 * 1024 * 1024, maxSeconds = 300
@@ -11,7 +13,7 @@ export function recordingExtension(type: string) {
   if (type.startsWith('audio/mp4')) return 'm4a'
   throw new Error('This browser did not produce a supported audio format')
 }
-export function AudioRecorder({ enabled, attached, onRecord, onBusy }: { enabled: boolean; attached: boolean; onRecord: (file: File) => Promise<void>; onBusy: (busy: boolean) => void }) {
+export function AudioRecorder({ enabled, attached, onRecord, onBusy, controls }: { enabled: boolean; attached: boolean; onRecord: (file: File) => Promise<void>; onBusy: (busy: boolean) => void; controls?: HTMLElement | null }) {
   const [state, setState] = useState<'idle' | 'starting' | 'recording' | 'saving' | 'ready' | 'failed'>('idle'), [seconds, setSeconds] = useState(0), [error, setError] = useState(''), [preview, setPreview] = useState('')
   const saved = useRef<File | null>(null)
   const recorder = useRef<MediaRecorder | null>(null), stream = useRef<MediaStream | null>(null), generation = useRef(0), timer = useRef<ReturnType<typeof setInterval> | null>(null), url = useRef(''), attachedOnce = useRef(false)
@@ -73,10 +75,11 @@ export function AudioRecorder({ enabled, attached, onRecord, onBusy }: { enabled
       input.getAudioTracks().forEach(track => { track.onended = () => { if (token === generation.current && next.state === 'recording') next.stop() } })
     } catch (cause) { if (token === generation.current) { release(); recorder.current = null; setState('idle'); callbacks.current.onBusy(false); setError(cause instanceof Error ? `Microphone unavailable: ${cause.message}` : 'Microphone unavailable') } }
   }
-  return <div className="chat-recorder">
-    {state === 'idle' && !attached && <button type="button" aria-label="Record audio prompt" title={supported ? 'Record an audio prompt (up to 5 minutes)' : 'Microphone recording is unavailable; attach an audio file instead'} disabled={!enabled || !supported} onClick={() => void start()}><Mic size={17} />Record audio</button>}
+  const trigger = state === 'idle' && !attached ? <TooltipHint label={supported ? 'Record audio prompt · up to 5 minutes' : 'Microphone recording is unavailable; attach an audio file instead'}><button className="chat-record-button" type="button" aria-label="Record audio prompt" disabled={!enabled || !supported} onClick={() => void start()}><Mic size={17} aria-hidden="true" /></button></TooltipHint> : null
+  return <><div className="chat-recorder">
+    {controls === undefined && trigger}
     {(state === 'starting' || state === 'recording') && <div className="chat-recording"><span role="status">{state === 'starting' ? 'Waiting for microphone permission…' : `Recording ${audioTime(seconds)} / 5:00`}</span><button type="button" onClick={cancel}>Cancel recording</button>{state === 'recording' && <button type="button" onClick={() => recorder.current?.stop()}><Square size={12} />Stop recording</button>}</div>}
     {preview && <div className="chat-recording"><audio controls src={preview} aria-label="Recording preview" /><span role="status">{state === 'saving' ? 'Attaching recording…' : state === 'failed' ? 'Recording not attached' : 'Ready to send'}</span>{state === 'failed' && <><button type="button" disabled={!enabled} onClick={() => { if (saved.current) void attach(saved.current, generation.current) }}>Retry attachment</button><button type="button" onClick={cancel}>Discard recording</button></>}</div>}
     {error && <p className="chat-error" role="alert">{error}</p>}
-  </div>
+  </div>{controls && createPortal(trigger, controls)}</>
 }
