@@ -37,6 +37,66 @@ start a bot, with bounded retries and an explicit regular-bot fallback.
   Download replaces only the chat pane; DOMPurify, CSP, an inert sandbox, and no
   script/network permissions protect the app. Escape returns to the conversation.
 
+## Audio prompts and playback
+
+- Published Discord audio attachments (including attachments in forwarded message
+  snapshots) have inline play/pause, seeking, duration, speed and download controls.
+  Sources load on demand and starting a clip pauses the previous player. Discord
+  waveform metadata is used when present; unsupported codecs keep a download path.
+- With an audio-enabled prepared fork, **Record** requests microphone access.
+  Stop attaches the recording; use the existing **Send / Queue** controls. Kimaki
+  publishes the audio, posts its transcription as a Discord reply, then dispatches
+  the transcribed prompt. There is no transcript editing or confirmation step.
+- Audio file uploads default to one **Audio prompt** attachment; uncheck it to
+  attach audio as reference material instead. **Use as prompt** on an existing
+  audio bubble stages a copy for the current draft; it does not immediately run it.
+  One prompt recording can be combined with a typed caption and reference files.
+  Commands/skills cannot be combined with an audio prompt.
+- Delivery is controlled by the visible Send/Queue choice. Spoken side-thread,
+  new-session and agent-selection instructions do not override that choice.
+- Recording uses native browser APIs, limited to five minutes / 10 MiB. The
+  microphone is released on stop, cancellation and navigation. The desktop shell
+  allows only main-frame microphone requests from the trusted app origin; camera,
+  HTML-preview and external-origin permissions remain denied.
+- Ogg/Opus is preferred when the browser supports recording it. Chromium normally
+  records WebM/Opus, which the fork converts to Ogg/Opus before publication using
+  the **`ffmpeg-static` runtime dependency**. FLAC/MP4 imports use the same bundled
+  converter. Kimaki's native M4A/OpenAI conversion also resolves that binary;
+  installing system ffmpeg is unnecessary. Ogg, MP3 and WAV avoid this extra
+  conversion. Bytes are never simply relabeled.
+- Kimaki retains its existing transcription provider configuration/fallbacks;
+  ThreadDeck adds no API key or second transcription backend. Recordings are
+  published to Discord and retained in local uploads. Transcription failures do
+  not dispatch a prompt; ambiguous delivery is guarded rather than auto-retried.
+- The bridge advertises `audio-prompt`; older running forks hide recording and
+  forwarding controls. After changing the bridge, prepare it as below and
+  deliberately activate the new fork. Preparation alone never restarts Kimaki.
+
+### Packaged FFmpeg
+
+`ffmpeg-static` is pinned in `package.json` and the lockfile. Its approved install
+script downloads only the host platform's binary (Linux in a Windows/WSL setup),
+about 28 MiB compressed / 76 MiB installed on Linux x64. `allowScripts` approves
+only its pinned installer; do not disable install-script protections globally.
+If installation scripts are intentionally skipped, provision the binary before
+running `kimaki:prepare`; preparation checks that it actually runs and fails
+clearly when it is missing or unsupported.
+
+The prepared fork links to the installed package rather than copying another
+binary for each fork. It copies the small `prism-media` package into the fork's
+dependency overlay so Kimaki's own converter resolves this same dependency.
+The baseline and previously prepared forks are not modified. Re-prepare after
+moving the project or changing the packaged FFmpeg version.
+
+The preparer also fixes a pinned Kimaki 1.4.0 M4A conversion issue: its argument
+list duplicates the output pipe that `prism-media` already appends, causing
+FFmpeg to return no audio. A strict source anchor removes only that duplicate;
+the fork smoke test exercises actual M4A-to-WAV conversion with a fake provider.
+
+The FFmpeg package/binaries carry GPL licensing. Preserve their notices and
+review the applicable source/distribution obligations before redistributing an
+installer; this dependency is not covered by ThreadDeck's own licensing alone.
+
 ## Explicitly not complete yet
 
 - Answering Discord buttons, questions, permissions, upload-request modals and

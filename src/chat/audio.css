@@ -1,0 +1,19 @@
+.chat-audio { width: min(100%, 430px); border: 1px solid var(--rule); border-radius: 16px; background: var(--row); padding: 12px; }
+.chat-audio-controls { display: flex; align-items: center; gap: 10px; }
+.chat-audio-controls > button { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--accent-ink); }
+.chat-audio-track { position: relative; flex: 1; min-width: 45px; height: 30px; display: grid; align-items: center; }
+.chat-audio-track input { position: relative; width: 100%; accent-color: var(--accent); cursor: pointer; }
+.chat-audio-waveform { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; gap: 2px; opacity: .3; pointer-events: none; }
+.chat-audio-waveform i { width: 3px; border-radius: 2px; background: var(--accent); }
+.chat-audio-time { white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 11px; color: var(--muted); }
+.chat-audio-controls select { color: var(--text); background: var(--surface); border-radius: 6px; font-size: 12px; max-width: 63px; }
+.chat-audio-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+.chat-audio-meta > span { flex: 1; overflow-wrap: anywhere; }
+.chat-audio-meta a, .chat-audio-meta button { color: var(--accent-ink); }
+.chat-recording { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px; border: 1px solid var(--rule); border-radius: 12px; margin-bottom: 10px; }
+.chat-recording [role="status"] { flex: 1; font-variant-numeric: tabular-nums; }
+.chat-recording audio { max-width: 100%; height: 36px; }
+.chat-audio-prompt-toggle { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
+.chat-recorder:not(:empty) { padding: 0 14px 8px; }
+.chat-recorder > button, .chat-recording button { display: inline-flex; align-items: center; gap: 7px; padding: 7px; border-radius: 6px; color: var(--accent-ink); font-size: 11px; }
+.chat-audio-notice { padding: 0 14px 8px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }

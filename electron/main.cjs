@@ -7,6 +7,7 @@ const { readFileSync } = require('node:fs')
 const { colors, savedAppearance } = require('./appearance.cjs')
 const { readWindowState, fitWindowBounds, saveWindowState } = require('./window-state.cjs')
 const { trayController } = require('./tray.cjs')
+const { installAudioPermissions } = require('./audio-permissions.cjs')
 
 const configFile = process.argv.find(arg => arg.startsWith('--launch-services='))?.slice('--launch-services='.length)
 let config
@@ -131,8 +132,7 @@ app.whenReady().then(async () => {
     if (url !== `${origin}/` && url !== origin) { event.preventDefault(); openExternal(url) }
   })
   window.webContents.on('will-attach-webview', event => event.preventDefault())
-  window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
-  window.webContents.session.setPermissionCheckHandler(() => false)
+  installAudioPermissions(window, origin)
   const isDashboard = event => event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
     && event.senderFrame.url.startsWith(`${origin}/`)
   window.webContents.on('did-start-loading', () => { desktopReady = false; tray?.viewing(null) })

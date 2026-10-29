@@ -39,6 +39,8 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     }).catch(() => {}) // Older/unsupported clients can still reconcile by receipt IDs.
     return () => { cancelled = true }
   }, [pending?.id])
+  const inputBusy = useRef(false)
+  const [forwarding, setForwarding] = useState(false)
   const [receipt, setReceipt] = useState<OperationReceipt | null>(null), [operationError, setOperationError] = useState('')
   const [aboveLatest, setAboveLatest] = useState(false)
   const transcript = useRef<HTMLDivElement>(null), following = useRef(true), initialized = useRef(false), savingPage = useRef(false)
@@ -112,6 +114,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     return () => { abort.abort(); clearTimeout(timer) }
   }, [pending?.id])
   async function submit(delivery: 'send' | 'queue') {
+    if (inputBusy.current || forwarding || draft.current.current.files.some(file => file.audioPrompt) && !info?.capabilities.includes('audio-prompt')) return
     if (!info || bridgeError || conversation.error || conversation.loading || submissionLock.current || pending || preview || draft.conflict || conversation.stale || draft.current.current.files.some(file => file.available === false) || !draft.current.current.text.trim() && !draft.current.current.files.length) return
     const current = draft.current.current, id = crypto.randomUUID(), operation: Pending = { id, text: current.text, files: current.files.map(file => file.id), attachments: current.files, optimistic: true, delivery }
     try { localStorage.setItem(pendingKey, JSON.stringify(operation)) } catch { setOperationError('Cannot durably record delivery status. Enable local storage before sending.'); return }
@@ -127,7 +130,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
       const invocation = catalog.entries.map(entry => ({ ...entry, prefix: `/${entry.name}${entry.kind === 'skill' ? '-skill' : ''}` })).sort((a, b) => b.prefix.length - a.prefix.length).find(entry => current.text === entry.prefix || current.text.startsWith(`${entry.prefix} `) || current.text.startsWith(`${entry.prefix}\n`))
       const response = await chatRequest('submit', receiptSchema, jsonRequest({ requestId: id, ...(session ? { threadId: session.threadId } : { projectId: project.id }),
         ...(invocation ? { kind: invocation.kind, name: invocation.name, text: current.text.slice(invocation.prefix.length).trimStart() } : { text: current.text }),
-        files: current.files.map(({ id, name }) => ({ id, name })), delivery }))
+        files: current.files.map(({ id, name, audioPrompt }) => ({ id, name, ...(audioPrompt && { audioPrompt }) })), delivery }))
       setReceipt(previous => previous?.id === response.id && previous.state === 'submitted' ? previous : response)
       setOutgoing(previous => previous.map(item => item.id === response.id && item.state !== 'submitted' ? { ...item, state: response.state, messageIds: response.messageIds } : item))
     } catch (error) {
@@ -140,7 +143,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     const handler = (event: Event) => { void submit((event as CustomEvent<'send' | 'queue'>).detail) }
     window.addEventListener('threaddeck:composer-submit', handler)
     return () => window.removeEventListener('threaddeck:composer-submit', handler)
-  }, [info, bridgeError, pending, draft.conflict, conversation.stale, conversation.error, conversation.loading, preview, catalog])
+  }, [info, bridgeError, pending, draft.conflict, conversation.stale, conversation.error, conversation.loading, preview, catalog, forwarding])
   useEffect(() => {
     setOutgoing(previous => previous.filter(item => !isPublished(item, conversation.messages)))
   }, [conversation.messages, receipt])
@@ -172,15 +175,26 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
         {block ? <ChatState title="Can’t connect to this conversation" detail={block}><button onClick={() => setRetry(value => value + 1)}>Reconnect</button>{links && <a href={links.app}>Continue in Discord ↗</a>}</ChatState> : loading ? session ? <ConversationSkeleton /> : <ChatState loading title="Preparing your workspace" detail="Connecting to Kimaki before your next thread." /> : <>
         {conversation.before && <button className="chat-load-earlier" onClick={async () => { const el = transcript.current; if (!el) return; const height = el.scrollHeight; savingPage.current = true; try { await conversation.earlier(); requestAnimationFrame(() => { el.scrollTop += el.scrollHeight - height; savingPage.current = false }) } catch { savingPage.current = false; setOperationError('Could not load earlier messages') } }}>Load earlier messages</button>}
         {!session && <div className="chat-welcome"><h2>Start a conversation</h2><p>Your first prompt creates a linked Kimaki session and Discord thread in {project.name}.</p></div>}
-        {session && <PublishedMessages messages={conversation.messages} threadId={session.threadId} busy={busy} stale={conversation.stale} discordUrl={links?.browser} preview={(name, url) => { remember(); setPreview({ name, url }) }} />}
+        {session && <PublishedMessages messages={conversation.messages} threadId={session.threadId} busy={busy} stale={conversation.stale} discordUrl={links?.browser} preview={(name, url) => { remember(); setPreview({ name, url }) }} forwardAudio={info?.capabilities.includes('audio-prompt') && !conversation.stale && !pending && !forwarding ? (name, url) => {
+          if (inputBusy.current || pending || draft.current.current.files.some(file => file.audioPrompt) || draft.current.current.files.length >= 10) { setOperationError('Wait for uploads and remove the current audio prompt before forwarding audio.'); return }
+          setForwarding(true)
+          void (async () => {
+            const response = await fetch(url)
+            if (!response.ok) throw new Error('Could not read this audio attachment')
+            const bytes = await response.blob()
+            const file = await chatRequest(`files?name=${encodeURIComponent(name)}`, chatFileSchema, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: bytes })
+            if (draft.current.current.files.some(file => file.audioPrompt) || draft.current.current.files.length >= 10) throw new Error('Your draft changed while forwarding. Remove an attachment before trying again.')
+            draft.save({ files: [...draft.current.current.files, { ...file, audioPrompt: true, available: true }] })
+          })().catch(error => setOperationError(error.message)).finally(() => setForwarding(false))
+        } : undefined} />}
         {outgoing.filter(item => !isPublished(item, conversation.messages)).map(item => <OutgoingMessage key={item.id} text={item.text} files={item.attachments || item.files.map(id => ({ id, name: 'Attached file' }))} state={item.state} queued={item.delivery === 'queue'} canRestore={!draft.conflict && !draft.draft.text && !draft.draft.files.length} restore={() => { if (!draft.conflict && !draft.current.current.text && !draft.current.current.files.length) draft.save({ text: item.text, files: item.attachments || [], anchor: item.text.length, head: item.text.length }) }} />)}
       </> }</div>}
       {!block && conversation.stale && <p className="chat-error">Discord connection is stale. The transcript may be incomplete.</p>}
       {draft.conflict && <div className="chat-error" role="alert">This draft changed in another window. <button onClick={draft.keep}>Keep my draft</button><button onClick={draft.reload}>Load saved draft</button></div>}
       {draft.storageError && <p className="chat-error">Draft is in memory only: browser storage is unavailable.</p>}
       {aboveLatest && !expanded && !block && !loading && <div className="chat-scroll-anchor"><TooltipHint label="Scroll to latest message"><button className="chat-jump-latest" aria-label="Scroll to latest message" onClick={() => { if (transcript.current) { transcript.current.scrollTop = transcript.current.scrollHeight; remember() } }}><ArrowDown size={16} /></button></TooltipHint></div>}
-      <PromptComposer model={session?.model} draft={draft.draft} change={draft.save} expanded={expanded && !block && !loading} toggle={() => { remember(); setExpanded(value => !value) }} enabled={!loading && !block && !conversation.stale && !draft.conflict} busy={busy && !loading && !block && !conversation.stale} pending={Boolean(pending)} catalog={catalog} submit={submit} stop={() => { if (session && confirm('Stop the current turn and clear its queued prompts?')) void chatRequest(`threads/${session.threadId}/abort`, z.object({ stopped: z.boolean() }), jsonRequest({})).catch(error => setOperationError(error.message)) }} />
-      {(operationError || pending && ['unknown', 'failed'].includes(receipt?.state || '')) && <div className="chat-operation" role="status"><strong>{receipt?.state || 'Submission needs attention'}</strong>{receipt?.state === 'unknown' && <span>Delivery uncertain. Your prompt was saved. Inspect Discord before deciding to send again.</span>}{operationError && <span>{operationError}</span>}{pending && <small>Operation {pending.id}</small>}{pending && <button onClick={() => { if (confirm('This does not undo the submission. Only clear the delivery guard after checking Discord and confirming it is safe to submit again.')) { localStorage.removeItem(pendingKey); setPending(null); setReceipt(null); submissionLock.current = false } }}>Resolve delivery guard…</button>}</div>}
+      <PromptComposer model={session?.model} audioEnabled={Boolean(info?.capabilities.includes('audio-prompt'))} onBusyChange={value => { inputBusy.current = value }} draft={draft.draft} change={draft.save} expanded={expanded && !block && !loading} toggle={() => { remember(); setExpanded(value => !value) }} enabled={!loading && !block && !forwarding && !conversation.stale && !draft.conflict} busy={busy && !loading && !block && !conversation.stale} pending={Boolean(pending)} catalog={catalog} submit={submit} stop={() => { if (session && confirm('Stop the current turn and clear its queued prompts?')) void chatRequest(`threads/${session.threadId}/abort`, z.object({ stopped: z.boolean() }), jsonRequest({})).catch(error => setOperationError(error.message)) }} />
+      {(operationError || receipt?.state === 'transcribing' || pending && ['unknown', 'failed'].includes(receipt?.state || '')) && <div className="chat-operation" role="status"><strong>{receipt?.state === 'transcribing' ? 'Kimaki is transcribing your audio…' : receipt?.state || 'Submission needs attention'}</strong>{receipt?.state === 'unknown' && <span>{receipt.error || 'Delivery uncertain. Your prompt was saved. Inspect Discord before deciding to send again.'}</span>}{operationError && <span>{operationError}</span>}{pending && <small>Operation {pending.id}</small>}{pending && receipt?.state !== 'transcribing' && <button onClick={() => { if (confirm('This does not undo the submission. Only clear the delivery guard after checking Discord and confirming it is safe to submit again.')) { localStorage.removeItem(pendingKey); setPending(null); setReceipt(null); submissionLock.current = false } }}>Resolve delivery guard…</button>}</div>}
     </>}
   </main>
 }

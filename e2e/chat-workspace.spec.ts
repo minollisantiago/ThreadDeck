@@ -3,6 +3,59 @@ import { chromium, test, expect, type Page } from '@playwright/test'
 import type { Snapshot } from '../shared/model'
 
 const threadId = '100000000000000001', projectId = '100000000000000010'
+test('records native browser audio, stages the true container and sends an explicit audio prompt', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => {
+      const context = new AudioContext(), oscillator = context.createOscillator(), destination = context.createMediaStreamDestination()
+      oscillator.connect(destination); oscillator.start()
+      ;(window as unknown as { recordingContext: AudioContext }).recordingContext = context
+      return destination.stream
+    } })
+  })
+  const submissions = await fixture(page, 'submitted', true, undefined, 0, false)
+  await page.route('**/api/chat/info', route => route.fulfill({ json: { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['audio-prompt', 'files', 'prompt'] } }))
+  let uploadName = ''
+  let uploadBytes: Buffer = Buffer.alloc(0)
+  await page.route('**/api/chat/files?*', route => {
+    uploadName = new URL(route.request().url()).searchParams.get('name') || ''
+    uploadBytes = route.request().postDataBuffer() || Buffer.alloc(0)
+    return route.fulfill({ status: 201, json: { id: '7c18b13a-6d07-419d-b54f-e8024fc91673', name: uploadName } })
+  })
+  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.getByRole('button', { name: 'Record audio prompt' }).click()
+  await expect(page.getByRole('button', { name: 'Stop recording' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled()
+  await page.waitForFunction(() => (window as unknown as { recordingContext: AudioContext }).recordingContext.currentTime > .15)
+  await page.getByRole('button', { name: 'Stop recording' }).click()
+  await expect(page.getByText('Ready to send')).toBeVisible()
+  expect(uploadName).toMatch(/\.webm$/)
+  expect(uploadBytes.subarray(0, 4).toString('hex')).toBe('1a45dfa3')
+  await expect(page.getByRole('checkbox', { name: 'Audio prompt' })).toBeChecked()
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  await expect.poll(() => submissions.length).toBe(1)
+  expect(submissions[0].files).toEqual([{ id: '7c18b13a-6d07-419d-b54f-e8024fc91673', name: uploadName, audioPrompt: true }])
+  expect(submissions[0].delivery).toBe('send')
+})
+test('plays a real audio attachment lazily and stages it through Use as prompt', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 1050 })
+  await fixture(page, 'submitted', true, undefined, 0, false)
+  await page.route('**/api/chat/info', route => route.fulfill({ json: { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['audio-prompt', 'files', 'prompt'] } }))
+  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'audio:0', before: null, stale: false, messages: [{ id: '100000000000000002', channel_id: threadId, timestamp: '2026-10-29T00:00:00Z', author: { id: 'human', username: 'Human' }, attachments: [{ id: '100000000000000003', filename: 'voice.wav', size: 16044, content_type: 'audio/wav', duration_secs: 1 }] }] } }))
+  const wav = Buffer.alloc(16044)
+  wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(8000, 24); wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(16000, 40)
+  let downloads = 0
+  await page.route('**/attachments/100000000000000003', route => { downloads++; return route.fulfill({ contentType: 'audio/wav', body: wav }) })
+  await page.route('**/api/chat/files?*', route => route.fulfill({ status: 201, json: { id: '7c18b13a-6d07-419d-b54f-e8024fc91673', name: 'voice.wav' } }))
+  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Play voice.wav' })).toBeVisible()
+  expect(downloads).toBe(0)
+  await page.getByRole('button', { name: 'Play voice.wav' }).click()
+  await expect.poll(() => downloads).toBeGreaterThan(0)
+  await expect(page.locator('.chat-audio audio')).toHaveJSProperty('duration', 1)
+  await page.getByRole('button', { name: 'Use as prompt' }).click()
+  await expect(page.getByRole('checkbox', { name: 'Audio prompt' })).toBeChecked()
+  await page.screenshot({ path: 'artifacts/audio-prompts-mobile.png' })
+})
 for (const width of [430, 1440]) test(`discovers and adds a project outside the session inventory at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })
   const submissions = await fixture(page)

@@ -12,6 +12,9 @@ import { readCatalog } from './slash-commands.js'
 import { SKIPPED_COMMANDS } from './commands/thread-commands.js'
 import { markdownPayloads } from './markdown/components.js'
 import { SILENT_MESSAGE_FLAGS } from './format-parts.js'
+import { primaryAgents } from './sessions.js'
+import { transcribe, voiceMediaType } from './voice.js'
+import { preparePromptAudio, supportedAudioName } from './threaddeck-audio.js'
 
 function result(value) { if (value instanceof Error) throw value; return value }
 export function attachThreadDeckBridge(bot) {
@@ -34,7 +37,7 @@ export function attachThreadDeckBridge(bot) {
       const filename = path.join(uploads, relative)
       const stat = await lstat(filename)
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 10 * 1024 * 1024 || metadata.name !== file.name) throw new Error('Invalid upload')
-      return { path: filename, name: metadata.name, uri: pathToFileURL(filename).href }
+      return { path: filename, name: metadata.name, uri: pathToFileURL(filename).href, audioPrompt: file.audioPrompt }
     }))
   }
   async function catalog(threadId) {
@@ -74,6 +77,7 @@ export function attachThreadDeckBridge(bot) {
     },
     async validate(input) {
       try { await files(input) } catch { throw new ChatError('invalid', 'An attached file is unavailable. Remove it and attach it again.') }
+      if (input.files.some(file => file.audioPrompt && !supportedAudioName(file.name))) throw new ChatError('invalid', 'Unsupported audio prompt format')
       if (input.threadId) { await thread(input.threadId); await route(input, input.threadId) }
       else {
         if (input.kind !== 'prompt' || /^\/[\w.:-]+(?:\s|$)/.test(input.text.trimStart())) throw new ChatError('invalid', 'Start a conversation with a prompt before invoking commands')
@@ -92,7 +96,10 @@ export function attachThreadDeckBridge(bot) {
     async publish(input, threadId, progress) {
       const channel = await thread(threadId)
       if (channel.archived) await channel.setArchived(false)
-      const staged = await files(input)
+      const staged = await Promise.all((await files(input)).map(async file => {
+        if (!file.audioPrompt) return file
+        try { return await preparePromptAudio(file) } catch (error) { throw new ChatError('audio_conversion', error.message) }
+      }))
       const shown = input.kind === 'prompt' ? input.text : `/${input.name}${input.kind === 'skill' ? '-skill' : ''}${input.text ? ` ${input.text}` : ''}`
       const payloads = markdownPayloads(`**ThreadDeck · local operator${input.delivery === 'queue' ? ' · queued' : ''}**\n\n${shown}`)
       for (const [index, payload] of payloads.entries()) {
@@ -102,11 +109,33 @@ export function attachThreadDeckBridge(bot) {
         progress(sent.id)
       }
     },
+    async transcribe(input, threadId, messageId, progress) {
+      const channel = await thread(threadId), sessionId = bot.store.getState().roots[threadId]
+      const directory = result(await sessionDirectory(bot, sessionId))
+      const agents = result(await primaryAgents(bot, directory))
+      const file = await preparePromptAudio((await files(input)).find(file => file.audioPrompt))
+      const transcription = await transcribe({ db: bot.db, token: bot.token, opencodeDbFile: bot.opencodeDbFile,
+        baseUrls: bot.transcriptionBaseUrls, audio: await readFile(file.path), mediaType: voiceMediaType({ name: file.name, contentType: null }),
+        directory, agents: agents.map(agent => ({ name: agent.id, description: agent.description ?? '' })), inSession: true })
+      // Do not expose provider bodies/credentials. The posted recording remains recoverable.
+      if (transcription instanceof Error) throw new ChatError('transcription_failed', 'Kimaki could not transcribe the audio. Check its transcription provider configuration and logs.')
+      const text = [input.text.trim(), transcription.transcription].filter(Boolean).join('\n\n')
+      const payloads = markdownPayloads(`**ThreadDeck · local operator${input.delivery === 'queue' ? ' · queued' : ''}**\n\n**Transcription**\n\n${text}`)
+      for (const [index, payload] of payloads.entries()) {
+        const sent = await channel.send({ ...payload, flags: (payload.flags || 0) | SILENT_MESSAGE_FLAGS,
+          ...(index === 0 && { reply: { messageReference: messageId, failIfNotExists: false } }), allowedMentions: { parse: [], repliedUser: false },
+          nonce: createHash('sha256').update(`${input.requestId}:transcription:${index}`).digest('hex').slice(0, 24), enforceNonce: true })
+        progress(sent.id)
+      }
+      // The explicit Send/Queue control wins over inferred spoken routing. The audio
+      // is already published; only its transcript and reference files reach the model.
+      return { ...input, text, transcribedAudio: true, files: input.files.filter(file => !file.audioPrompt) }
+    },
     async dispatch(input, threadId, messageId) {
       const channel = await thread(threadId), sessionId = bot.store.getState().roots[threadId]
       const directory = result(await sessionDirectory(bot, sessionId))
       result(await runInSession(bot, { sessionId, threadId, threadName: channel.name, directory,
-        route: await route(input, threadId), author: actor(), messageId, files: (await files(input)).map(f => ({ uri: f.uri, name: f.name })) }))
+        route: input.transcribedAudio ? { kind: input.delivery === 'queue' ? 'queue' : 'steer', text: input.text } : await route(input, threadId), author: actor(), messageId, files: (await files(input)).map(f => ({ uri: f.uri, name: f.name })) }))
     },
     catalog,
     async abort(threadId) { result(await abort(bot, { threadId })) },

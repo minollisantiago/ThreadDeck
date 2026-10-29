@@ -12,6 +12,8 @@ import { TooltipHint } from '../components/ui/tooltip'
 import { CopyMessage } from './copy-message'
 import { publishedMarkdown } from './published-markdown'
 import { HushAvatar } from './hush-avatar'
+import { inlineAudioType } from '../../shared/audio'
+import { AudioMessage } from './audio-message'
 
 export function attachmentUrl(threadId: string, messageId: string, id: string) { return `/api/chat/threads/${threadId}/messages/${messageId}/attachments/${id}` }
 const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().optional(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
@@ -22,13 +24,14 @@ function ImageViewer({ src, name, opener, close }: { src: string; name: string; 
   useLayoutEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => { dialog?.close(); if (opener.isConnected) opener.focus() } }, [opener])
   return <dialog className="chat-image-dialog" ref={ref} aria-label={name} onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === ref.current) close() }}><button autoFocus onClick={close}>Close image</button><ImagePreview key={src} src={src} name={name} /></dialog>
 }
-export function PublishedMessages({ messages, threadId, discordUrl, preview, busy = false, stale = false }: { messages: PublishedMessage[]; threadId: string; discordUrl?: string; preview: (name: string, url: string) => void; busy?: boolean; stale?: boolean }) {
+export function PublishedMessages({ messages, threadId, discordUrl, preview, forwardAudio, busy = false, stale = false }: { messages: PublishedMessage[]; threadId: string; discordUrl?: string; preview: (name: string, url: string) => void; forwardAudio?: (name: string, url: string) => void; busy?: boolean; stale?: boolean }) {
   const [image, setImage] = useState<{ src: string; name: string; opener: HTMLElement } | null>(null)
   function imageView(url: string, name: string, key: string, width?: number | null, height?: number | null): ReactNode {
     return <div key={key} className="chat-image"><button aria-label={`Enlarge ${name}`} onClick={event => setImage({ src: url, name, opener: event.currentTarget })}><ImagePreview key={url} src={url} name={name} lazy width={width} height={height} /></button><span>{name}<a href={url} download={name}>Download</a></span></div>
   }
   function fileView(message: PublishedMessage, file: PublishedMessage['attachments'][number]): ReactNode {
     const url = attachmentUrl(threadId, message.id, file.id)
+    if (!(file.width && file.height) && inlineAudioType(file.filename, file.content_type)) return <AudioMessage key={file.id} src={url} name={file.filename} duration={typeof file.duration_secs === 'number' ? file.duration_secs : undefined} waveform={typeof file.waveform === 'string' ? file.waveform : undefined} forward={forwardAudio ? () => forwardAudio(file.filename, url) : undefined} />
     const html = /\.html?$/i.test(file.filename) || file.content_type?.split(';')[0].trim().toLowerCase() === 'text/html'
     return inlineImageType(file.filename, file.content_type) ? imageView(url, file.filename, file.id, file.width, file.height) : <div key={file.id} className="chat-file">{html ? <FileCode size={20} /> : <FileText size={20} />}<strong>{file.filename}</strong><small>{file.size ? `${Math.ceil(file.size / 1024)} KiB` : 'Attachment'}</small>{html && <button onClick={() => preview(file.filename, url)}>Preview HTML</button>}<a href={url} download={file.filename}>Download</a></div>
   }

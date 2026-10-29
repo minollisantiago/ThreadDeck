@@ -14,12 +14,13 @@ export interface BridgeAdapter {
   create(input: ChatSubmission): Promise<{ threadId: string; sessionId: string }>
   publish(input: ChatSubmission, threadId: string, progress: (id: string) => void): Promise<void>
   dispatch(input: ChatSubmission, threadId: string, messageId: string): Promise<void>
+  transcribe?(input: ChatSubmission, threadId: string, messageId: string, progress: (id: string) => void): Promise<ChatSubmission>
   catalog(threadId: string): Promise<unknown>
   file(input: unknown): Promise<unknown>
   abort(threadId: string): Promise<void>
 }
 type Projection = { generation: string; sequence: number; messages: Map<string, PublishedMessage>; partial: Map<string, Record<string, unknown>>; deleted: Set<string>; log: { sequence: number; change: MessageChange }[]; wake: Set<() => void> }
-const pendingStates = new Set(['accepted', 'creating', 'publishing', 'published', 'dispatching'])
+const pendingStates = new Set(['accepted', 'creating', 'publishing', 'published', 'transcribing', 'dispatching'])
 export function createClientBridge(adapter: BridgeAdapter, filename: string) {
   const db = new DatabaseSync(filename)
   db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS operations (id TEXT PRIMARY KEY, hash TEXT NOT NULL, receipt TEXT NOT NULL)')
@@ -89,6 +90,7 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
   }
   async function submit(value: unknown) {
     const input = submitSchema.parse(value)
+    if (input.files.some(file => file.audioPrompt) && !adapter.transcribe) throw new ChatError('unsupported', 'This Kimaki bridge does not support audio prompts')
     const hash = createHash('sha256').update(JSON.stringify(input)).digest('hex')
     const existing = select.get(input.requestId)
     if (existing) {
@@ -117,12 +119,17 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
         update(receipt, { state: 'publishing' })
         await adapter.publish(input, threadId, id => update(receipt, { messageIds: [...receipt.messageIds, id] }))
         update(receipt, { state: 'published' })
+        let prompt = input
+        if (input.files.some(file => file.audioPrompt)) {
+          update(receipt, { state: 'transcribing' })
+          prompt = await adapter.transcribe!(input, threadId, receipt.messageIds[0]!, id => update(receipt, { messageIds: [...receipt.messageIds, id] }))
+        }
         update(receipt, { state: 'dispatching' })
-        await adapter.dispatch(input, threadId, receipt.messageIds[0]!)
+        await adapter.dispatch(prompt, threadId, receipt.messageIds[0]!)
         update(receipt, { state: 'submitted' })
-      } catch {
+      } catch (error) {
         // A transport error can follow a successful external side effect. Never label it safe to retry.
-        update(receipt, { state: 'unknown', error: 'Delivery could not be confirmed. Inspect Discord and this operation before deciding to resend.' })
+        update(receipt, { state: 'unknown', error: error instanceof ChatError ? `${error.message} Inspect Discord before deciding to resend.` : 'Delivery could not be confirmed. Inspect Discord and this operation before deciding to resend.' })
       } finally { pending-- }
     }).finally(() => { if (workers.get(key) === work) workers.delete(key) })
     workers.set(key, work)
@@ -132,7 +139,7 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
     try {
       let value: unknown
       switch (route) {
-        case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', ready: adapter.ready?.() ?? false, capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort'] }; break
+        case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', ready: adapter.ready?.() ?? false, capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort', ...(adapter.transcribe ? ['audio-prompt'] : [])] }; break
         case 'threads': value = await adapter.threads(); break
         case 'snapshot': {
           const id = target(input.threadId), p = projection(id)

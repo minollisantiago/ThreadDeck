@@ -64,3 +64,18 @@ it('serves raster attachments inline without MIME metadata but keeps active cont
     expect(response.headers.get('x-content-type-options')).toBe('nosniff')
   }
 })
+it('serves audio inline with bounded byte ranges for seeking', async () => {
+  const download = vi.fn<typeof fetch>(async () => new Response('0123456789'))
+  const { url, call } = await setup(undefined, download)
+  call.mockResolvedValue({ messages: [{ id: '100000000000000002', channel_id: '100000000000000001', timestamp: '2026-10-29T00:00:00Z', author: { id: 'human', username: 'Human' }, attachments: [{ id: '100000000000000003', filename: 'voice.ogg', size: 10, content_type: 'audio/ogg', url: 'https://cdn.discordapp.com/attachments/100000000000000001/100000000000000003/voice.ogg' }] }], cursor: 'fixture:0', before: null, stale: false })
+  const endpoint = `${url}/api/chat/threads/100000000000000001/messages/100000000000000002/attachments/100000000000000003`
+  const response = await fetch(endpoint, { headers: { Range: 'bytes=2-5' } })
+  expect(response.status).toBe(206)
+  expect(response.headers.get('content-type')).toBe('audio/ogg')
+  expect(response.headers.get('content-disposition')).toMatch(/^inline;/)
+  expect(response.headers.get('content-range')).toBe('bytes 2-5/10')
+  expect(await response.text()).toBe('2345')
+  const suffix = await fetch(endpoint, { headers: { Range: 'bytes=-3' } })
+  expect(await suffix.text()).toBe('789')
+  for (const range of ['bytes=99-', 'bytes=5-2', 'bytes=-0', 'bytes=0-1,4-5', 'invalid']) expect((await fetch(endpoint, { headers: { Range: range } })).status).toBe(416)
+})

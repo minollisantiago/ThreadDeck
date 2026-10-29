@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { ChatError, submitSchema, threadIdSchema } from '../shared/chat.ts'
 import { trustedRequest } from './http.ts'
 import { inlineImageType } from '../shared/image.ts'
+import { inlineAudioType } from '../shared/audio.ts'
 import { readDiscordAttachment } from './attachments.ts'
 
 export interface ChatBridge { call(route: string, input: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> }
@@ -59,11 +60,24 @@ export function chatHandler(port: number, bridge = localChatBridge(), data = pro
         }
         if (attachment) {
           const file = await readDiscordAttachment(bridge, attachment[1], attachment[2], attachment[3], controller.signal, download)
-          const inline = inlineImageType(file.name, file.type)
+          const inline = inlineImageType(file.name, file.type) || inlineAudioType(file.name, file.type)
           response.setHeader('Content-Type', inline || 'application/octet-stream')
           response.setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
           response.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`)
-          response.writeHead(200).end(file.bytes); return
+          response.setHeader('Accept-Ranges', 'bytes')
+          const range = request.headers.range
+          if (range) {
+            const match = /^bytes=(\d*)-(\d*)$/.exec(range)
+            const length = file.bytes.length
+            const suffix = match && !match[1] ? Number(match[2]) : 0
+            const start = match?.[1] ? Number(match[1]) : Math.max(0, length - suffix)
+            const end = match?.[1] ? match[2] ? Math.min(Number(match[2]), length - 1) : length - 1 : length - 1
+            if (!match || !match[1] && !suffix || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= length) {
+              response.writeHead(416, { 'Content-Range': `bytes */${length}` }).end(); return
+            }
+            response.writeHead(206, { 'Content-Range': `bytes ${start}-${end}/${length}`, 'Content-Length': end - start + 1 }).end(file.bytes.subarray(start, end + 1)); return
+          }
+          response.writeHead(200, { 'Content-Length': file.bytes.length }).end(file.bytes); return
         }
       }
       if (request.method === 'POST') {

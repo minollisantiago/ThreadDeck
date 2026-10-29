@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { PublishedMessage } from './chat'
+import { attachmentSchema, type PublishedMessage } from './chat'
 
 const resourceSchema = z.object({ url: z.string().nullish(), proxy_url: z.string().nullish(), attachment_id: z.string().nullish(), content_type: z.string().nullish(), width: z.number().nullish(), height: z.number().nullish() })
 const componentSchema = z.object({ type: z.number(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional(), name: z.string().optional(), size: z.number().nonnegative().optional() })
@@ -21,6 +21,9 @@ export function discordAttachmentUrl(value: unknown) {
 // attachments array is empty. media.id identifies the resource, NOT the file.
 export function publishedAttachments(message: PublishedMessage): PublishedMessage['attachments'] {
   const files = new Map(message.attachments.map(file => [file.id, file]))
+  // Discord forwards carry immutable attachment snapshots instead of top-level files.
+  const snapshots = z.array(z.object({ message: z.object({ attachments: z.array(attachmentSchema).default([]) }) })).max(1).safeParse(message.message_snapshots)
+  if (snapshots.success) for (const snapshot of snapshots.data) for (const file of snapshot.message.attachments) if (!files.has(file.id)) files.set(file.id, file)
   function resource(value: unknown, name?: string, size = 0) {
     const parsed = resourceSchema.safeParse(value)
     if (!parsed.success) return

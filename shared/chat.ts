@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const threadIdSchema = z.string().regex(/^\d{17,20}$/)
-export const chatFileSchema = z.object({ id: z.uuid(), name: z.string().min(1).max(200) }).strict()
+export const chatFileSchema = z.object({ id: z.uuid(), name: z.string().min(1).max(200), audioPrompt: z.boolean().optional() }).strict()
 export const attachmentSchema = z.looseObject({ id: z.string(), filename: z.string(), size: z.number(), content_type: z.string().nullish(), width: z.number().nullable().optional(), height: z.number().nullable().optional() })
 export const publishedMessageSchema = z.looseObject({
   id: z.string(), channel_id: z.string(), content: z.string().default(''), timestamp: z.string(), edited_timestamp: z.string().nullable().optional(),
@@ -16,9 +16,11 @@ export const submitSchema = z.object({
 }).strict().refine(v => Boolean(v.threadId) !== Boolean(v.projectId), 'Choose a thread or project')
   .refine(v => v.text.trim().length > 0 || v.files.length > 0 || v.kind !== 'prompt', 'Prompt is empty')
   .refine(v => v.kind === 'prompt' || Boolean(v.name), 'Choose a command or skill')
+  .refine(v => v.files.filter(file => file.audioPrompt).length <= 1, 'Choose one audio prompt')
+  .refine(v => !v.files.some(file => file.audioPrompt) || v.kind === 'prompt' && !v.text.trimStart().startsWith('/'), 'Audio prompts cannot invoke commands or skills')
 export type ChatSubmission = z.infer<typeof submitSchema>
 export const receiptSchema = z.object({
-  id: z.uuid(), state: z.enum(['accepted', 'creating', 'publishing', 'published', 'dispatching', 'submitted', 'failed', 'unknown']),
+  id: z.uuid(), state: z.enum(['accepted', 'creating', 'publishing', 'published', 'transcribing', 'dispatching', 'submitted', 'failed', 'unknown']),
   threadId: threadIdSchema.optional(), sessionId: z.string().optional(), messageIds: z.array(z.string()), updatedAt: z.number(), error: z.string().optional(),
 })
 export type OperationReceipt = z.infer<typeof receiptSchema>
