@@ -34,7 +34,7 @@ it('asks before enabling scripts and defaults to safe static preview on refusal'
 it('enables original HTML only after consent, keeps origin isolation, and supports revoking trust', async () => {
   render(<HtmlPreview name="study.html" url="/file" close={vi.fn()} />)
   expect(screen.queryByTitle('study.html')).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Interactive preview' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Unsafe preview' }))
   await loaded()
   expect(frame().getAttribute('srcdoc')).toBe(html)
   expect(frame().getAttribute('sandbox')).toBe('allow-scripts')
@@ -57,7 +57,7 @@ it('treats Escape as declining and never carries consent or old HTML to another 
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(close).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: 'Enable interactive preview…' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Interactive preview' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Unsafe preview' }))
   rerender(<HtmlPreview name="study.html" url="/second" close={close} />)
   expect(screen.getByRole('dialog')).toBeTruthy()
   expect(screen.queryByTitle('study.html')).toBeNull()
