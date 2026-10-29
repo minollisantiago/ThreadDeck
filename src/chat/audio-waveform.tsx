@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
 
+export function AudioWaveform({ peaks, progress = 0 }: { peaks: number[]; progress?: number }) {
+  const bars = peaks.length ? peaks : Array<number>(64).fill(0)
+  return <svg className="chat-audio-waveform" viewBox={`0 0 ${bars.length * 4} 24`} preserveAspectRatio="none" aria-hidden="true">{bars.map((peak, index) => {
+    const height = Math.max(2, peak * 21)
+    return <rect key={index} x={index * 4} y={(24 - height) / 2} width="1.8" height={height} rx=".9" className={progress > 0 && index / bars.length <= progress ? 'played' : undefined} />
+  })}</svg>
+}
+
 export function sampleAudioPeaks(samples: Float32Array, bars = 64) {
   const peaks = Array.from({ length: bars }, (_, index) => {
     const start = Math.floor(index * samples.length / bars), end = Math.floor((index + 1) * samples.length / bars)

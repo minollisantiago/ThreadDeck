@@ -8,7 +8,7 @@ import { PublishedMessages } from './messages'
 import { publishedMessageSchema } from '../../shared/chat'
 import { discordAudioPeaks, sampleAudioPeaks, useRecordingWaveform } from './audio-waveform'
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 function media() {
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (this: HTMLMediaElement) { this.dispatchEvent(new Event('pause')) })
   return vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) { this.dispatchEvent(new Event('play')); return Promise.resolve() })
@@ -18,6 +18,8 @@ it('loads audio only on demand, pauses the previous clip, seeks and changes spee
   const { container } = render(<><AudioMessage src="/a" name="a.ogg" duration={31} waveform="AAH/" /><AudioMessage src="/b" name="b.mp3" /></>)
   const elements = container.querySelectorAll('audio')
   expect(elements[0].getAttribute('src')).toBeNull()
+  expect(screen.queryByText('a.ogg')).toBeNull()
+  expect(screen.queryByRole('link', { name: 'Download' })).toBeNull()
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Play a.ogg' })))
   expect(elements[0].getAttribute('src')).toBe('/a')
   expect(play).toHaveBeenCalledTimes(1)
@@ -42,7 +44,10 @@ it('renders a Discord Ogg voice note as an audio bubble with optional forwarding
   const message = publishedMessageSchema.parse({ id: '100000000000000002', channel_id: '100000000000000001', timestamp: '2026-10-29T00:00:00Z', author: { id: 'human', username: 'Human' }, attachments: [{ id: '100000000000000003', filename: 'voice.ogg', size: 100, content_type: 'audio/ogg', duration_secs: 31 }] })
   render(<PublishedMessages messages={[message]} threadId={message.channel_id} preview={() => {}} forwardAudio={forward} />)
   expect(screen.getByLabelText('Remaining time for voice.ogg').textContent).toBe('0:31')
-  fireEvent.click(screen.getByRole('button', { name: 'Use as prompt' }))
+  const forwardButton = screen.getByRole('button', { name: 'Use as prompt' })
+  expect(forwardButton.textContent).toBe('')
+  expect(forwardButton.closest('.chat-audio-controls')).toBeTruthy()
+  fireEvent.click(forwardButton)
   expect(forward).toHaveBeenCalledWith('voice.ogg', expect.stringContaining('/attachments/100000000000000003'))
 })
 it('cycles playback speeds in the requested order and wraps back to 1× without a dropdown', () => {
@@ -98,6 +103,8 @@ class Recorder {
   onerror: (() => void) | null = null
   constructor() { Recorder.latest = this }
   start() { this.state = 'recording' }
+  pause() { this.state = 'paused' }
+  resume() { this.state = 'recording' }
   stop() { this.state = 'inactive'; queueMicrotask(() => { this.ondataavailable?.({ data: new Blob(['recorded audio']) }); this.onstop?.() }) }
 }
 function microphone() {
@@ -113,7 +120,7 @@ it('records true WebM bytes, attaches without dictation review, releases the mic
   const { unmount } = render(<AudioRecorder enabled attached={false} onRecord={onRecord} onBusy={onBusy} />)
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Record audio prompt' })))
   expect(screen.getByRole('status').textContent).toContain('Recording')
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Stop recording' })))
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Submit recording' })))
   expect(onRecord).toHaveBeenCalledTimes(1)
   const file: File = onRecord.mock.calls[0][0]
   expect(file.name).toMatch(/\.webm$/)
@@ -128,7 +135,8 @@ it('cancels recording without uploading and releases late permission grants afte
   media(); const { stop, getUserMedia, stream } = microphone(), onRecord = vi.fn()
   const first = render(<AudioRecorder enabled attached={false} onRecord={onRecord} onBusy={() => {}} />)
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Record audio prompt' })))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Cancel recording' })))
+  fireEvent.click(screen.getByRole('button', { name: 'Pause recording' }))
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Discard recording' })))
   expect(onRecord).not.toHaveBeenCalled(); expect(stop).toHaveBeenCalled()
   first.unmount()
   let grant!: (value: typeof stream) => void
@@ -154,14 +162,14 @@ it('retains a failed recording upload for retry without opening the microphone a
   const onRecord = vi.fn().mockRejectedValueOnce(new Error('Upload unavailable')).mockResolvedValueOnce(undefined)
   render(<AudioRecorder enabled attached={false} onRecord={onRecord} onBusy={() => {}} />)
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Record audio prompt' })))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Stop recording' })))
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Submit recording' })))
   expect(screen.getByText('Recording not attached')).toBeTruthy()
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Retry attachment' })))
   expect(screen.getByText('Ready to send')).toBeTruthy()
   expect(getUserMedia).toHaveBeenCalledTimes(1)
   expect(onRecord.mock.calls[1][0]).toBe(onRecord.mock.calls[0][0])
 })
-it('hides recording for an older bridge and disables send while a recording is live', async () => {
+it('hides recording for an older bridge and uses only the capture row submit button while recording', async () => {
   microphone()
   const props = { draft: { text: 'Caption', files: [], head: 0, anchor: 0, revision: '' }, change: vi.fn(), expanded: false, toggle: vi.fn(), enabled: true, busy: false, pending: false, catalog: { entries: [] }, submit: vi.fn(), stop: vi.fn() }
   const { rerender } = render(<PromptComposer {...props} />)
@@ -172,5 +180,49 @@ it('hides recording for an older bridge and disables send while a recording is l
   expect(record.closest('.chat-composer-tools')).toBeTruthy()
   expect(record.parentElement?.nextElementSibling).toBe(screen.getByRole('button', { name: /Send/ }))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Record audio prompt' })))
-  expect(screen.getByRole('button', { name: /Send/ }).hasAttribute('disabled')).toBe(true)
+  expect(screen.queryByRole('button', { name: 'Send' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Submit recording' })).toBeTruthy()
+})
+it('freezes live waveform and active duration while paused, resumes the same recording and submits once', async () => {
+  media(); microphone(); vi.useFakeTimers()
+  const disconnect = vi.fn(), close = vi.fn().mockResolvedValue(undefined)
+  vi.stubGlobal('AudioContext', class {
+    state = 'running'; close = close; resume = async () => {}
+    createMediaStreamSource = () => ({ connect: vi.fn(), disconnect })
+    createAnalyser = () => ({ fftSize: 512, getFloatTimeDomainData: (samples: Float32Array) => samples.fill(.1) })
+  })
+  const onRecord = vi.fn().mockResolvedValue(undefined), onSubmit = vi.fn()
+  const { container } = render(<AudioRecorder enabled attached={false} onRecord={onRecord} onBusy={() => {}} onSubmit={onSubmit} />)
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Record audio prompt' })))
+  act(() => vi.advanceTimersByTime(1200))
+  expect(screen.getByRole('timer', { name: 'Recording duration' }).textContent).toBe('0:01')
+  fireEvent.click(screen.getByRole('button', { name: 'Pause recording' }))
+  expect(Recorder.latest.state).toBe('paused')
+  const waveform = container.querySelector('.chat-audio-waveform')!.innerHTML
+  expect(container.querySelector('.chat-capture')?.getAttribute('data-state')).toBe('paused')
+  act(() => vi.advanceTimersByTime(10_000))
+  expect(screen.getByRole('timer').textContent).toBe('0:01')
+  expect(container.querySelector('.chat-audio-waveform')!.innerHTML).toBe(waveform)
+  fireEvent.click(screen.getByRole('button', { name: 'Resume recording' }))
+  expect(Recorder.latest.state).toBe('recording')
+  act(() => vi.advanceTimersByTime(1000))
+  expect(screen.getByRole('timer').textContent).toBe('0:02')
+  fireEvent.click(screen.getByRole('button', { name: 'Pause recording' }))
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Submit recording' })))
+  expect(onRecord).toHaveBeenCalledTimes(1)
+  expect(onSubmit).toHaveBeenCalledTimes(1)
+  expect(disconnect).toHaveBeenCalled()
+  expect(close).toHaveBeenCalled()
+})
+it('waits for attachment upload before submitting the finalized recording', async () => {
+  media(); microphone()
+  let finish!: () => void
+  const onRecord = vi.fn(() => new Promise<void>(resolve => { finish = resolve })), onSubmit = vi.fn()
+  render(<AudioRecorder enabled attached={false} onRecord={onRecord} onBusy={() => {}} onSubmit={onSubmit} />)
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Record audio prompt' })))
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Submit recording' })))
+  expect(screen.getByText('Attaching recording…')).toBeTruthy()
+  expect(onSubmit).not.toHaveBeenCalled()
+  await act(async () => finish())
+  expect(onSubmit).toHaveBeenCalledTimes(1)
 })

@@ -40,11 +40,16 @@ start a bot, with bounded retries and an explicit regular-bot fallback.
 ## Audio prompts and playback
 
 - Published Discord audio attachments (including attachments in forwarded message
-  snapshots) have inline play/pause, seeking, duration, speed and download controls.
+  snapshots) have single-line play/pause, seeking, duration, cycling speed and
+  volume controls, with icon-only **Use as prompt** when supported. Filename and
+  download footers are omitted; a download fallback appears if playback fails.
   Sources load on demand and starting a clip pauses the previous player. Discord
   waveform metadata is used when present; unsupported codecs keep a download path.
 - With an audio-enabled prepared fork, **Record** requests microphone access.
-  Stop attaches the recording; use the existing **Send / Queue** controls. Kimaki
+  The single-line capture bar shows discard, live waveform, duration, pause/resume
+  and submit controls. Pause preserves the same recording and freezes its active
+  duration/waveform. Submit finalizes, uploads, then sends (or queues if the agent
+  is working); upload failure retains the recording for explicit retry. Kimaki
   publishes the audio, posts its transcription as a Discord reply, then dispatches
   the transcribed prompt. There is no transcript editing or confirmation step.
 - Audio file uploads default to one **Audio prompt** attachment; uncheck it to
@@ -54,7 +59,8 @@ start a bot, with bounded retries and an explicit regular-bot fallback.
   Commands/skills cannot be combined with an audio prompt.
 - Delivery is controlled by the visible Send/Queue choice. Spoken side-thread,
   new-session and agent-selection instructions do not override that choice.
-- Recording uses native browser APIs, limited to five minutes / 10 MiB. The
+- Recording uses native browser APIs, limited to five active minutes / 10 MiB
+  (paused time is excluded). The
   microphone is released on stop, cancellation and navigation. The desktop shell
   allows only main-frame microphone requests from the trusted app origin; camera,
   HTML-preview and external-origin permissions remain denied.

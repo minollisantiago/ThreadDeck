@@ -25,6 +25,7 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
   const [mode, setMode] = useState('NORMAL'), [uploadError, setUploadError] = useState(''), [uploading, setUploading] = useState(false)
   const [dragging, setDragging] = useState(false), dragDepth = useRef(0), uploadLock = useRef(false)
   const [recording, setRecording] = useState(false)
+  const [submitRecording, setSubmitRecording] = useState(false)
   const [recordControls, setRecordControls] = useState<HTMLSpanElement | null>(null)
   useEffect(() => { onBusyChange?.(recording || uploading) }, [recording, uploading, onBusyChange])
   const input = useRef<HTMLTextAreaElement>(null), mount = useRef<HTMLDivElement>(null), view = useRef<EditorView | null>(null), fileInput = useRef<HTMLInputElement>(null)
@@ -56,6 +57,12 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
   }, [])
   const matches = /^\/[^\s]*$/.test(draft.text) ? catalog.entries.filter(entry => `/${entry.name}${entry.kind === 'skill' ? '-skill' : ''}`.startsWith(draft.text)).slice(0, 12) : []
   const ready = enabled && !pending && !uploading && !recording && draft.text.length <= 50_000 && !draft.files.some(file => file.available === false) && (!draft.files.some(file => file.audioPrompt) || audioEnabled) && Boolean(draft.text.trim() || draft.files.length)
+  useEffect(() => {
+    if (!submitRecording || recording || uploading) return
+    setSubmitRecording(false)
+    if (ready) latest.current.submit(busy ? 'queue' : 'send')
+    else setUploadError('Recording attached. Check the prompt and connection before sending.')
+  }, [submitRecording, recording, uploading, ready, busy])
   async function uploadFiles(files: File[], recorded = false) {
     if (!files.length) return
     if (recording && !recorded) { setUploadError('Stop or cancel your recording before attaching another file.'); return }
@@ -97,13 +104,13 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
       {dragging && <div className="chat-drop-hint" aria-hidden="true"><Paperclip size={22} /><strong>Drop files to attach</strong><span>Up to 10 files · 10 MiB each</span></div>}
       {expanded ? <div ref={mount} className="chat-editor-mount" /> : <textarea ref={input} aria-label="Write a prompt" value={draft.text} placeholder="Ask anything, / for commands and skills, or attach files…" onChange={event => change({ text: event.target.value, anchor: event.target.selectionStart, head: event.target.selectionEnd })} onSelect={event => { const el = event.currentTarget, anchor = el.selectionDirection === 'backward' ? el.selectionEnd : el.selectionStart, head = el.selectionDirection === 'backward' ? el.selectionStart : el.selectionEnd; if (anchor !== latest.current.draft.anchor || head !== latest.current.draft.head) change({ anchor, head }) }} />}
       {draft.files.length > 0 && <div className="chat-staged-files">{draft.files.map(file => audioEnabled && inlineAudioType(file.name) ? <span key={file.id}>{file.name}{file.available === false && ' · reattach after reload'}<label className="chat-audio-prompt-toggle"><input type="checkbox" checked={Boolean(file.audioPrompt)} onChange={event => change({ files: draft.files.map(item => ({ ...item, audioPrompt: item.id === file.id ? event.target.checked : false })) })} />Audio prompt</label><button disabled={uploading || recording} aria-label={`Remove ${file.name}`} onClick={() => change({ files: draft.files.filter(f => f.id !== file.id) })}>×</button></span> : <AttachmentRow key={file.id} name={file.name} size={file.size} available={file.available} disabled={uploading || recording} remove={() => change({ files: draft.files.filter(f => f.id !== file.id) })} />)}</div>}
-      {audioEnabled && <AudioRecorder controls={recordControls} enabled={enabled && !pending && !uploading} attached={draft.files.some(file => Boolean(file.audioPrompt))} onBusy={setRecording} onRecord={file => uploadFiles([file], true)} />}
+      {audioEnabled && <AudioRecorder controls={recordControls} enabled={enabled && !pending && !uploading} attached={draft.files.some(file => Boolean(file.audioPrompt))} onBusy={setRecording} onRecord={file => uploadFiles([file], true)} onSubmit={() => setSubmitRecording(true)} submitLabel={busy ? 'Queue recording' : 'Send recording'} />}
       {draft.files.some(file => file.audioPrompt) && <p className="chat-audio-notice">Kimaki transcribes and runs your audio when you send. Recording and transcript are published to Discord.</p>}
       <div className="chat-composer-tools"><button aria-label="Attach files" disabled={!enabled || uploading || draft.files.length >= 10} onClick={() => fileInput.current?.click()}><Paperclip size={17} /></button><input hidden ref={fileInput} type="file" multiple onChange={async event => {
         const files = [...(event.target.files || [])]; event.target.value = ''; await uploadFiles(files)
       }} /><TooltipHint label={model ? `${model.providerID}/${model.id}${model.variant ? ` · ${model.variant}` : ''}` : 'This session has not reported its model yet'}><span className="chat-model" role="status" aria-label="Session model"><Cpu size={13} aria-hidden="true" /><span className="chat-model-name">{uploading ? 'Uploading…' : model ? `${model.id}${model.variant ? ` · ${model.variant}` : ''}` : 'Model unavailable'}</span></span></TooltipHint><div className="chat-tool-spacer" />{expanded && <>{vimEnabled && <span className="chat-vim-mode" role="status" aria-label="Vim mode">{mode}</span>}<button className="chat-vim" onClick={() => { localStorage.setItem('threaddeck:vim', String(!vimEnabled)); setVim(value => !value) }}>Vim {vimEnabled ? 'on' : 'off'}</button></>}
       <TooltipHint label={<>{expanded ? 'Restore compact composer' : 'Expand composer'} <kbd>Ctrl P · P</kbd></>}><button aria-label={expanded ? 'Restore compact composer' : 'Expand composer'} onClick={toggle}><Expand size={16} /></button></TooltipHint>
-      {busy && <button onClick={stop}><Square size={12} />Stop</button>}<span className="chat-record-control" ref={setRecordControls} /><button className="chat-send" aria-label={pending ? 'Pending…' : busy ? 'Queue' : 'Send'} disabled={!ready} onClick={() => submit(busy ? 'queue' : 'send')}><ArrowUp size={14} aria-hidden="true" /></button></div>
+      {busy && <button onClick={stop}><Square size={12} />Stop</button>}<span className="chat-record-control" ref={setRecordControls} />{!recording && <button className="chat-send" aria-label={pending ? 'Pending…' : busy ? 'Queue' : 'Send'} disabled={!ready} onClick={() => submit(busy ? 'queue' : 'send')}><ArrowUp size={14} aria-hidden="true" /></button>}</div>
     </div>
     {(!expanded || busy || draft.text.length > 50_000) && <div className="chat-composer-foot">{!expanded && <span><kbd>Ctrl P · P</kbd> expand editor</span>}{busy && <button disabled={!ready} onClick={() => submit('send')}>Send now / interrupt</button>}{draft.text.length > 50_000 && <span className="chat-composer-feedback" role="status">Over the 50,000 character prompt limit</span>}</div>}
     {uploadError && <p className="chat-error" role="alert">{uploadError}</p>}

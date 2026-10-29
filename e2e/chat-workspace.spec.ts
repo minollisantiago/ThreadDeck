@@ -3,17 +3,21 @@ import { chromium, test, expect, type Page } from '@playwright/test'
 import type { Snapshot } from '../shared/model'
 
 const threadId = '100000000000000001', projectId = '100000000000000010'
-test('records native browser audio, stages the true container and sends an explicit audio prompt', async ({ page }) => {
-  await page.setViewportSize({ width: 430, height: 1050 })
+async function syntheticMicrophone(page: Page) {
   await page.addInitScript(() => {
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => {
       const context = new AudioContext(), oscillator = context.createOscillator(), destination = context.createMediaStreamDestination(), gain = context.createGain()
       oscillator.connect(gain); gain.connect(destination); oscillator.start()
       for (let step = 0; step < 40; step++) gain.gain.setValueAtTime(.1 + (step * 17 % 23) / 25, step * .05)
       ;(window as unknown as { recordingContext: AudioContext }).recordingContext = context
+      ;(window as unknown as { recordingStream: MediaStream }).recordingStream = destination.stream
       return destination.stream
     } })
   })
+}
+test('records native browser audio, stages the true container and sends an explicit audio prompt', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 1050 })
+  await syntheticMicrophone(page)
   const submissions = await fixture(page, 'submitted', true, undefined, 0, false, true)
   let uploadName = ''
   let uploadBytes: Buffer = Buffer.alloc(0)
@@ -32,10 +36,27 @@ test('records native browser audio, stages the true container and sends an expli
   expect(recordBox!.y).toBeCloseTo(sendBox!.y, 0)
   await page.locator('.chat-composer').screenshot({ path: 'artifacts/audio-record-button.png' })
   await page.getByRole('button', { name: 'Record audio prompt' }).click()
-  await expect(page.getByRole('button', { name: 'Stop recording' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Pause recording' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toHaveCount(0)
   await page.waitForFunction(() => (window as unknown as { recordingContext: AudioContext }).recordingContext.currentTime > 1.2)
-  await page.getByRole('button', { name: 'Stop recording' }).click()
+  await expect(page.locator('.chat-capture .chat-audio-waveform rect')).toHaveCount(64)
+  const capture = page.locator('.chat-capture'), discard = page.getByRole('button', { name: 'Discard recording' }), pause = page.getByRole('button', { name: 'Pause recording' }), submit = page.getByRole('button', { name: 'Submit recording' })
+  const boxes = await Promise.all([discard, page.getByLabel('Live recording waveform'), page.getByRole('timer'), pause, submit].map(locator => locator.boundingBox()))
+  for (let index = 1; index < boxes.length; index++) { expect(boxes[index]!.x).toBeGreaterThan(boxes[index - 1]!.x); expect(boxes[index]!.y + boxes[index]!.height / 2).toBeCloseTo(boxes[0]!.y + boxes[0]!.height / 2, 0) }
+  await expect(discard).toHaveText('')
+  await expect(discard).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  await capture.screenshot({ path: 'artifacts/audio-capture-recording.png' })
+  await pause.click()
+  await expect(page.getByRole('button', { name: 'Resume recording' })).toBeVisible()
+  const pausedTime = await page.getByRole('timer').textContent(), pausedWaveform = await capture.locator('svg.chat-audio-waveform').innerHTML()
+  await page.waitForTimeout(400) // More than three meter ticks must leave paused content unchanged.
+  await expect(page.getByRole('timer')).toHaveText(pausedTime!)
+  expect(await capture.locator('svg.chat-audio-waveform').innerHTML()).toBe(pausedWaveform)
+  await capture.screenshot({ path: 'artifacts/audio-capture-paused.png' })
+  await page.getByRole('button', { name: 'Resume recording' }).click()
+  await expect(page.getByRole('button', { name: 'Pause recording' })).toBeVisible()
+  // Device loss finalizes without implicitly sending; retain preview coverage.
+  await page.evaluate(() => (window as unknown as { recordingStream: MediaStream }).recordingStream.getAudioTracks()[0].dispatchEvent(new Event('ended')))
   await expect(page.getByText('Ready to send')).toBeVisible()
   await expect(page.locator('.chat-recorder .chat-audio-track')).toHaveAttribute('data-waveform', 'ready')
   await expect(page.locator('.chat-recorder .chat-audio-waveform rect')).toHaveCount(64)
@@ -66,6 +87,31 @@ test('records native browser audio, stages the true container and sends an expli
   expect(submissions[0].files).toEqual([{ id: '7c18b13a-6d07-419d-b54f-e8024fc91673', name: uploadName, audioPrompt: true }])
   expect(submissions[0].delivery).toBe('send')
 })
+for (const paused of [false, true]) test(`submits ${paused ? 'paused' : 'live'} recording only after upload with ${paused ? 'queue' : 'send'} delivery`, async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 1050 })
+  await syntheticMicrophone(page)
+  const submissions = await fixture(page, 'submitted', true, undefined, 0, false, true)
+  await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { cursor: 'capture:0', before: null, stale: false, messages: [] } }))
+  let release!: () => void
+  const upload = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/api/chat/files?*', async route => {
+    await upload
+    await route.fulfill({ status: 201, json: { id: '7c18b13a-6d07-419d-b54f-e8024fc91673', name: new URL(route.request().url()).searchParams.get('name') } })
+  })
+  await page.locator('.chat-manager').getByRole('link', { name: paused ? 'Parallel agent' : 'Stream workspace', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Audio caption')
+  await page.getByRole('button', { name: 'Record audio prompt' }).click()
+  await expect(page.getByRole('button', { name: 'Pause recording' })).toBeVisible()
+  await page.waitForFunction(() => (window as unknown as { recordingContext: AudioContext }).recordingContext.currentTime > .25)
+  if (paused) await page.getByRole('button', { name: 'Pause recording' }).click()
+  await page.getByRole('button', { name: 'Submit recording' }).click()
+  await expect(page.getByText('Attaching recording…')).toBeVisible()
+  expect(submissions).toHaveLength(0)
+  release()
+  await expect.poll(() => submissions.length).toBe(1)
+  expect(submissions[0]).toMatchObject({ text: 'Audio caption', delivery: paused ? 'queue' : 'send', files: [{ audioPrompt: true }] })
+  await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toHaveValue('')
+})
 test('plays a real audio attachment lazily and stages it through Use as prompt', async ({ page }) => {
   await page.setViewportSize({ width: 430, height: 1050 })
   await fixture(page, 'submitted', true, undefined, 0, false, true)
@@ -77,10 +123,14 @@ test('plays a real audio attachment lazily and stages it through Use as prompt',
   await page.route('**/api/chat/files?*', route => route.fulfill({ status: 201, json: { id: '7c18b13a-6d07-419d-b54f-e8024fc91673', name: 'voice.wav' } }))
   await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Play voice.wav' })).toBeVisible()
+  await expect(page.locator('.chat-audio-meta')).toHaveCount(0)
+  await expect(page.locator('.chat-audio').getByRole('link', { name: 'Download' })).toHaveCount(0)
+  await expect(page.locator('.chat-audio-controls').getByRole('button', { name: 'Use as prompt' })).toHaveText('')
   expect(downloads).toBe(0)
   await page.getByRole('button', { name: 'Play voice.wav' }).click()
   await expect.poll(() => downloads).toBeGreaterThan(0)
   await expect(page.locator('.chat-audio audio')).toHaveJSProperty('duration', 1)
+  await page.locator('.chat-audio').screenshot({ path: 'artifacts/audio-player-single-line.png' })
   await page.getByRole('button', { name: 'Use as prompt' }).click()
   await expect(page.getByRole('checkbox', { name: 'Audio prompt' })).toBeChecked()
   await page.screenshot({ path: 'artifacts/audio-prompts-mobile.png' })
