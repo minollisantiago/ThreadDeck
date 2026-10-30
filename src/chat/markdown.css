@@ -1,0 +1,4 @@
+.chat-code-block { margin: 18px 0; }
+.chat-code-block > .chat-code { margin: 0; }
+.chat-code-block > .chat-copy-error { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-inline: 2px; color: var(--warning); font-size: 11px; line-height: 1.6; }
+.chat-code-block > .chat-copy-error svg { flex-shrink: 0; }

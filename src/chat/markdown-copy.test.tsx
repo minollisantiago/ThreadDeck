@@ -16,10 +16,13 @@ it('reports a denied code copy and permits retry with the exact terminal command
   render(<ChatMarkdown text={'```bash\nnpm run build && echo "done"\n```'} />)
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy code' })) })
   expect(screen.getByRole('status').textContent).toBe('Couldn’t copy code. Try again.')
+  expect(screen.getByRole('status').closest('.chat-code')).toBeNull()
+  expect(screen.getByRole('status').previousElementSibling?.classList.contains('chat-code')).toBe(true)
   expect(screen.queryByRole('button', { name: 'Code copied' })).toBeNull()
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy code' })) })
   expect(writeText).toHaveBeenLastCalledWith('npm run build && echo "done"\n')
   expect(screen.getByRole('button', { name: 'Code copied' })).toBeTruthy()
+  expect(screen.queryByRole('status')).toBeNull()
 })
 
 it('shows success only on the code block actually copied', async () => {
