@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { CheckCheck, Pin, PinOff } from 'lucide-react'
+import { CheckCheck, Pencil, Pin, PinOff } from 'lucide-react'
 
-export function SessionContextMenu({ x, y, unread, markRead, close, pinned = false, togglePin }: {
-  x: number; y: number; unread: boolean; markRead: () => void; close: (restoreFocus?: boolean) => void; pinned?: boolean; togglePin?: () => void
+export function SessionContextMenu({ x, y, unread, markRead, close, pinned = false, togglePin, rename }: {
+  x: number; y: number; unread: boolean; markRead: () => void; close: (restoreFocus?: boolean) => void; pinned?: boolean; togglePin?: () => void; rename?: () => void
 }) {
   const menu = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -43,5 +43,6 @@ export function SessionContextMenu({ x, y, unread, markRead, close, pinned = fal
   return createPortal(<div ref={menu} className="session-context-menu" role="menu" aria-label="Thread actions" style={{ left: x, top: y }} onContextMenu={event => { event.preventDefault(); event.stopPropagation() }}>
     <button role="menuitem" aria-disabled={!unread} onClick={() => { close(true); if (unread) markRead() }}><CheckCheck aria-hidden="true" />Mark as read</button>
     {togglePin && <button role="menuitem" onClick={() => { close(true); togglePin() }}>{pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}{pinned ? 'Unpin from Active' : 'Pin to Active'}</button>}
+    {rename && <button role="menuitem" onClick={() => { close(); rename() }}><Pencil aria-hidden="true" />Rename…</button>}
   </div>, document.body)
 }

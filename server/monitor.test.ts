@@ -189,6 +189,27 @@ describe('live monitoring', () => {
     expect(connection.active).toHaveBeenCalledTimes(2)
   })
 
+  it('publishes an agent rename immediately without changing response/read identity', async () => {
+    vi.useFakeTimers()
+    const { monitor, connection, emit } = liveFixture()
+    vi.mocked(connection.active).mockResolvedValue([])
+    vi.mocked(connection.response).mockResolvedValue(90)
+    monitor.start()
+    await vi.advanceTimersByTimeAsync(150)
+    const before = monitor.read().projects[0].sessions[0]
+    vi.mocked(connection.get).mockResolvedValue(raw({ title: 'Agent renamed this', time: { updated: 200 } }))
+    const listener = vi.fn()
+    monitor.subscribe(listener)
+    await emit('session.renamed')
+    await vi.advanceTimersByTimeAsync(150)
+    const after = monitor.read().projects[0].sessions[0]
+    expect(after.title).toBe('Agent renamed this')
+    expect(after.id).toBe(before.id)
+    expect(after.threadId).toBe(before.threadId)
+    expect(after.responseAt).toBe(before.responseAt)
+    expect(listener).toHaveBeenCalledWith(monitor.read())
+  })
+
   it('refreshes the model indicator immediately when a session model is selected', async () => {
     vi.useFakeTimers()
     const { monitor, connection, emit } = liveFixture()

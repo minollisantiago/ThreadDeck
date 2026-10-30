@@ -1,0 +1,8 @@
+.rename-session-dialog { width: min(440px, calc(100vw - 32px)); margin: auto; padding: 24px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.rename-session-dialog::backdrop { background: #0008; }
+.rename-session-dialog h2 { margin: 0 0 12px; font-size: 16px; }
+.rename-session-dialog p { margin: 0 0 18px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.rename-session-dialog label { display: block; margin-bottom: 8px; font-size: 12px; }
+.rename-session-dialog input { width: 100%; }
+.rename-session-dialog [role=alert] { margin-top: 12px; color: var(--text); }
+.rename-session-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }

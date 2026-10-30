@@ -83,6 +83,9 @@ with a lightweight Node.js backend. Node 24+ is required.
   actual Discord publication, not the raw harness transcript. Without the local
   bridge, drafting remains available and the app offers Discord rather than fake
   history or unmirrored prompts. The external-link icon still opens Discord.
+- Right-click a thread and choose **Rename…** to update its session title and
+  Discord thread name together. Agent renames continue to appear automatically;
+  manual names are not locked. Renaming does not send a prompt or mark it read.
 - Local light/dark, accent palette and collapse preferences; no account or cloud sync.
 - Each mode has four independently saved backgrounds: dark **Original, Charcoal,
   Midnight, Graphite**, and light **Original, Porcelain, Warm paper, Cool slate**.
