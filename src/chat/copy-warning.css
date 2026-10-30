@@ -1,3 +1,5 @@
 span.chat-copy-warning { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding-inline: 2px; color: var(--warning); font-size: 11px; line-height: 1.6; }
 .chat-copy-warning > svg { flex-shrink: 0; margin-top: 2px; }
 .chat-copy-warning > span { min-width: 0; overflow-wrap: anywhere; }
+.chat-message-actions > .chat-copy-warning { flex: 1; min-width: 0; margin-top: 0; }
+.chat-message-actions > .chat-copy-markdown { flex-shrink: 0; }

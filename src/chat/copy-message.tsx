@@ -17,7 +17,7 @@ export function CopyMessage({ markdown }: { markdown: string }) {
       setStatus('copying')
       try { await navigator.clipboard.writeText(markdown); setStatus('copied') } catch { setStatus('error') }
     }}>{status === 'copied' ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}</Button></TooltipHint>
-  </div>
     {status === 'error' ? <CopyWarning>Couldn’t copy Markdown. Try again.</CopyWarning> : <span className="sr-only" role="status">{status === 'copied' ? 'Markdown copied' : ''}</span>}
+  </div>
   </div>
 }

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-for (const width of [320, 1440]) for (const theme of ['dark', 'light']) test(`copy warnings sit below their controls in ${theme} at ${width}px`, async ({ page }) => {
+for (const width of [320, 1440]) for (const theme of ['dark', 'light']) test(`code warning stays below the box and Markdown warning sits beside its button in ${theme} at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 })
   await page.addInitScript(theme => {
     localStorage.setItem('threaddeck:appearance', JSON.stringify(theme))
@@ -52,13 +52,15 @@ for (const width of [320, 1440]) for (const theme of ['dark', 'light']) test(`co
   await page.getByRole('button', { name: 'Copy Markdown', exact: true }).click()
   const markdownWarning = page.getByRole('status').filter({ hasText: 'Couldn’t copy Markdown. Try again.' })
   await expect(markdownWarning).toBeVisible()
-  const actions = await page.locator('.chat-message-actions').boundingBox(), failure = await markdownWarning.boundingBox()
-  expect(failure!.y).toBeGreaterThanOrEqual(actions!.y + actions!.height + 7)
+  const button = await page.getByRole('button', { name: 'Copy Markdown', exact: true }).boundingBox(), failure = await markdownWarning.boundingBox()
+  expect(failure!.x).toBeGreaterThanOrEqual(button!.x + button!.width + 7)
+  expect(Math.abs(failure!.y + failure!.height / 2 - button!.y - button!.height / 2)).toBeLessThan(1)
   expect(await markdownWarning.evaluate(node => getComputedStyle(node).color)).toBe(colors.expected)
-  expect(await markdownWarning.evaluate(node => Boolean(node.closest('.chat-message-actions')))).toBe(false)
+  expect(await markdownWarning.evaluate(node => Boolean(node.closest('.chat-message-actions')))).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   if (theme === 'dark' && width === 1440) {
     await page.mouse.move(0, 0)
-    await page.locator('.chat-message-copy').screenshot({ path: 'artifacts/production-chat/markdown-copy-warning-below-button.png', animations: 'disabled' })
+    await page.locator('.chat-message-copy').screenshot({ path: 'artifacts/production-chat/markdown-copy-warning-beside-button.png', animations: 'disabled' })
   }
   await page.getByRole('button', { name: 'Copy Markdown', exact: true }).click()
   await expect(markdownWarning).toHaveCount(0)
