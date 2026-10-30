@@ -22,6 +22,10 @@ for (const width of [320, 430, 1440]) test(`sidebar summary actions and full-wid
   const toolbar = await sidebar.locator('.toolbar').boundingBox()
   expect(search!.width).toBeCloseTo(toolbar!.width, 0)
   expect(search!.x).toBeCloseTo(toolbar!.x, 0)
+  await expect(sidebar.locator('footer')).toHaveCSS('border-top-width', '0px')
+  const card = await sidebar.locator('.project-panel').first().boundingBox()
+  expect(card!.x).toBeCloseTo(search!.x, 0)
+  expect(card!.x + card!.width).toBeCloseTo(search!.x + search!.width, 0)
 })
 
 for (const theme of ['dark', 'light']) for (const design of ['classic', 'islands']) test(`unread thread badge matches its project counter in ${theme} ${design}`, async ({ page }) => {

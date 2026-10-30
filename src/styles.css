@@ -181,6 +181,8 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .chat-manager .sidebar-actions > button { width: 30px; height: 30px; }
 .chat-manager .app-shell .toolbar { display: grid; grid-template-columns: minmax(0, 1fr); }
 .chat-manager .toolbar .search-field { grid-column: 1 / -1; width: 100%; }
+.chat-manager .app-shell .project-list { padding-right: 0; scrollbar-gutter: auto; }
+.chat-workspace .chat-manager .app-shell > footer { border-top: 0; }
 @container threaddeck-manager (max-width: 360px) {
   .chat-manager .overview-counts { gap: 4px; font-size: 10px; }
   .chat-manager .overview-pill { gap: 4px; padding-inline: 2px; }
