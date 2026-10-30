@@ -170,6 +170,22 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .filter-group { display: flex; flex-wrap: wrap; gap: 3px; }.filter-group button { font-size: 10px; height: 36px; padding-inline: 12px; }.filter-group svg { width: 12px; height: 12px; }
 .filter-label-short { display: none; }
 .overview-label-short { display: none; }
+
+/* Keep sidebar actions beside the summary, leaving search its own full-width row. */
+.chat-manager .app-shell .overview { flex-direction: row; align-items: center; gap: 8px; padding-bottom: 0; border-bottom: 0; }
+.chat-manager .overview-counts { flex-wrap: nowrap; gap: 6px; font-size: 11px; }
+.chat-manager .overview-pill { gap: 5px; padding-inline: 6px; }
+.chat-manager .overview-label-full { display: none; }
+.chat-manager .overview-label-short { display: inline; }
+.sidebar-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.chat-manager .sidebar-actions > button { width: 30px; height: 30px; }
+.chat-manager .app-shell .toolbar { display: grid; grid-template-columns: minmax(0, 1fr); }
+.chat-manager .toolbar .search-field { grid-column: 1 / -1; width: 100%; }
+@container threaddeck-manager (max-width: 360px) {
+  .chat-manager .overview-counts { gap: 4px; font-size: 10px; }
+  .chat-manager .overview-pill { gap: 4px; padding-inline: 2px; }
+  .chat-manager .sidebar-actions > button { width: 26px; height: 30px; }
+}
 .filter-group .filter-selected { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: color-mix(in srgb, var(--accent) 75%, var(--text)); }
 .mark-all-read { font-size: 12px; height: 36px; }
 [data-appearance=light] .filter-group .filter-selected { color: var(--accent-ink); }

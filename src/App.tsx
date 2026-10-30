@@ -153,6 +153,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   useThreadListMotion(results, `${grouping}:${design}:${filter}:${query}:${listOrder.join(',')}`)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
+  const searchAction = <TooltipHint label={<>Advanced search — {workspace ? 'fuzzy session finder' : 'search chat logs'} {workspace && <><KbdGroup><Kbd>Ctrl</Kbd>+<Kbd>K</Kbd></KbdGroup> / </>}<Kbd>Double Space</Kbd></>}><Button variant="outline" size="icon" className="advanced-search" aria-label="Advanced search" aria-haspopup="dialog" onClick={openFinder}><SearchCode aria-hidden="true" /></Button></TooltipHint>
   return <PinnedSessions.Provider value={pins}>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design={design}>
     <header className="page-header">
       <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><h1>ThreadDeck</h1></div>
@@ -166,16 +167,19 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         { kind: 'attention', count: attention, label: 'need attention', shortLabel: 'attention' },
         { kind: 'projects', count: activeProjects, label: 'active projects', shortLabel: 'active' },
       ].map(({ kind, count, label, shortLabel }) => <span key={kind} className={`overview-pill overview-pill-${kind}`} data-count-state={!verified ? 'unknown' : count > 0 ? 'positive' : 'zero'}><strong>{verified ? count : '—'}</strong><span className="overview-label-full">{label}</span><span className="overview-label-short">{shortLabel}</span></span>)}</div>
+      {workspace && <div className="sidebar-actions">
+        {searchAction}
+        {workspace.create && <TooltipHint label={<>Start a new thread / OpenCode session <KbdGroup><Kbd>Ctrl</Kbd>+<Kbd>N</Kbd></KbdGroup> / <KbdGroup><Kbd>⌘</Kbd><Kbd>N</Kbd></KbdGroup></>}><Button variant="outline" size="icon" className="chat-create-thread" aria-label="New thread / OpenCode session" aria-keyshortcuts="Control+N Meta+N" onClick={() => workspace.create?.()}><Plus aria-hidden="true" /></Button></TooltipHint>}
+        {workspace.discover && <TooltipHint label={<>New channel / discover projects <KbdGroup><Kbd>Ctrl / ⌘</Kbd>+<Kbd>J</Kbd></KbdGroup></>}><Button variant="outline" size="icon" className="chat-discover-project" aria-label="New channel / discover projects" aria-keyshortcuts="Control+J Meta+J" onClick={workspace.discover}><FolderPlus aria-hidden="true" /></Button></TooltipHint>}
+      </div>}
     </div>
 
     <main>
       <div className="toolbar">
         <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <div className="search-shortcuts"><TooltipHint label={<>Filter projects or sessions <Kbd>/</Kbd> — outside text fields</>}><button type="button" aria-label="Search shortcuts" onClick={() => search.current?.focus()}><kbd>/</kbd></button></TooltipHint></div>}</div>
-        <TooltipHint label={<>Advanced search — {workspace ? 'fuzzy session finder' : 'search chat logs'} {workspace && <><KbdGroup><Kbd>Ctrl</Kbd>+<Kbd>K</Kbd></KbdGroup> / </>}<Kbd>Double Space</Kbd></>}><Button variant="outline" size="icon" className="advanced-search" aria-label="Advanced search" aria-haspopup="dialog" onClick={openFinder}><SearchCode aria-hidden="true" /></Button></TooltipHint>
+        {!workspace && searchAction}
         <div className="filter-toolbar">
         <FilterTabs filter={filter} setFilter={setFilter} />
-         {workspace?.create && <TooltipHint label={<>Start a new thread / OpenCode session <KbdGroup><Kbd>Ctrl</Kbd>+<Kbd>N</Kbd></KbdGroup> / <KbdGroup><Kbd>⌘</Kbd><Kbd>N</Kbd></KbdGroup></>}><Button variant="outline" size="icon" className="chat-create-thread" aria-label="New thread / OpenCode session" aria-keyshortcuts="Control+N Meta+N" onClick={() => workspace.create?.()}><Plus aria-hidden="true" /></Button></TooltipHint>}
-         {workspace?.discover && <TooltipHint label={<>New channel / discover projects <KbdGroup><Kbd>Ctrl / ⌘</Kbd>+<Kbd>J</Kbd></KbdGroup></>}><Button variant="outline" size="icon" className="chat-discover-project" aria-label="New channel / discover projects" aria-keyshortcuts="Control+J Meta+J" onClick={workspace.discover}><FolderPlus aria-hidden="true" /></Button></TooltipHint>}
         </div>
       </div>
 

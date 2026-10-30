@@ -1,6 +1,29 @@
 import { test, expect } from '@playwright/test'
 import type { Snapshot } from '../shared/model'
 
+for (const width of [320, 430, 1440]) test(`sidebar summary actions and full-width search at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1080 })
+  await page.route('**/api/snapshot', route => route.fulfill({ json: activitySnapshot(1) }))
+  await page.route('**/api/events', route => route.abort())
+  await page.goto('/')
+  const sidebar = page.locator('.chat-manager')
+  const overview = sidebar.locator('.overview')
+  await expect(overview).toHaveCSS('border-bottom-width', '0px')
+  await expect(overview.locator('.sidebar-actions > button')).toHaveCount(3)
+  const bounds = await overview.evaluate(node => {
+    const counts = node.querySelector('.overview-counts')!.getBoundingClientRect()
+    const actions = node.querySelector('.sidebar-actions')!.getBoundingClientRect()
+    return { countsRight: counts.right, actionsLeft: actions.left, countsCenter: counts.y + counts.height / 2, actionsCenter: actions.y + actions.height / 2, right: node.getBoundingClientRect().right, actionsRight: actions.right }
+  })
+  expect(bounds.actionsLeft).toBeGreaterThanOrEqual(bounds.countsRight)
+  expect(bounds.actionsRight).toBeLessThanOrEqual(bounds.right)
+  expect(Math.abs(bounds.countsCenter - bounds.actionsCenter)).toBeLessThan(1)
+  const search = await sidebar.locator('.search-field').boundingBox()
+  const toolbar = await sidebar.locator('.toolbar').boundingBox()
+  expect(search!.width).toBeCloseTo(toolbar!.width, 0)
+  expect(search!.x).toBeCloseTo(toolbar!.x, 0)
+})
+
 for (const theme of ['dark', 'light']) for (const design of ['classic', 'islands']) test(`unread thread badge matches its project counter in ${theme} ${design}`, async ({ page }) => {
   await page.addInitScript(({ theme, design }) => {
     localStorage.setItem('threaddeck:appearance', JSON.stringify(theme))
