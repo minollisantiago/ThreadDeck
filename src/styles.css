@@ -448,7 +448,11 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
   .toolbar:has(.chat-discover-project) { grid-template-columns: minmax(0, 1fr) 40px 40px 40px; }
   .toolbar .advanced-search { grid-column: 2; grid-row: 1; width: 40px; height: 40px; }
 }
-.conversation-search { width: min(700px, calc(100vw - 24px)); height: min(660px, 85dvh); max-height: 85dvh; margin: 8vh auto auto; padding: 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 24px 100px #0006; }
+.conversation-search { padding: 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 24px 100px #0006; }
+.conversation-finder-frame:is(.chat-session-finder, .conversation-search) { width: min(700px, calc(100vw - 24px)); height: min(660px, 80dvh); max-height: 80dvh; margin: 8vh auto auto; }
+.conversation-finder-frame[open] { display: flex; flex-direction: column; }
+.conversation-finder-frame > :not(.chat-finder-results, .conversation-search-results) { flex-shrink: 0; }
+.conversation-finder-frame > .chat-finder-results { flex: 1; min-height: 0; max-height: none; }
 .conversation-search[open] { display: flex; flex-direction: column; }
 .conversation-search::backdrop { background: #0008; backdrop-filter: blur(4px); }
 .conversation-search-heading, .conversation-search-input { display: flex; flex-shrink: 0; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--rule); }

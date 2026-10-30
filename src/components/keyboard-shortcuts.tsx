@@ -14,7 +14,7 @@ export function KeyboardShortcuts({ workspace, threadId, close, restoreFocus }: 
   const groups = [
     { title: 'Navigation', shortcuts: [
       ...(workspace ? [
-        ['Ctrl / ⌘ K', 'Find a session; press again inside the finder to search message history'],
+        ['Ctrl / ⌘ K', 'Find a session; press again to toggle between title search and message history'],
         ['Ctrl / ⌘ N', 'Choose a project for a new session'],
         ['Ctrl / ⌘ Shift N', 'New session in the currently selected project'],
         ['Ctrl / ⌘ J', 'New channel / discover projects'],

@@ -27,7 +27,7 @@ export function SessionFinder({ sessions, projects, select, create, close, histo
   const projectHits = projects.map(project => ({ project, score: query ? fuzzyScore(query, project.name) : 1 })).filter(hit => hit.score > 0).sort((a, b) => b.score - a.score)
   const count = newThread ? projectHits.length : hits.length
   useEffect(() => { results.current?.querySelectorAll('button')[index]?.scrollIntoView?.({ block: 'nearest' }) }, [index, query, newThread])
-  return <dialog ref={dialog} className="chat-session-finder" aria-label={newThread ? 'New thread / OpenCode session' : 'Find a session'} onKeyDown={e => {
+  return <dialog ref={dialog} className={`chat-session-finder${newThread ? '' : ' conversation-finder-frame'}`} aria-label={newThread ? 'New thread / OpenCode session' : 'Find a session'} onKeyDown={e => {
     if (e.nativeEvent.isComposing || e.repeat || ['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) return
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k' && !newThread) {
       e.preventDefault(); e.stopPropagation(); history(); return
@@ -192,7 +192,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     {finder && <SessionFinder currentProject={target?.project} sessions={sessions} projects={projects} select={open} create={start} close={() => setFinder(false)} newSession={newSession} history={() => { setFinder(false); setHistoryOpen(true) }} />}
     {newThread && <SessionFinder initialNewThread currentProject={target?.project} sessions={sessions} projects={projects} select={open} create={start} close={() => setNewThread(false)} history={() => {}} />}
     {discovering && <ProjectDiscovery close={() => setDiscovering(false)} create={start} />}
-    {historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} onSelect={hit => {
+    {historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} titleSearch={find} onSelect={hit => {
       const known = sessions.find(session => session.id === hit.id)
       if (known) { open(known); return true }
       const candidates = projects.filter(project => project.name === hit.project)

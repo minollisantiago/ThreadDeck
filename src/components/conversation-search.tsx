@@ -11,7 +11,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   return <>{text.split(pattern).map((part, i) => i % 2 ? <mark key={i}>{part}</mark> : part)}</>
 }
 
-export function ConversationSearch({ close, onSelect }: { close: () => void; onSelect?: (hit: SearchHit) => boolean }) {
+export function ConversationSearch({ close, onSelect, titleSearch }: { close: () => void; onSelect?: (hit: SearchHit) => boolean; titleSearch?: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
@@ -49,7 +49,10 @@ export function ConversationSearch({ close, onSelect }: { close: () => void; onS
   }, [data, error])
   useEffect(() => { list.current?.querySelector(`[data-index="${selected}"]`)?.scrollIntoView?.({ block: 'nearest' }) }, [selected])
   const hits = error ? [] : data?.hits ?? []
-  return <dialog ref={dialog} className="conversation-search" aria-labelledby="conversation-search-title" onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === dialog.current) close() }} onKeyDown={event => {
+  return <dialog ref={dialog} className="conversation-search conversation-finder-frame" aria-labelledby="conversation-search-title" onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === dialog.current) close() }} onKeyDown={event => {
+    if (titleSearch && !event.nativeEvent.isComposing && !event.repeat && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k') {
+      event.preventDefault(); event.stopPropagation(); titleSearch(); return
+    }
     if (event.key === 'Tab') {
       const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button,input,a[href]')]
       const first = controls[0], last = controls.at(-1)

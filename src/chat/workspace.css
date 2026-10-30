@@ -20,9 +20,9 @@
 .chat-manager .chat-create-thread { grid-column: 3; grid-row: 1; width: 40px; height: 40px; }
 .chat-manager .chat-discover-project { grid-column: 4; grid-row: 1; width: 40px; height: 40px; }
 .chat-manager .toolbar:has(.chat-discover-project) { grid-template-columns: minmax(0, 1fr) 40px 40px 40px; }
-.chat-finder-keybindings { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.chat-finder-keybindings { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 16px; }
 .chat-finder-keybindings > span { display: inline-flex; align-items: center; gap: 6px; }
-.chat-finder-keybindings .chat-finder-scope { margin-left: auto; color: var(--subtle); }
+.chat-finder-keybindings .chat-finder-scope { color: var(--subtle); }
 .chat-manager .app-shell { display: flex; flex-direction: column; height: 100%; min-height: 0; width: 100%; max-width: none; margin: 0; padding: 26px 16px 0; }
 .chat-manager .app-shell > :is(.page-header, .overview) { flex-shrink: 0; }
 .chat-manager .app-shell > main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
