@@ -48,7 +48,7 @@ export function SessionFinder({ sessions, projects, select, create, close, histo
 function ProjectDiscovery({ close, create }: { close: () => void; create: (project: Project) => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   useLayoutEffect(() => { const previous = document.activeElement, panel = dialog.current; panel?.showModal(); return () => { panel?.close(); if (previous instanceof HTMLElement && previous.isConnected) previous.focus() } }, [])
-  return <dialog ref={dialog} className="chat-session-finder" aria-label="Discover / add project" onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === dialog.current) close() }}><ProjectBrowser close={close} create={create} /></dialog>
+  return <dialog ref={dialog} className="chat-session-finder conversation-finder-frame" aria-label="Discover / add project" onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === dialog.current) close() }}><ProjectBrowser close={close} create={create} /></dialog>
 }
 export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | null; children: ReactNode }) {
   const [target, setTarget] = useState<ChatTarget | null>(null), [finder, setFinder] = useState(false), [drawer, setDrawer] = useState(false)

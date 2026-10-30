@@ -40,16 +40,18 @@ export function ProjectBrowser({ back, close, create }: { back?: () => void; clo
     <header>{back && <button aria-label="Back to projects" disabled={busy} onClick={back}><ArrowLeft size={18} /></button>}<strong>Add a project</strong><button aria-label="Close project browser" disabled={busy} onClick={close}><X size={18} /></button></header>
     <p className="chat-muted">Browse folders on the machine running Kimaki. Adding a project creates its Discord channel; your first prompt starts the session.</p>
     <form onSubmit={event => { event.preventDefault(); navigate(path) }}><input autoFocus aria-label="Folder path" placeholder="Absolute folder path…" value={path} disabled={busy} onChange={event => setPath(event.target.value)} /><button disabled={busy || !path.trim()}>Go</button><button type="button" disabled={busy} aria-label="Refresh folders" onClick={() => setRevision(value => value + 1)}><RefreshCw size={15} /></button></form>
+    <div className="chat-project-browser-content">
     {listing && <><nav aria-label="Project locations">{listing.locations.map(location => <button key={location} disabled={busy} onClick={() => navigate(location)}>{location}</button>)}</nav>
       {listing.guilds.length > 1 && <label>Discord server <select aria-label="Discord server" value={guild} disabled={busy} onChange={event => setGuild(event.target.value)}><option value="">Choose a server…</option>{listing.guilds.map(id => <option key={id} value={id}>{id}</option>)}</select></label>}
     </>}
     {error && <p role="alert">{error}</p>}
-    {loading ? <p role="status" className="chat-muted">Loading folders…</p> : !error && listing && <div className="chat-finder-results">
+    {loading ? <div className="chat-project-loading" role="status" aria-label="Loading folders"><span className="sr-only">Loading folders…</span><div aria-hidden="true">{[64, 48, 72, 55, 42, 61].map((width, index) => <div className="chat-project-skeleton-row" key={index}><i className="skeleton-shape chat-project-skeleton-icon" /><div><i className="skeleton-shape chat-project-skeleton-name" style={{ width: `${width}%` }} /><i className="skeleton-shape chat-project-skeleton-meta" /></div></div>)}</div></div> : !error && listing && <div className="chat-finder-results">
       {listing.parent && <button disabled={busy} onClick={() => navigate(listing.parent!)}><strong>..</strong><small>Parent folder</small></button>}
       {listing.entries.map(entry => <button key={entry.directory} disabled={busy} onClick={() => navigate(entry.directory)}><strong>{entry.repository ? <GitBranch size={15} /> : <Folder size={15} />}{entry.name}</strong><small>{entry.registered ? 'Already registered' : entry.repository ? 'Git repository' : 'Folder'}</small></button>)}
       {!listing.entries.length && <p className="chat-muted">No visible subfolders. You can use this folder or enter another path.</p>}
       {listing.entries.length >= 500 && <p className="chat-muted">Showing the first 500 folders. Enter a more specific path to narrow the list.</p>}
     </div>}
-    <footer><span>{busy ? 'Registering project…' : listing?.directory}</span><button className="chat-project-start" disabled={busy || loading || !listing || Boolean(error) || !listing.registered && listing.guilds.length > 1 && !guild} onClick={() => void start()}>{listing?.registered ? 'Start session here' : 'Add project & start session'}</button></footer>
+    </div>
+    <footer><span title={listing?.directory}>{busy ? 'Registering project…' : loading ? 'Loading folders…' : listing?.directory || 'Choose a folder'}</span><button className="chat-project-start" disabled={busy || loading || !listing || Boolean(error) || !listing.registered && listing.guilds.length > 1 && !guild} onClick={() => void start()}>{listing?.registered ? 'Start session here' : 'Add project & start session'}</button></footer>
   </section>
 }
