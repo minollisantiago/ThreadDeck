@@ -1,16 +1,17 @@
 import { test, expect } from '@playwright/test'
 
-for (const width of [320, 1440]) for (const theme of ['dark', 'light']) test(`code-copy warning sits below the box in ${theme} at ${width}px`, async ({ page }) => {
+for (const width of [320, 1440]) for (const theme of ['dark', 'light']) test(`copy warnings sit below their controls in ${theme} at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 })
   await page.addInitScript(theme => {
     localStorage.setItem('threaddeck:appearance', JSON.stringify(theme))
-    let denied = true
+    Reflect.set(window, 'denyNextClipboardWrite', true)
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => {
       Reflect.set(window, 'lastCodeCopy', text)
-      if (denied) { denied = false; throw new Error('Clipboard denied') }
+      if (Reflect.get(window, 'denyNextClipboardWrite')) { Reflect.set(window, 'denyNextClipboardWrite', false); throw new Error('Clipboard denied') }
     } } })
   }, theme)
   const command = 'PATH="$HOME/.bun/bin:$PATH" bunx critique --web "Review changes"'
+  const markdown = `Copy this command:\n\n\`\`\`bash\n${command}\n\`\`\``
   await page.route('**/api/snapshot', route => {
     const now = Date.now()
     return route.fulfill({ json: { health: 'connected', checkedAt: now, lastSuccessAt: now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: '100000000000000010', name: 'ThreadDeck', directory: '/fixture', sessions: [{ id: 'copy', threadId: '100000000000000001', guildId: null, projectId: '100000000000000010', title: 'Code copy warning', status: 'input', agentCount: 0, updatedAt: now }] }] } })
@@ -21,7 +22,7 @@ for (const width of [320, 1440]) for (const theme of ['dark', 'light']) test(`co
     if (url.pathname.endsWith('/info')) return route.fulfill({ json: { protocol: 1, kimakiVersion: 'test', actor: 'local-operator', capabilities: ['history', 'changes', 'prompt'] } })
     if (url.pathname.endsWith('/catalog')) return route.fulfill({ json: { entries: [] } })
     if (url.pathname.endsWith('/changes')) return
-    if (url.pathname.endsWith('/messages')) return route.fulfill({ json: { cursor: 'copy:0', before: null, stale: false, messages: [{ id: '100000000000000007', channel_id: '100000000000000001', timestamp: new Date().toISOString(), author: { id: 'human', username: 'You' }, content: `Copy this command:\n\n\`\`\`bash\n${command}\n\`\`\``, attachments: [], components: [], embeds: [] }] } })
+    if (url.pathname.endsWith('/messages')) return route.fulfill({ json: { cursor: 'copy:0', before: null, stale: false, messages: [{ id: '100000000000000007', channel_id: '100000000000000001', timestamp: new Date().toISOString(), author: { id: 'bot', username: 'Kimaki', bot: true }, content: markdown, attachments: [], components: [], embeds: [] }] } })
     return route.fulfill({ status: 404, json: {} })
   })
   await page.goto('/')
@@ -47,4 +48,20 @@ for (const width of [320, 1440]) for (const theme of ['dark', 'light']) test(`co
   await expect(warning).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Code copied', exact: true })).toBeVisible()
   expect(await page.evaluate(() => Reflect.get(window, 'lastCodeCopy'))).toBe(`${command}\n`)
+  await page.evaluate(() => Reflect.set(window, 'denyNextClipboardWrite', true))
+  await page.getByRole('button', { name: 'Copy Markdown', exact: true }).click()
+  const markdownWarning = page.getByRole('status').filter({ hasText: 'Couldn’t copy Markdown. Try again.' })
+  await expect(markdownWarning).toBeVisible()
+  const actions = await page.locator('.chat-message-actions').boundingBox(), failure = await markdownWarning.boundingBox()
+  expect(failure!.y).toBeGreaterThanOrEqual(actions!.y + actions!.height + 7)
+  expect(await markdownWarning.evaluate(node => getComputedStyle(node).color)).toBe(colors.expected)
+  expect(await markdownWarning.evaluate(node => Boolean(node.closest('.chat-message-actions')))).toBe(false)
+  if (theme === 'dark' && width === 1440) {
+    await page.mouse.move(0, 0)
+    await page.locator('.chat-message-copy').screenshot({ path: 'artifacts/production-chat/markdown-copy-warning-below-button.png', animations: 'disabled' })
+  }
+  await page.getByRole('button', { name: 'Copy Markdown', exact: true }).click()
+  await expect(markdownWarning).toHaveCount(0)
+  await expect(page.getByRole('status').filter({ hasText: 'Markdown copied' })).toHaveText('Markdown copied')
+  expect(await page.evaluate(() => Reflect.get(window, 'lastCodeCopy'))).toBe(markdown)
 })
