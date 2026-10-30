@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, Hash, Layers2, Plus, Search, SearchCode, X } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, FolderPlus, Hash, Layers2, Plus, Search, SearchCode, X } from 'lucide-react'
 import { TooltipHint } from './components/ui/tooltip'
 import { Kbd, KbdGroup } from './components/ui/kbd'
 import { Button } from './components/ui/button'
@@ -175,6 +175,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         <div className="filter-toolbar">
         <FilterTabs filter={filter} setFilter={setFilter} />
          {workspace?.create && <TooltipHint label={<>Start a new thread / OpenCode session <KbdGroup><Kbd>Ctrl</Kbd>+<Kbd>N</Kbd></KbdGroup> / <KbdGroup><Kbd>⌘</Kbd><Kbd>N</Kbd></KbdGroup></>}><Button variant="outline" size="icon" className="chat-create-thread" aria-label="New thread / OpenCode session" aria-keyshortcuts="Control+N Meta+N" onClick={() => workspace.create?.()}><Plus aria-hidden="true" /></Button></TooltipHint>}
+         {workspace?.discover && <TooltipHint label={<>New channel / discover projects <KbdGroup><Kbd>Ctrl / ⌘</Kbd>+<Kbd>J</Kbd></KbdGroup></>}><Button variant="outline" size="icon" className="chat-discover-project" aria-label="New channel / discover projects" aria-keyshortcuts="Control+J Meta+J" onClick={workspace.discover}><FolderPlus aria-hidden="true" /></Button></TooltipHint>}
         </div>
       </div>
 

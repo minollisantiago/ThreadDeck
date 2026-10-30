@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { discordLinks } from '../../shared/model'
+import { Kbd } from './ui/kbd'
 import { searchResponseSchema, type SearchHit, type SearchResponse } from '../../shared/search'
 
 function Highlight({ text, query }: { text: string; query: string }) {
@@ -80,6 +81,6 @@ export function ConversationSearch({ close, onSelect }: { close: () => void; onS
       })}
       {!loading && !error && !hits.length && <p className="conversation-search-status">{data?.indexing ? 'Building your history index. Results appear as conversations are indexed.' : 'No matching conversations. Try different words or a shorter phrase.'}</p>}
     </div>
-    <div className="conversation-search-footer">↑ ↓ select · Enter opens {onSelect ? 'conversation' : 'Discord'} · searches all history</div>
+    <div className="conversation-search-footer chat-finder-keybindings"><span><Kbd>↑ ↓</Kbd> navigate</span><span><Kbd>Enter</Kbd> open{onSelect ? '' : ' Discord'}</span><span><Kbd>Esc</Kbd> exit</span><span className="chat-finder-scope">All history</span></div>
   </dialog>
 }

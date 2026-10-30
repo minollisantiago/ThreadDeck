@@ -14,9 +14,10 @@ export function KeyboardShortcuts({ workspace, threadId, close, restoreFocus }: 
   const groups = [
     { title: 'Navigation', shortcuts: [
       ...(workspace ? [
-        ['Ctrl / ⌘ K', 'Find a session or start a conversation'],
-        ['Ctrl / ⌘ N', 'Choose a project for a new session; toggle projects / sessions inside the finder'],
+        ['Ctrl / ⌘ K', 'Find a session; press again inside the finder to search message history'],
+        ['Ctrl / ⌘ N', 'Choose a project for a new session'],
         ['Ctrl / ⌘ Shift N', 'New session in the currently selected project'],
+        ['Ctrl / ⌘ J', 'New channel / discover projects'],
         ...(window.threaddeckDesktop ? [['Ctrl Tab', 'Open the session finder (desktop)']] : []),
       ] : []),
       ['Space, Space', workspace ? 'Find a session, outside text fields and controls' : 'Search conversation history, outside text fields and controls'],

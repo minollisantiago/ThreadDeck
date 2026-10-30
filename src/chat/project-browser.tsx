@@ -11,7 +11,7 @@ async function request(url: string, options?: RequestInit) {
   return value
 }
 
-export function ProjectBrowser({ back, close, create }: { back: () => void; close: () => void; create: (project: Project) => void }) {
+export function ProjectBrowser({ back, close, create }: { back?: () => void; close: () => void; create: (project: Project) => void }) {
   const [directory, setDirectory] = useState<string>(), [path, setPath] = useState(''), [revision, setRevision] = useState(0)
   const [listing, setListing] = useState<ProjectBrowse | null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(true), [busy, setBusy] = useState(false)
   const [guild, setGuild] = useState('')
@@ -37,7 +37,7 @@ export function ProjectBrowser({ back, close, create }: { back: () => void; clos
     finally { setBusy(false) }
   }
   return <section className="chat-project-browser" aria-label="Discover projects" aria-busy={loading || busy}>
-    <header><button aria-label="Back to projects" disabled={busy} onClick={back}><ArrowLeft size={18} /></button><strong>Add a project</strong><button aria-label="Close project browser" disabled={busy} onClick={close}><X size={18} /></button></header>
+    <header>{back && <button aria-label="Back to projects" disabled={busy} onClick={back}><ArrowLeft size={18} /></button>}<strong>Add a project</strong><button aria-label="Close project browser" disabled={busy} onClick={close}><X size={18} /></button></header>
     <p className="chat-muted">Browse folders on the machine running Kimaki. Adding a project creates its Discord channel; your first prompt starts the session.</p>
     <form onSubmit={event => { event.preventDefault(); navigate(path) }}><input autoFocus aria-label="Folder path" placeholder="Absolute folder path…" value={path} disabled={busy} onChange={event => setPath(event.target.value)} /><button disabled={busy || !path.trim()}>Go</button><button type="button" disabled={busy} aria-label="Refresh folders" onClick={() => setRevision(value => value + 1)}><RefreshCw size={15} /></button></form>
     {listing && <><nav aria-label="Project locations">{listing.locations.map(location => <button key={location} disabled={busy} onClick={() => navigate(location)}>{location}</button>)}</nav>
