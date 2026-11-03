@@ -30,6 +30,18 @@ it('uses response time on mount and does not restart the window on remount', () 
   expect(screen.queryByText('Just finished')).toBeNull()
 })
 
+it('does not seek the running animation again on dashboard clock ticks', () => {
+  const view = render(row(session, now + 2000))
+  const runway = view.container.querySelector('.finished-runway')
+  expect(runway?.getAttribute('style')).toContain('-2000ms')
+  view.rerender(row(session, now + 7000))
+  expect(view.container.querySelector('.finished-runway')).toBe(runway)
+  expect(runway?.getAttribute('style')).toContain('-2000ms')
+  view.rerender(row({ ...session, responseAt: now + 7000 }, now + 7000))
+  expect(view.container.querySelector('.finished-runway')).not.toBe(runway)
+  expect(view.container.querySelector('.finished-runway')?.getAttribute('style')).toContain('0ms')
+})
+
 it('marks read immediately and never brings the pill back after its timer', () => {
   vi.useFakeTimers()
   const markRead = vi.fn()

@@ -5,6 +5,13 @@ import './session-unread-pill.css'
 
 const freshDuration = 20_000
 
+function FinishedRunway({ age }: { age: number }) {
+  // CSS already advances with real time. Only seek on mount (or a new reply),
+  // not on each dashboard clock tick, which would count elapsed time twice.
+  const [initialAge] = useState(age)
+  return <span className="finished-runway" aria-hidden="true" style={{ '--finished-age': `${-initialAge}ms` } as CSSProperties} />
+}
+
 export function SessionUnreadPill({ session, verified, now, markRead }: {
   session: Session; verified: boolean; now: number; markRead: (session: Session) => void
 }) {
@@ -23,7 +30,7 @@ export function SessionUnreadPill({ session, verified, now, markRead }: {
   return <TooltipHint label={`${fresh ? 'Just finished. Becomes unread after 20 seconds.' : 'Unread in ThreadDeck.'} Click to mark as read. Reading in Discord does not clear this flag.`}>
     <button className={`status status-unread${fresh ? ' status-just-finished' : ''}`} aria-label={`Mark ${session.title} as read`} onClick={() => markRead(session)}>
       {fresh ? 'Just finished' : 'Unread'}
-      {fresh && <span key={responseAt} className="finished-runway" aria-hidden="true" style={{ '--finished-age': `${-age}ms` } as CSSProperties} />}
+      {fresh && <FinishedRunway key={responseAt} age={age} />}
     </button>
   </TooltipHint>
 }
