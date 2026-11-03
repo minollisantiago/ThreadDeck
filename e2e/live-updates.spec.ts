@@ -14,5 +14,5 @@ test('renders an SSE snapshot even when the polling endpoint is unavailable', as
     })}\n\n`,
   }))
   await page.goto('/')
-  await expect(page.getByRole('link', { name: 'Pushed conversation', exact: true })).toBeVisible()
+  await expect(page.getByText('Pushed conversation', { exact: true })).toBeVisible()
 })

@@ -25,7 +25,7 @@ async function setup(page: Page) {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'dark' })
   await page.goto('/')
-  await expect(page.getByRole('link', { name: 'Review the transition', exact: true })).toBeVisible()
+  await expect(page.getByText('Review the transition', { exact: true })).toBeVisible()
   return async (change: (previous: Snapshot) => Snapshot = value => value) => {
     snapshot = change(snapshot)
     const response = page.waitForResponse('**/api/snapshot')
@@ -83,7 +83,7 @@ test('status and unread changes animate only changed flags and acknowledge immed
     sessions: project.sessions.map(session => ({ ...session, status: 'idle', agentCount: 0 })),
   })) }))
   // Active filtering removes the row now; no outgoing clickable copy is retained.
-  await expect(page.getByRole('link', { name: 'Review the transition', exact: true })).toHaveCount(0)
+  await expect(page.getByText('Review the transition', { exact: true })).toHaveCount(0)
   await expect(page.getByText('No active sessions', { exact: true })).toBeVisible()
   expect(await page.locator('.project-list').evaluate(node => node.getAnimations().length)).toBe(0)
 })

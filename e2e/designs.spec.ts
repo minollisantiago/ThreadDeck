@@ -44,7 +44,7 @@ test('list and islands toggle before theme, persist, and fit desktop and mobile'
     if (design === 'islands') await toggle.click()
     await expect(page.locator('.app-shell')).toHaveAttribute('data-design', design)
     await expectPillRadius()
-    await expect(page.getByRole('link', { name: 'Native Windows support', exact: true })).toBeVisible()
+    await expect(page.getByText('Native Windows support', { exact: true })).toBeVisible()
     if (design === 'islands') {
       await expect(page.locator('.projects-islands .visual-project').first()).toHaveCSS('background-image', 'none')
       await expect(page.locator('.emblem-signal').first()).toHaveCSS('width', '18px')

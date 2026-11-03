@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, screen, shell, dialog, nativeTheme, net } = require('electron')
 const path = require('node:path')
-const { externalLink, chatExternalLink, mobileBounds } = require('./policy.cjs')
+const { chatExternalLink, mobileBounds } = require('./policy.cjs')
 const { appId, taskbarDetails } = require('./taskbar.cjs')
 const { startupController } = require('./startup.cjs')
 const { readFileSync } = require('node:fs')
@@ -8,6 +8,7 @@ const { colors, savedAppearance } = require('./appearance.cjs')
 const { readWindowState, fitWindowBounds, saveWindowState } = require('./window-state.cjs')
 const { trayController } = require('./tray.cjs')
 const { installAudioPermissions } = require('./audio-permissions.cjs')
+const { openDiscordLink } = require('./discord.cjs')
 
 const configFile = process.argv.find(arg => arg.startsWith('--launch-services='))?.slice('--launch-services='.length)
 let config
@@ -120,7 +121,7 @@ app.whenReady().then(async () => {
     notifyStartup()
   })
   window.setMenu(null)
-  const openExternal = url => { if (externalLink(url)) void shell.openExternal(url).catch(console.error) }
+  const openExternal = url => { void openDiscordLink(url, { app, shell }).catch(console.error) }
   ipcMain.on('open-discord', (event, url) => {
     if (event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame && typeof url === 'string') openExternal(url)
   })

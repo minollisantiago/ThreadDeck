@@ -26,7 +26,7 @@ test('records native browser audio, stages the true container and sends an expli
     uploadBytes = route.request().postDataBuffer() || Buffer.alloc(0)
     return route.fulfill({ status: 201, json: { id: '7c18b13a-6d07-419d-b54f-e8024fc91673', name: uploadName } })
   })
-  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true }).click()
   const record = page.getByRole('button', { name: 'Record audio prompt' })
   await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
   await expect(record).toHaveText('')
@@ -98,7 +98,7 @@ for (const paused of [false, true]) test(`submits ${paused ? 'paused' : 'live'} 
     await upload
     await route.fulfill({ status: 201, json: { id: '7c18b13a-6d07-419d-b54f-e8024fc91673', name: new URL(route.request().url()).searchParams.get('name') } })
   })
-  await page.locator('.chat-manager').getByRole('link', { name: paused ? 'Parallel agent' : 'Stream workspace', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: paused ? 'Parallel agent' : 'Stream workspace', exact: true }).click()
   await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Audio caption')
   await page.getByRole('button', { name: 'Record audio prompt' }).click()
   await expect(page.getByRole('button', { name: 'Pause recording' })).toBeVisible()
@@ -121,7 +121,7 @@ test('plays a real audio attachment lazily and stages it through Use as prompt',
   let downloads = 0
   await page.route('**/attachments/100000000000000003', route => { downloads++; return route.fulfill({ contentType: 'audio/wav', body: wav }) })
   await page.route('**/api/chat/files?*', route => route.fulfill({ status: 201, json: { id: '7c18b13a-6d07-419d-b54f-e8024fc91673', name: 'voice.wav' } }))
-  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Play voice.wav' })).toBeVisible()
   await expect(page.locator('.chat-audio-meta')).toHaveCount(0)
   await expect(page.locator('.chat-audio').getByRole('link', { name: 'Download' })).toHaveCount(0)
@@ -192,7 +192,7 @@ for (const width of [430, 1440]) test(`new-session shortcut and advanced search 
   await expect(page.getByRole('textbox', { name: 'Find a project' })).toBeFocused()
   await page.keyboard.press('Escape')
   // Works even with focus inside a text field; does not modify existing drafts.
-  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true }).click()
   const prompt = page.getByRole('textbox', { name: 'Write a prompt' })
   await prompt.fill('Keep this draft')
   await page.keyboard.press('Control+n')
@@ -234,7 +234,7 @@ test('new-thread picker offers a current-project action without guessing a proje
   await page.keyboard.press('n')
   await expect(page.getByRole('textbox', { name: 'Find a project' })).toHaveValue('n')
   await page.keyboard.press('Escape')
-  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true }).click()
   await page.keyboard.press('Control+n')
   await page.getByRole('dialog').getByRole('button', { name: /New session in ThreadDeck/ }).click()
   await expect(page.getByRole('heading', { name: 'Start a conversation' })).toBeVisible()
@@ -281,7 +281,7 @@ async function fixture(page: Page, state: 'submitted' | 'unknown' = 'submitted',
   })
   await page.goto('/')
   if (openChat) {
-    await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+    await page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true }).click()
     await expect(page.getByRole('textbox', { name: 'Write a prompt' })).toBeVisible()
   }
   return submissions
@@ -290,9 +290,9 @@ for (const width of [430, 1440]) for (const design of ['classic', 'islands']) te
   await page.setViewportSize({ width, height: 1050 })
   await page.addInitScript(design => localStorage.setItem('threaddeck:design', JSON.stringify(design)), design)
   await fixture(page, 'submitted', true, undefined, 0, false)
-  const row = page.locator('.chat-manager .session-row').filter({ has: page.getByRole('link', { name: 'Parallel agent', exact: true }) })
+  const row = page.locator('.chat-manager .session-row').filter({ has: page.getByRole('button', { name: 'Parallel agent', exact: true }) })
   await row.hover()
-  const pin = row.getByRole('button', { name: 'Pin Parallel agent', exact: true }), external = row.getByRole('link', { name: 'Open Parallel agent in browser', exact: true })
+  const pin = row.getByRole('button', { name: 'Pin Parallel agent', exact: true }), external = row.getByRole('link', { name: 'Open Parallel agent in Discord', exact: true })
   await expect(row.locator('.session-actions > *')).toHaveCount(2)
   const left = (await pin.boundingBox())!, right = (await external.boundingBox())!
   expect(right.x - left.x - left.width).toBeCloseTo(4, 0)
@@ -362,14 +362,14 @@ test('opening a loaded conversation marks its response read even when the harnes
   await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
   await page.reload()
   await expect(page.getByRole('button', { name: 'Mark Stream workspace as read', exact: true })).toBeVisible()
-  await page.getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.getByRole('button', { name: 'Stream workspace', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
   await expect.poll(() => page.evaluate(({ projectId, threadId }) => JSON.parse(localStorage.getItem('threaddeck:read-responses') || '{}')[`${projectId}:${threadId}`], { projectId, threadId })).toBe(responseAt)
   const sidebar = page.locator('.chat-manager')
-  await expect(sidebar.getByRole('link', { name: 'Stream workspace', exact: true })).toBeVisible()
+  await expect(sidebar.getByRole('button', { name: 'Stream workspace', exact: true })).toBeVisible()
   await expect(sidebar.getByRole('button', { name: 'Mark Stream workspace as read', exact: true })).toHaveCount(0)
-  await sidebar.getByRole('link', { name: 'Parallel agent', exact: true }).click()
-  await expect(sidebar.getByRole('link', { name: 'Stream workspace', exact: true })).toHaveCount(0)
+  await sidebar.getByRole('button', { name: 'Parallel agent', exact: true }).click()
+  await expect(sidebar.getByRole('button', { name: 'Stream workspace', exact: true })).toHaveCount(0)
 })
 for (const state of ['loading', 'hidden', 'stale']) test(`does not mark an unread conversation read while ${state}`, async ({ page }) => {
   let release!: () => void
@@ -382,7 +382,7 @@ for (const state of ['loading', 'hidden', 'stale']) test(`does not mark an unrea
   let stale = state === 'stale'
   if (stale) await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { messages: [message], cursor: 'read:0', before: null, stale } }))
   await page.reload()
-  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true }).click()
   if (state === 'loading') await expect(page.getByRole('status', { name: 'Loading conversation' })).toBeVisible()
   else if (state === 'stale') await expect(page.getByText('Discord connection is stale.', { exact: false })).toBeVisible()
   else await expect(page.getByRole('heading', { name: 'The approved Stream workspace' })).toBeVisible()
@@ -400,7 +400,7 @@ test('leaves new responses unread while reading older messages, then marks read 
   await page.route('**/api/snapshot', route => route.fulfill({ json: unreadSnapshot(responseAt) }))
   await page.route('**/api/chat/threads/*/messages', route => route.fulfill({ json: { messages: Array.from({ length: 25 }, (_, index) => ({ id: String(100000000000000100n + BigInt(index)), channel_id: threadId, timestamp: '2026-10-24T00:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: `Reply ${index}\n\nA long conversation to read through.`, attachments: [], components: [], embeds: [] })), cursor: 'read:0', before: null, stale: false } }))
   await page.reload()
-  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true }).click()
   const receipt = () => page.evaluate(({ projectId, threadId }) => JSON.parse(localStorage.getItem('threaddeck:read-responses') || '{}')[`${projectId}:${threadId}`], { projectId, threadId })
   await expect.poll(receipt).toBe(responseAt)
   await page.getByLabel('Conversation messages', { exact: true }).evaluate(node => { node.scrollTop = 0 })
@@ -448,7 +448,7 @@ for (const width of [430, 1440]) for (const grouping of ['project', 'state']) te
     { id: 'ses_parallel', threadId: '100000000000000003', guildId: '100000000000000099', projectId, title: 'Parallel agent', status: 'working', agentCount: 1, updatedAt: now },
   ] }] } }))
   await page.reload()
-  const sidebar = page.locator('.chat-manager'), title = sidebar.getByRole('link', { name: 'Stream workspace', exact: true })
+  const sidebar = page.locator('.chat-manager'), title = sidebar.getByRole('button', { name: 'Stream workspace', exact: true })
   await expect(title).toHaveCount(0)
   await sidebar.getByRole('button', { name: 'All sessions', exact: true }).click()
   await title.hover()
@@ -481,7 +481,7 @@ for (const grouping of ['project', 'state']) for (const design of ['classic', 'i
   await page.reload()
   const sidebar = page.locator('.chat-manager'), titles = sidebar.locator('.session-row .session-title')
   await expect(titles).toHaveText(['Working thread', 'Newer unread', 'Older unread'])
-  await sidebar.getByRole('link', { name: 'Older unread', exact: true }).hover()
+  await sidebar.getByRole('button', { name: 'Older unread', exact: true }).hover()
   await sidebar.getByRole('button', { name: 'Pin Older unread', exact: true }).click()
   await expect(titles).toHaveText(['Working thread', 'Older unread', 'Newer unread'])
   await sidebar.getByRole('button', { name: 'Unpin Older unread', exact: true }).click()
@@ -498,7 +498,7 @@ for (const width of [430, 1440]) test(`author avatars have their own rail with a
     { ...base, id: '100000000000000104', content: '**ThreadDeck · local operator**\n\nKeep the copy action in the text column, too.' },
     { ...base, id: '100000000000000105', content: 'Exactly. One icon per interaction, with a consistent reading edge.' },
   ] } }))
-  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true }).click()
   const groups = page.locator('.chat-message-group')
   await expect(groups).toHaveCount(4)
   await expect(page.locator('.chat-message-meta .chat-avatar')).toHaveCount(0)
@@ -543,7 +543,7 @@ for (const width of [430, 1440]) test(`copies the published Markdown of one comp
     { ...base, id: '100000000000000103', content: '**ThreadDeck · local operator**\n\nAnother question' },
     { ...base, id: '100000000000000104', content: 'A separate response.' },
   ] } }))
-  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true }).click()
   const buttons = page.getByRole('button', { name: 'Copy Markdown', exact: true })
   await expect(buttons).toHaveCount(2)
   await expect(page.locator('.chat-message-group.user').getByRole('button', { name: 'Copy Markdown', exact: true })).toHaveCount(0)
@@ -610,7 +610,7 @@ for (const width of [430, 1440]) test(`session tooltips follow beside the pointe
   await page.keyboard.press('Escape')
   await expect(tip).toBeHidden()
   await expect(row).toBeFocused()
-  await sidebar.getByRole('link', { name: 'Parallel agent', exact: true }).click()
+  await sidebar.getByRole('button', { name: 'Parallel agent', exact: true }).click()
   await expect(page.locator('.chat-pane-header strong')).toHaveText('Parallel agent')
 })
 for (const width of [430, 1440]) for (const design of ['classic', 'islands']) test(`session rows share one formatted tooltip and a short selection accent in ${design} at ${width}px`, async ({ page }) => {
@@ -618,7 +618,7 @@ for (const width of [430, 1440]) for (const design of ['classic', 'islands']) te
   await page.addInitScript(design => localStorage.setItem('threaddeck:design', JSON.stringify(design)), design)
   await fixture(page)
   if (width === 430) await page.getByRole('button', { name: 'Toggle session sidebar' }).click()
-  const title = page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true })
+  const title = page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true })
   const row = page.locator('.chat-manager .session-row[data-selected=true]')
   await page.mouse.move(width - 2, 10)
   await title.hover()
@@ -657,7 +657,7 @@ for (const width of [430, 1440]) test(`jump to latest floats above the composer 
     author: { id: index % 2 ? 'bot' : 'user', username: index % 2 ? 'Kimaki' : 'You', bot: Boolean(index % 2) },
     timestamp: '2026-10-26T07:02:00Z', content: `Message ${index + 1}\n\nA conversation long enough to scroll through earlier replies.`, attachments: [], components: [], embeds: [],
   })) } }))
-  await page.locator('.chat-manager').getByRole('link', { name: 'Stream workspace', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: 'Stream workspace', exact: true }).click()
   await expect(page.getByText('Message 30', { exact: false })).toBeVisible()
   const transcript = page.getByLabel('Conversation messages', { exact: true })
   const jump = page.getByRole('button', { name: 'Scroll to latest message', exact: true })
@@ -892,7 +892,7 @@ for (const width of [430, 1440]) test(`opening and switching threads focuses the
   await expect(input).toBeFocused()
   await page.keyboard.type('Draft in the first thread')
   if (width === 430) await page.getByRole('button', { name: 'Toggle session sidebar' }).click()
-  await page.locator('.chat-manager').getByRole('link', { name: 'Parallel agent', exact: true }).click()
+  await page.locator('.chat-manager').getByRole('button', { name: 'Parallel agent', exact: true }).click()
   await expect(page.locator('.chat-pane-header strong')).toHaveText('Parallel agent')
   await expect(input).toBeFocused()
   await page.keyboard.type('Draft in the other thread')
@@ -1213,17 +1213,18 @@ test('Vim mode sits directly before its toggle and follows editor mode changes',
   await expect(mode).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Vim off', exact: true })).toBeVisible()
 })
-test('chat header title links to the active Discord thread', async ({ page }) => {
+test('chat header keeps titles local and links explicitly to the active Discord thread', async ({ page }) => {
   await fixture(page)
-  const title = page.locator('.chat-pane-header').getByRole('link', { name: 'Stream workspace', exact: true })
-  await expect(title).toHaveAttribute('href', `discord://-/channels/100000000000000099/${threadId}`)
-  await title.focus()
-  await expect(title).toBeFocused()
+  const header = page.locator('.chat-pane-header'), title = header.locator('.chat-thread-title')
+  await expect(title).toHaveText('Stream workspace')
+  await expect(title).not.toHaveAttribute('href')
+  await title.click()
+  await expect(header.getByRole('link', { name: 'Open this thread in Discord' })).toHaveAttribute('href', `https://discord.com/channels/100000000000000099/${threadId}`)
   await page.keyboard.press('Control+k')
   await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
   await page.keyboard.press('Enter')
   await expect(page.locator('.chat-thread-title')).toHaveText('Parallel agent')
-  await expect(page.locator('.chat-thread-title')).toHaveAttribute('href', 'discord://-/channels/100000000000000099/100000000000000003')
+  await expect(header.getByRole('link', { name: 'Open this thread in Discord' })).toHaveAttribute('href', 'https://discord.com/channels/100000000000000099/100000000000000003')
 })
 test('header keeps the project channel name in chat, editor, and preview', async ({ page }) => {
   await fixture(page)

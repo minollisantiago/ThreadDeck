@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import vm from 'node:vm'
 import { EventEmitter } from 'node:events'
+import './discord.test.cjs'
 const require = createRequire(import.meta.url)
 const { externalLink, chatExternalLink, mobileBounds } = require('../electron/policy.cjs')
 const { appId, taskbarDetails } = require('../electron/taskbar.cjs')

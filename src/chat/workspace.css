@@ -63,7 +63,7 @@
 .channel-hash, .chat-pane-header .channel-hash { display: inline-grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; margin: 0; border-radius: 7px; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); color: var(--accent-ink); font-size: 14px; }
 .chat-pane-header > button { padding: 6px; color: var(--muted); }
 .chat-pane-header a { font-size: 11px; color: var(--subtle); }
-.chat-pane-header .chat-thread-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; color: inherit; }.chat-thread-title:hover { text-decoration: underline; text-underline-offset: 3px; }.chat-thread-title:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+.chat-pane-header .chat-thread-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; }
 .chat-transcript { flex: 1; min-height: 0; overflow: auto; padding: 32px max(24px, calc((100% - 800px) / 2)); position: relative; }
 .chat-transcript.chat-transcript-state { display: flex; padding: 24px; }
 .chat-skeleton { width: min(100%, 760px); margin: 12px auto; flex-shrink: 0; }

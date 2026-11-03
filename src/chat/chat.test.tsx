@@ -206,11 +206,13 @@ it('updates read receipts across manager and conversation hooks in one window', 
   act(() => pane.result.current.markRead(session))
   expect(manager.result.current.unread.has(session.id)).toBe(false)
 })
-it('opens linked sessions without prematurely acknowledging an unseen reply', () => {
+it.each([false, true])('keeps session titles local without acknowledging an unseen reply (Ctrl: %s)', ctrlKey => {
   const session = { id: 'ses_test', title: 'Read after delivery', threadId: '100000000000000001', guildId: '100000000000000002', projectId: 'p', status: 'idle' as const, agentCount: 0, updatedAt: 1, responseAt: 50 }
   const open = vi.fn(), markRead = vi.fn()
   render(<SessionNavigation.Provider value={open}><SessionRow session={session} verified now={100} unread markRead={markRead} /></SessionNavigation.Provider>)
-  fireEvent.click(screen.getByRole('link', { name: session.title }))
+  const title = screen.getByRole('button', { name: session.title })
+  expect(title.hasAttribute('href')).toBe(false)
+  fireEvent.click(title, { ctrlKey })
   expect(open).toHaveBeenCalledWith(session); expect(markRead).not.toHaveBeenCalled()
 })
 it('merges live revisions and deletes by Discord identity, not text', () => {

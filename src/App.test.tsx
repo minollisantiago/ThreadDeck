@@ -115,10 +115,10 @@ it('places the GitHub icon link beside the theme control instead of on the brand
   expect(link.previousElementSibling?.getAttribute('aria-label')).toBe('Switch to light mode')
   expect(screen.getByRole('heading', { name: /ThreadDeck/ }).closest('a')).toBeNull()
 })
-it('uses app-first title links and a separate browser fallback', () => {
+it('keeps titles non-external and provides an explicit Discord link', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
-  expect(screen.getByRole('link', { name: 'Build a switchboard' }).getAttribute('href')).toBe('discord://-/channels/1526236793048141935/1561737719133114458')
-  expect(screen.getByRole('link', { name: 'Open Build a switchboard in browser' }).getAttribute('href')).toMatch(/^https:\/\/discord.com/)
+  expect(screen.getByText('Build a switchboard').closest('a')).toBeNull()
+  expect(screen.getByRole('link', { name: 'Open Build a switchboard in Discord' }).getAttribute('href')).toMatch(/^https:\/\/discord.com/)
 })
 it('preserves manual collapse and search while snapshots refresh', () => {
   const { rerender } = render(<Dashboard snapshot={snapshot} now={now} />)
@@ -230,9 +230,9 @@ it('hides idle sessions by default and reveals them only when all sessions is se
   expect(screen.queryByRole('button', { name: /Beta/ })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
   fireEvent.click(screen.getByRole('button', { name: /Beta/ }))
-  expect(screen.getByRole('link', { name: 'Old conversation' })).toBeTruthy()
+  expect(screen.getByText('Old conversation')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Active sessions' }))
-  expect(screen.queryByRole('link', { name: 'Old conversation' })).toBeNull()
+  expect(screen.queryByText('Old conversation')).toBeNull()
 })
 it('offers a way to reveal idle sessions when none are active', () => {
   render(<Dashboard snapshot={{ ...snapshot, projects: [snapshot.projects[1]] }} now={now} />)
@@ -247,7 +247,7 @@ it('shows unread idle responses in the active view and persists marking them rea
   expect(screen.getByRole('button', { name: /Beta/ }).getAttribute('aria-expanded')).toBe('true')
   expect(container.querySelectorAll('.session-unread')).toHaveLength(1)
   fireEvent.click(screen.getByRole('button', { name: 'Attention' }))
-  expect(screen.getByRole('link', { name: 'Old conversation' })).toBeTruthy()
+  expect(screen.getByText('Old conversation')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Mark Old conversation as read' }))
   expect(container.querySelector('.session-unread')).toBeNull()
   unmount()
@@ -259,7 +259,7 @@ it('marks a response read when opening its thread and flags the next completed r
   const response = { ...snapshot.projects[1].sessions[0], responseAt: now - 10 }
   const unread: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[1], sessions: [response] }] }
   const { rerender, container } = render(<Dashboard snapshot={unread} now={now} />)
-  const link = screen.getByRole('link', { name: 'Old conversation' })
+  const link = screen.getByRole('link', { name: 'Open Old conversation in Discord' })
   link.addEventListener('click', event => event.preventDefault())
   fireEvent.click(link)
   expect(container.querySelector('.session-unread')).toBeNull()
@@ -298,7 +298,7 @@ it.each(['list', 'islands', 'state'] as const)('marks only the right-clicked thr
   const { unmount } = render(<Dashboard snapshot={unread} now={now} />)
   if (view === 'islands') fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
   if (view === 'state') groupThreads('state')
-  fireEvent.contextMenu(screen.getByRole('link', { name: 'Old conversation' }), { clientX: 100, clientY: 200 })
+  fireEvent.contextMenu(screen.getByText('Old conversation'), { clientX: 100, clientY: 200 })
   const menu = screen.getByRole('menu', { name: 'Thread actions' })
   expect(screen.getByRole('button', { name: 'Mark Old conversation as read' })).toBeTruthy()
   const action = within(menu).getByRole('menuitem', { name: 'Mark as read' })
@@ -314,7 +314,7 @@ it.each(['list', 'islands', 'state'] as const)('marks only the right-clicked thr
 it('dismisses a thread menu without marking it read and supports keyboard invocation', () => {
   const unread: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[0], sessions: [{ ...snapshot.projects[0].sessions[0], status: 'idle', agentCount: 0, responseAt: now }] }] }
   render(<Dashboard snapshot={unread} now={now} />)
-  const row = screen.getByRole('link', { name: 'Build a switchboard' }).closest('.session-row')!
+  const row = screen.getByText('Build a switchboard').closest('.session-row')!
   fireEvent.keyDown(row, { key: 'F10', shiftKey: true })
   expect(screen.getByRole('menu')).toBeTruthy()
   fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
@@ -327,7 +327,7 @@ it('dismisses a thread menu without marking it read and supports keyboard invoca
 })
 it('disables the context action for threads already read', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
-  fireEvent.contextMenu(screen.getByRole('link', { name: 'Build a switchboard' }))
+  fireEvent.contextMenu(screen.getByText('Build a switchboard'))
   expect(screen.getByRole('menuitem', { name: 'Mark as read' }).getAttribute('aria-disabled')).toBe('true')
 })
 it('toggles state grouping, shows project pills, preserves filters and restores project collapse', () => {
@@ -337,7 +337,7 @@ it('toggles state grouping, shows project pills, preserves filters and restores 
   groupThreads('state')
   const attention = screen.getByRole('region', { name: 'Needs attention 1 thread' })
   expect(within(attention).getByText('Beta')).toBeTruthy()
-  expect(within(attention).getByRole('link', { name: 'Old conversation' })).toBeTruthy()
+  expect(within(attention).getByText('Old conversation')).toBeTruthy()
   expect(screen.getByRole('region', { name: 'Working 1 thread' })).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Attention' }))
   expect(screen.queryByRole('region', { name: 'Working 1 thread' })).toBeNull()
@@ -357,7 +357,7 @@ it('persists grouping independently of appearance and supports state tiles and p
   fireEvent.focus(screen.getByRole('button', { name: 'Group threads' }))
   expect((await screen.findByRole('tooltip', { name: 'Group threads by state' })).textContent).toBe('Group threads by state')
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Alpha' } })
-  expect(screen.getByRole('link', { name: 'Build a switchboard' })).toBeTruthy()
+  expect(screen.getByText('Build a switchboard')).toBeTruthy()
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Beta' } })
   expect(screen.getByText('No matching sessions')).toBeTruthy()
 })

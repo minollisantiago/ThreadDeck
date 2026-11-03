@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 430, height: 900 })
   await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'dark' })
   await page.goto('/')
-  await expect(page.getByRole('link', { name: 'Review the motion', exact: true })).toBeVisible()
+  await expect(page.getByText('Review the motion', { exact: true })).toBeVisible()
 })
 
 async function finishMotion(element: Locator) {
@@ -41,7 +41,7 @@ for (const design of ['classic', 'islands']) test(`${design} collapse animates b
     await finishMotion(content)
     expect(await content.evaluate(node => node.getBoundingClientRect().height)).toBeCloseTo(collapsed ? 0 : openHeight, 0)
     if (collapsed) {
-      await expect(page.getByRole('link', { name: 'Review the motion', exact: true })).toHaveCount(0)
+      await expect(page.getByText('Review the motion', { exact: true })).toHaveCount(0)
       expect(await content.locator('a').first().evaluate(node => { node.focus(); return document.activeElement === node })).toBe(false)
     }
   }
