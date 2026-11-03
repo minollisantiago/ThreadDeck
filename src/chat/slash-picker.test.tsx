@@ -37,7 +37,8 @@ it('selects skills using Enter and distinguishes MCP prompts', () => {
   fireEvent.change(input, { target: { value: '/rsrch' } })
   fireEvent.keyDown(input, { key: 'Enter' })
   expect((input as HTMLTextAreaElement).value).toBe('/research-skill ')
-  expect(screen.getByText('Skills require Send now and cannot be queued.')).toBeTruthy()
+  expect(screen.queryByText('Skills require Send now and cannot be queued.')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Send' })).toBeTruthy()
 })
 it('shows loading, failure with retry, and no-match states', () => {
   const { rerender } = render(<Harness loading />)

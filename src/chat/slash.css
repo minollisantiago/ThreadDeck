@@ -7,7 +7,6 @@
 .slash-picker .slash-category { color: var(--subtle); font-size: 10px; }
 .slash-picker p { padding: 8px; font-size: 12px; }
 .model-picker { position: fixed; inset: 0; margin: auto; height: fit-content; width: min(620px, calc(100vw - 32px)); max-height: 80vh; padding: 20px; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--text); font: 13px/1.6 var(--font); }
-.chat-composer > p.chat-composer-feedback { font-size: 11px; color: var(--subtle); margin: 8px 0 0; }
 .model-picker::backdrop { background: #0008; }
 .model-picker header, .model-picker footer { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .model-picker input { width: 100%; padding: 10px; margin: 12px 0; background: var(--row); color: var(--text); border: 1px solid var(--rule); border-radius: 6px; }

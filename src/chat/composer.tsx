@@ -132,6 +132,5 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
     </div>
     {(!expanded || busy || draft.text.length > 50_000) && <div className="chat-composer-foot">{!expanded && <span><kbd>Ctrl P · P</kbd> expand editor</span>}{busy && <button disabled={!ready} onClick={() => submit('send')}>Send now / interrupt</button>}{draft.text.length > 50_000 && <span className="chat-composer-feedback" role="status">Over the 50,000 character prompt limit</span>}</div>}
     {uploadError && <p className="chat-error" role="alert">{uploadError}</p>}
-    {sendOnly && <p className="chat-composer-feedback">{selectedInvocation?.kind === 'control' ? 'Session controls cannot be queued.' : 'Skills require Send now and cannot be queued.'}</p>}
   </section>
 }

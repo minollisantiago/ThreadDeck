@@ -121,3 +121,18 @@ test('Escape dismisses completion and still returns Vim insert mode to normal', 
   await expect(editor).toBeFocused()
   await expect(editor).toHaveText('/rsrch')
 })
+for (const width of [430, 1440]) test(`session commands do not shift the composer at ${width}px`, async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await fixture(page)
+  await page.setViewportSize({ width, height: 1050 })
+  if (width === 430) await expect.poll(async () => (await page.locator('.chat-pane').boundingBox())?.x).toBe(0)
+  const input = page.getByRole('textbox', { name: 'Write a prompt' })
+  await input.fill('A normal prompt')
+  const before = await input.boundingBox()
+  for (const command of ['/effort ', '/models ', '/research-skill ']) {
+    await input.fill(command)
+    await expect(page.getByRole('listbox')).toHaveCount(0)
+    expect(await input.boundingBox()).toEqual(before)
+    await expect(page.locator('.chat-composer > p.chat-composer-feedback')).toHaveCount(0)
+  }
+})
