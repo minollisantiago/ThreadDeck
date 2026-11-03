@@ -36,6 +36,8 @@ const providerUrl = `http://127.0.0.1:${provider.address().port}`
 const originalData = process.env.THREADDECK_DATA_DIR
 process.env.THREADDECK_DATA_DIR = scratch
 const id = '100000000000000001', sessionId = 'ses_synthetic', sent = [], received = [], interrupted = []
+const modelChanges = []
+let currentModel = { providerID: 'test', id: 'model', variant: 'medium' }
 let sequence = 100000000000000010n
 const discord = new EventEmitter()
 discord.user = { id: '100000000000000099' }
@@ -46,16 +48,18 @@ discord.channels = { fetch: async () => ({ id, name: 'Synthetic test', isThread:
 discord.rest = { get: async () => [{ id: '100000000000000002', channel_id: id, content: 'Published Discord payload', timestamp: '2026-10-24T00:00:00Z', author: { id: discord.user.id, username: 'Fake Kimaki', bot: true } }] }
 const client = {
   integration: { list: async () => ({ data: [] }) }, agent: { list: async () => ({ data: [] }) },
-  command: { list: async () => ({ data: [{ name: 'review' }] }) }, skill: { list: async () => ({ data: [{ id: 'research', description: 'Test skill' }] }) },
+  command: { list: async () => ({ data: [{ name: 'review' }, { name: 'docs:find', description: 'MCP documentation prompt' }, { name: 'models' }] }) }, skill: { list: async () => ({ data: [{ id: 'research', description: 'Test skill' }, { id: 'kimaki-debug', description: 'Bundled skill' }] }) },
+  model: { list: async () => ({ data: [{ providerID: 'test', id: 'model', name: 'Synthetic model', enabled: true, variants: [{ id: 'medium' }, { id: 'high' }] }, { providerID: 'test', id: 'disabled', name: 'Disabled model', enabled: false, variants: [] }] }) },
   session: {
-    get: async () => ({ location: { directory: '/synthetic' } }),
+    get: async () => ({ location: { directory: '/synthetic' }, model: currentModel }),
+    switchModel: async value => { modelChanges.push(value); currentModel = value.model },
     interrupt: async value => { interrupted.push(value) },
     prompt: async value => { received.push(value) }, command: async value => { received.push(value) },
   },
 }
 const bridge = attachThreadDeckBridge({ discord, store: { getState: () => ({ roots: { [id]: sessionId }, threads: {} }) }, dataDir: scratch,
   opencode: { connected: true, endpoint: { client } }, eventLoop: { dispatch: () => {} },
-  db: { query: { bot_tokens: { findFirst: async () => ({ bot_mode: 'self_hosted', token: 'fake', app_id: discord.user.id, api_keys: { openai_api_key: 'sk-synthetic-test', gemini_api_key: null } }) } } },
+  db: { query: { channel_directories: { findFirst: async ({ where }) => where.channel_id === id ? { channel_id: id, directory: '/synthetic' } : null }, bot_tokens: { findFirst: async () => ({ bot_mode: 'self_hosted', token: 'fake', app_id: discord.user.id, api_keys: { openai_api_key: 'sk-synthetic-test', gemini_api_key: null } }) } } },
   token: 'fake', opencodeDbFile: path.join(scratch, 'missing-credentials.db'), transcriptionBaseUrls: { openai: providerUrl, chatgpt: providerUrl, gemini: providerUrl },
 })
 const call = async (route, input = {}) => {
@@ -78,6 +82,13 @@ async function submit(input) {
 try {
   assert.equal((await call('info')).protocol, 1)
   assert.equal((await call('info')).ready, true)
+  const catalog = await call('catalog', { threadId: id })
+  assert.ok(catalog.entries.some(entry => entry.kind === 'control' && entry.name === 'models'))
+  assert.ok(catalog.entries.some(entry => entry.kind === 'command' && entry.name === 'docs:find'))
+  assert.ok(catalog.entries.some(entry => entry.kind === 'skill' && entry.name === 'kimaki-debug'))
+  const projectCatalog = await call('project-catalog', { projectId: id })
+  assert.ok(projectCatalog.entries.some(entry => entry.name === 'research'))
+  assert.ok(!projectCatalog.entries.some(entry => entry.kind === 'control'))
   const snapshot = await call('snapshot', { threadId: id })
   assert.equal(snapshot.messages[0].content, 'Published Discord payload')
   discord.emit('raw', { t: 'MESSAGE_UPDATE', d: { id: snapshot.messages[0].id, channel_id: id, content: 'Gateway edit' } })
@@ -95,6 +106,28 @@ try {
   const interrupts = interrupted.length
   await submit({ text: 'Run this later', delivery: 'queue' })
   assert.equal(received.at(-1).delivery, 'queue'); assert.equal(interrupted.length, interrupts)
+  await submit({ text: '/docs:find react "server components"', delivery: 'queue' })
+  assert.equal(received.at(-1).name, 'docs:find')
+  assert.equal(received.at(-1).text, 'react "server components"')
+  await submit({ text: '/command models args' })
+  assert.equal(received.at(-1).name, 'models')
+  const promptsBeforeModel = received.length, interruptsBeforeModel = interrupted.length
+  assert.equal((await call('models', { threadId: id })).models.length, 1)
+  const changed = await submit({ kind: 'control', name: 'models', text: 'test/model high' })
+  assert.deepEqual(modelChanges.at(-1), { sessionID: sessionId, model: { providerID: 'test', id: 'model', variant: 'high' } })
+  await call('submit', { requestId: changed.requestId, threadId: id, delivery: 'send', kind: 'control', name: 'models', text: 'test/model high' })
+  assert.equal(modelChanges.length, 1)
+  await submit({ text: '/effort medium' })
+  assert.equal(currentModel.variant, 'medium')
+  assert.equal(received.length, promptsBeforeModel)
+  assert.equal(interrupted.length, interruptsBeforeModel)
+  for (const input of [{ kind: 'control', name: 'models', text: 'test/disabled' }, { text: '/effort impossible' }, { text: '/thinking high', delivery: 'queue' }, { kind: 'skill', name: 'research', text: 'queued', delivery: 'queue' }, { text: '/unknown-command' }]) {
+    const before = sent.length
+    const rejected = await bridge.handle('submit', { requestId: randomUUID(), threadId: id, delivery: 'send', ...input }, new AbortController().signal)
+    assert.equal(rejected.data.ok, false)
+    assert.equal(rejected.data.error.code, 'invalid')
+    assert.equal(sent.length, before)
+  }
   const uploadId = randomUUID()
   await mkdir(path.join(scratch, 'uploads'))
   await writeFile(path.join(scratch, 'uploads', `${uploadId}.file.png`), 'synthetic image bytes')
@@ -130,6 +163,7 @@ try {
   assert.equal(transcriptionRequests, 2)
   console.log('Prepared fork smoke passed: published history, Gateway edits, typed skills, canonical echo, idempotency, native queue and media file extension.')
   console.log('Packaged FFmpeg verified: native Kimaki M4A converts to WAV without requiring system ffmpeg.')
+  console.log('Slash controls verified: full project catalog, bundled skills, MCP prompts, collision routing, enabled models, variant switching, deduplication and validation without prompting or interrupting the agent.')
   console.log('Only fake transports were used. Running Kimaki and OpenCode were untouched.')
 } finally {
   await bridge.stop()

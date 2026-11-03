@@ -11,7 +11,7 @@ export const publishedMessageSchema = z.looseObject({
 export type PublishedMessage = z.infer<typeof publishedMessageSchema>
 export const submitSchema = z.object({
   requestId: z.uuid(), threadId: threadIdSchema.optional(), projectId: threadIdSchema.optional(),
-  kind: z.enum(['prompt', 'command', 'skill']).default('prompt'), name: z.string().min(1).max(200).optional(),
+  kind: z.enum(['prompt', 'command', 'skill', 'control']).default('prompt'), name: z.string().min(1).max(200).optional(),
   text: z.string().max(50_000), delivery: z.enum(['send', 'queue']), files: z.array(chatFileSchema).max(10).default([]),
 }).strict().refine(v => Boolean(v.threadId) !== Boolean(v.projectId), 'Choose a thread or project')
   .refine(v => v.text.trim().length > 0 || v.files.length > 0 || v.kind !== 'prompt', 'Prompt is empty')
@@ -31,8 +31,11 @@ export const changesSchema = z.object({ cursor: z.string(), resync: z.boolean(),
   z.object({ type: z.literal('upsert'), message: publishedMessageSchema }), z.object({ type: z.literal('delete'), id: z.string() }),
 ])) })
 export type MessageChange = z.infer<typeof changesSchema>['changes'][number]
-export const catalogSchema = z.object({ entries: z.array(z.object({ kind: z.enum(['command', 'skill']), name: z.string(), description: z.string().optional() })) })
+export const catalogSchema = z.object({ entries: z.array(z.object({ kind: z.enum(['command', 'skill', 'control']), name: z.string(), description: z.string().optional() })) })
 export type ChatCatalog = z.infer<typeof catalogSchema>
+export const modelChoiceSchema = z.object({ providerID: z.string().min(1), id: z.string().min(1), variant: z.string().optional() })
+export const modelCatalogSchema = z.object({ current: modelChoiceSchema.nullable(), models: z.array(z.object({ providerID: z.string(), id: z.string(), name: z.string(), variants: z.array(z.string()) })) })
+export type ModelCatalog = z.infer<typeof modelCatalogSchema>
 
 export class ChatError extends Error {
   constructor(public code: string, message: string) { super(message); this.name = 'ChatError' }

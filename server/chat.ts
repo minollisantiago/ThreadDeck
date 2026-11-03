@@ -46,11 +46,13 @@ export function chatHandler(port: number, bridge = localChatBridge(), data = pro
     response.once('close', () => controller.abort())
     void (async () => {
       const url = new URL(request.url!, 'http://localhost'), route = url.pathname.slice('/api/chat/'.length)
-      const thread = /^threads\/(\d{17,20})\/(messages|changes|catalog|abort)$/.exec(route)
+      const thread = /^threads\/(\d{17,20})\/(messages|changes|catalog|models|abort)$/.exec(route)
+      const projectCatalog = /^projects\/(\d{17,20})\/catalog$/.exec(route)
       const attachment = /^threads\/(\d{17,20})\/messages\/(\d{17,20})\/attachments\/(\d{17,20})$/.exec(route)
       const operation = /^operations\/([a-f0-9-]{36})$/.exec(route)
       if (request.method === 'GET') {
         if (route === 'info' || route === 'threads') return json(200, await bridge.call(route, {}, controller.signal))
+        if (projectCatalog) return json(200, await bridge.call('project-catalog', { projectId: projectCatalog[1] }, controller.signal))
         if (operation) return json(200, await bridge.call('operation', { id: z.uuid().parse(operation[1]) }, controller.signal))
         if (thread && thread[2] !== 'abort') {
           const input: Record<string, unknown> = { threadId: thread[1] }

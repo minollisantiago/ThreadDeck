@@ -42,8 +42,17 @@ with a lightweight Node.js backend. Node 24+ is required.
 - The hamburger's **keyboard icon** opens Keybinds and **Commands & skills**.
   The searchable catalog comes from the selected conversation's project, includes
   descriptions and exact slash syntax, and lists only app-invokable commands.
-  Bot-management commands and interaction answers still require Discord. Both
+  `/models` (alias `/model`) and `/thinking`, `/variants`, `/effort`,
+  `/model-variant` open session model/variant pickers on the updated bridge.
+  Other bot-management commands and interaction answers still require Discord. Both
   help sections keep a stable dialog size; longer content scrolls inside it.
+- Type `/` in either composer to search the complete project command/skill catalog
+  by name, description or fuzzy spelling. ↑/↓ navigate, Tab/Enter insert without
+  sending, and Escape dismisses (Vim Normal mode retains its keys). MCP prompts
+  use `/server:prompt`; arbitrary MCP tools are not exposed as slash actions.
+  The updated bridge also supports commands/skills as a new conversation's first
+  input. Skills and model controls cannot be queued; model changes never send an
+  agent prompt or interrupt a running turn.
 - Enter adds a newline. **Ctrl+Enter** sends now (interrupting a working turn);
   **Ctrl+Shift+Enter** queues. On macOS, ⌘ also works for these Ctrl bindings.
 - The conversation initially loads the latest **50 published Discord messages**.

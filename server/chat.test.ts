@@ -40,6 +40,15 @@ it('rejects oversized JSON before contacting the bridge', async () => {
   const response = await fetch(`${url}/api/chat/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'x'.repeat(300_000) }) })
   expect(response.status).toBe(413); expect(call).not.toHaveBeenCalled()
 })
+it('routes project catalogs and session model discovery through narrow endpoints', async () => {
+  const { url, call } = await setup()
+  const id = '100000000000000001'
+  expect((await fetch(`${url}/api/chat/projects/${id}/catalog`)).status).toBe(200)
+  expect(call).toHaveBeenLastCalledWith('project-catalog', { projectId: id }, expect.any(AbortSignal))
+  expect((await fetch(`${url}/api/chat/threads/${id}/models`)).status).toBe(200)
+  expect(call).toHaveBeenLastCalledWith('models', { threadId: id }, expect.any(AbortSignal))
+  expect((await fetch(`${url}/api/chat/projects/invalid/catalog`)).status).toBe(404)
+})
 it('stages private files with safe media extensions and rejects path names', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'threaddeck-upload-')); directories.push(directory)
   const { url } = await setup(directory)

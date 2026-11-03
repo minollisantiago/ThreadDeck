@@ -2,7 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 import { ArrowDown } from 'lucide-react'
 import { discordLinks, type Project, type Session } from '../../shared/model'
-import { catalogSchema, chatFileSchema, chatInfoSchema, receiptSchema, type ChatCatalog, type ChatInfo, type OperationReceipt } from '../../shared/chat'
+import { catalogSchema, chatFileSchema, chatInfoSchema, receiptSchema, modelCatalogSchema, type ChatCatalog, type ChatInfo, type OperationReceipt } from '../../shared/chat'
+import { parseInvocation } from '../../shared/slash'
+import { ModelPicker } from './model-picker'
 import { ChatRequestError, chatRequest, jsonRequest } from './api'
 import { draftFileSchema, useDraft } from './drafts'
 import { PromptComposer } from './composer'
@@ -18,7 +20,7 @@ import { TooltipHint } from '../components/ui/tooltip'
 import { isPublished, publicationNonce } from './publication'
 
 export type ChatTarget = { session: Session; project: Project } | { session?: undefined; project: Project }
-const pendingSchema = z.object({ id: z.uuid(), nonce: z.string().optional(), text: z.string(), files: z.array(z.string()), attachments: z.array(draftFileSchema).optional(), optimistic: z.boolean().optional(), delivery: z.enum(['send', 'queue']).optional() })
+const pendingSchema = z.object({ id: z.uuid(), nonce: z.string().optional(), text: z.string(), files: z.array(z.string()), attachments: z.array(draftFileSchema).optional(), optimistic: z.boolean().optional(), delivery: z.enum(['send', 'queue']).optional(), modelChange: z.boolean().optional() })
 type Pending = z.infer<typeof pendingSchema>
 type Outgoing = Pending & { state: OperationReceipt['state']; messageIds: string[] }
 const scrolls = new Map<string, number>()
@@ -28,6 +30,10 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
   const draft = useDraft(key), conversation = useConversation(session?.threadId, retry)
   const [expanded, setExpanded] = useState(false), [info, setInfo] = useState<ChatInfo | null>(null), [bridgeError, setBridgeError] = useState('')
   const [catalog, setCatalog] = useState<ChatCatalog>({ entries: [] }), [preview, setPreview] = useState<{ name: string; url: string } | null>(null)
+  const [catalogLoading, setCatalogLoading] = useState(true), [catalogError, setCatalogError] = useState(''), [catalogRetry, setCatalogRetry] = useState(0)
+  const [modelPicker, setModelPicker] = useState<{ name: string; arguments: string } | null>(null)
+  const [selectedModel, setSelectedModel] = useState<Session['model']>()
+  useEffect(() => { setSelectedModel(undefined) }, [session?.model?.providerID, session?.model?.id, session?.model?.variant])
   const [pending, setPending] = useState<Pending | null>(() => { try { const saved = pendingSchema.parse(JSON.parse(localStorage.getItem(pendingKey) || 'null')); return { ...saved, attachments: saved.attachments?.map(file => ({ ...file, available: false })) } } catch { return null } })
   const [outgoing, setOutgoing] = useState<Outgoing[]>(() => pending?.optimistic ? [{ ...pending, state: 'accepted', messageIds: [] }] : [])
   const submissionLock = useRef(Boolean(pending))
@@ -87,9 +93,27 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     const abort = new AbortController()
     setBridgeError(''); setInfo(null)
     void chatRequest('info', chatInfoSchema, { signal: abort.signal }).then(value => { setInfo(value); setBridgeError('') }).catch(error => { if (!abort.signal.aborted) setBridgeError(error.message) })
-    if (session) void chatRequest(`threads/${session.threadId}/catalog`, catalogSchema, { signal: abort.signal }).then(setCatalog).catch(() => {})
     return () => abort.abort()
   }, [session?.threadId, retry])
+  useEffect(() => {
+    const abort = new AbortController()
+    setCatalog({ entries: [] }); setCatalogError(''); setCatalogLoading(true)
+    if (!session && !info?.capabilities.includes('project-catalog')) { setCatalogLoading(false); return }
+    let running = false
+    const refresh = async () => {
+      if (running) return
+      running = true
+      try {
+        const result = await chatRequest(session ? `threads/${session.threadId}/catalog` : `projects/${project.id}/catalog`, catalogSchema, { signal: abort.signal })
+        if (!abort.signal.aborted) { setCatalog(result); setCatalogError('') }
+      } catch (error) { if (!abort.signal.aborted) setCatalogError(error instanceof Error ? error.message : 'Command catalog unavailable') }
+      finally { running = false; if (!abort.signal.aborted) setCatalogLoading(false) }
+    }
+    void refresh()
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') void refresh() }, 30_000)
+    window.addEventListener('focus', refresh)
+    return () => { abort.abort(); clearInterval(timer); window.removeEventListener('focus', refresh) }
+  }, [session?.threadId, project.id, info?.capabilities.includes('project-catalog'), catalogRetry, retry])
   useEffect(() => {
     if (!pending) return
     const abort = new AbortController(); let timer: ReturnType<typeof setTimeout>
@@ -100,6 +124,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
           setReceipt(result); setOperationError('')
           setOutgoing(previous => previous.map(item => item.id === result.id ? { ...item, state: result.state, messageIds: result.messageIds } : item))
         if (result.state === 'submitted') {
+          if (pending.modelChange && session && info?.capabilities.includes('model-controls')) void chatRequest(`threads/${session.threadId}/models`, modelCatalogSchema).then(value => setSelectedModel(value.current || undefined)).catch(() => {})
           const current = latest.current.draft.current.current
           if (!pending.optimistic && current.text === pending.text && current.files.map(file => file.id).join() === pending.files.join()) latest.current.draft.save({ text: '', head: 0, anchor: 0, files: [] })
           localStorage.removeItem(pendingKey); setPending(null); submissionLock.current = false
@@ -113,10 +138,19 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     timer = setTimeout(inspect, 1200)
     return () => { abort.abort(); clearTimeout(timer) }
   }, [pending?.id])
-  async function submit(delivery: 'send' | 'queue') {
+  async function submit(delivery: 'send' | 'queue', modelText?: string) {
     if (inputBusy.current || forwarding || draft.current.current.files.some(file => file.audioPrompt) && !info?.capabilities.includes('audio-prompt')) return
     if (!info || bridgeError || conversation.error || conversation.loading || submissionLock.current || pending || preview || draft.conflict || conversation.stale || draft.current.current.files.some(file => file.available === false) || !draft.current.current.text.trim() && !draft.current.current.files.length) return
-    const current = draft.current.current, id = crypto.randomUUID(), operation: Pending = { id, text: current.text, files: current.files.map(file => file.id), attachments: current.files, optimistic: true, delivery }
+    const current = draft.current.current
+    const invocation = modelText !== undefined ? { kind: 'control' as const, name: 'models', arguments: modelText } : parseInvocation(current.text, catalog.entries)
+    if (current.text.trimStart().startsWith('/') && (catalogLoading || catalogError)) { setOperationError(catalogError || 'Wait for the command catalog to load.'); return }
+    if (invocation?.kind === 'skill' && delivery === 'queue') { setOperationError('Skills cannot be queued. Choose Send now.'); return }
+    if (invocation?.kind === 'control') {
+      if (!session || !info.capabilities.includes('model-controls') || delivery === 'queue' || current.files.length) { setOperationError('Model controls require an existing conversation, Send now, and no attachments.'); return }
+      if (modelText === undefined) { setModelPicker({ name: invocation.name, arguments: invocation.arguments }); return }
+    }
+    if (!session && current.text.trimStart().startsWith('/') && !info.capabilities.includes('initial-invocation')) { setOperationError('Update the Kimaki bridge to start a conversation with a command or skill.'); return }
+    const id = crypto.randomUUID(), operation: Pending = { id, text: modelText !== undefined ? `/models ${modelText}` : current.text, files: current.files.map(file => file.id), attachments: current.files, optimistic: true, delivery, ...(modelText !== undefined && { modelChange: true }) }
     try { localStorage.setItem(pendingKey, JSON.stringify(operation)) } catch { setOperationError('Cannot durably record delivery status. Enable local storage before sending.'); return }
     submissionLock.current = true; setPending(operation); setReceipt(null); setOperationError('')
     setOutgoing(previous => [...previous, { ...operation, state: 'accepted', messageIds: [] }])
@@ -127,9 +161,8 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
       localStorage.setItem(pendingKey, JSON.stringify(correlated))
       setPending(correlated)
       setOutgoing(previous => previous.map(item => item.id === id ? { ...item, nonce } : item))
-      const invocation = catalog.entries.map(entry => ({ ...entry, prefix: `/${entry.name}${entry.kind === 'skill' ? '-skill' : ''}` })).sort((a, b) => b.prefix.length - a.prefix.length).find(entry => current.text === entry.prefix || current.text.startsWith(`${entry.prefix} `) || current.text.startsWith(`${entry.prefix}\n`))
       const response = await chatRequest('submit', receiptSchema, jsonRequest({ requestId: id, ...(session ? { threadId: session.threadId } : { projectId: project.id }),
-        ...(invocation ? { kind: invocation.kind, name: invocation.name, text: current.text.slice(invocation.prefix.length).trimStart() } : { text: current.text }),
+        ...(invocation ? { kind: invocation.kind, name: invocation.name, text: invocation.arguments } : { text: current.text }),
         files: current.files.map(({ id, name, audioPrompt }) => ({ id, name, ...(audioPrompt && { audioPrompt }) })), delivery }))
       setReceipt(previous => previous?.id === response.id && previous.state === 'submitted' ? previous : response)
       setOutgoing(previous => previous.map(item => item.id === response.id && item.state !== 'submitted' ? { ...item, state: response.state, messageIds: response.messageIds } : item))
@@ -143,7 +176,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     const handler = (event: Event) => { void submit((event as CustomEvent<'send' | 'queue'>).detail) }
     window.addEventListener('threaddeck:composer-submit', handler)
     return () => window.removeEventListener('threaddeck:composer-submit', handler)
-  }, [info, bridgeError, pending, draft.conflict, conversation.stale, conversation.error, conversation.loading, preview, catalog, forwarding])
+  }, [info, bridgeError, pending, draft.conflict, conversation.stale, conversation.error, conversation.loading, preview, catalog, catalogLoading, catalogError, forwarding])
   useEffect(() => {
     setOutgoing(previous => previous.filter(item => !isPublished(item, conversation.messages)))
   }, [conversation.messages, receipt])
@@ -169,10 +202,10 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
   const block = bridgeError || conversation.error
   const loading = !block && (!info || conversation.loading)
   return <main className="chat-pane" data-chat-ready>
-    <header className="chat-pane-header">{mobileSidebar && <SidebarToggle open={sidebarOpen} toggle={sidebar} />}<div><TooltipHint label={`# ${project.name}`}><span className="chat-channel-name"><span className="channel-hash" aria-hidden="true">#</span> {project.name}</span></TooltipHint><strong>{links && session ? <TooltipHint label="Open this thread in Discord"><a className="chat-thread-title" href={links.app}>{session.title}</a></TooltipHint> : session?.title || 'New conversation'}</strong></div>{links && <a href={links.app}>Discord ↗</a>}</header>
+    <header className="chat-pane-header">{mobileSidebar && <SidebarToggle open={sidebarOpen} toggle={sidebar} />}<div><TooltipHint label={`# ${project.name}`}><span className="chat-channel-name"><span className="channel-hash" aria-hidden="true">#</span> {project.name}</span></TooltipHint><strong className="chat-thread-title">{session?.title || 'New conversation'}</strong></div>{links && <a href={links.browser} target="_blank" rel="noreferrer" aria-label="Open this thread in Discord">Discord ↗</a>}</header>
     {preview ? <HtmlPreview name={preview.name} url={preview.url} close={() => setPreview(null)} /> : <>
       {(!expanded || block || loading) && <div ref={transcript} className={`chat-transcript ${block || loading ? 'chat-transcript-state' : ''}`} tabIndex={0} aria-label="Conversation messages" aria-busy={loading} onScroll={remember}>
-        {block ? <ChatState title="Can’t connect to this conversation" detail={block}><button onClick={() => setRetry(value => value + 1)}>Reconnect</button>{links && <a href={links.app}>Continue in Discord ↗</a>}</ChatState> : loading ? session ? <ConversationSkeleton /> : <ChatState loading title="Preparing your workspace" detail="Connecting to Kimaki before your next thread." /> : <>
+        {block ? <ChatState title="Can’t connect to this conversation" detail={block}><button onClick={() => setRetry(value => value + 1)}>Reconnect</button>{links && <a href={links.browser} target="_blank" rel="noreferrer">Continue in Discord ↗</a>}</ChatState> : loading ? session ? <ConversationSkeleton /> : <ChatState loading title="Preparing your workspace" detail="Connecting to Kimaki before your next thread." /> : <>
         {conversation.before && <button className="chat-load-earlier" onClick={async () => { const el = transcript.current; if (!el) return; const height = el.scrollHeight; savingPage.current = true; try { await conversation.earlier(); requestAnimationFrame(() => { el.scrollTop += el.scrollHeight - height; savingPage.current = false }) } catch { savingPage.current = false; setOperationError('Could not load earlier messages') } }}>Load earlier messages</button>}
         {!session && <div className="chat-welcome"><h2>Start a conversation</h2><p>Your first prompt creates a linked Kimaki session and Discord thread in {project.name}.</p></div>}
         {session && <PublishedMessages messages={conversation.messages} threadId={session.threadId} busy={busy} stale={conversation.stale} discordUrl={links?.browser} preview={(name, url) => { remember(); setPreview({ name, url }) }} forwardAudio={info?.capabilities.includes('audio-prompt') && !conversation.stale && !pending && !forwarding ? (name, url) => {
@@ -193,7 +226,8 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
       {draft.conflict && <div className="chat-error" role="alert">This draft changed in another window. <button onClick={draft.keep}>Keep my draft</button><button onClick={draft.reload}>Load saved draft</button></div>}
       {draft.storageError && <p className="chat-error">Draft is in memory only: browser storage is unavailable.</p>}
       {aboveLatest && !expanded && !block && !loading && <div className="chat-scroll-anchor"><TooltipHint label="Scroll to latest message"><button className="chat-jump-latest" aria-label="Scroll to latest message" onClick={() => { if (transcript.current) { transcript.current.scrollTop = transcript.current.scrollHeight; remember() } }}><ArrowDown size={16} /></button></TooltipHint></div>}
-      <PromptComposer model={session?.model} audioEnabled={Boolean(info?.capabilities.includes('audio-prompt'))} onBusyChange={value => { inputBusy.current = value }} draft={draft.draft} change={draft.save} expanded={expanded && !block && !loading} toggle={() => { remember(); setExpanded(value => !value) }} enabled={!loading && !block && !forwarding && !conversation.stale && !draft.conflict} busy={busy && !loading && !block && !conversation.stale} pending={Boolean(pending)} catalog={catalog} submit={submit} stop={() => { if (session && confirm('Stop the current turn and clear its queued prompts?')) void chatRequest(`threads/${session.threadId}/abort`, z.object({ stopped: z.boolean() }), jsonRequest({})).catch(error => setOperationError(error.message)) }} />
+      <PromptComposer model={selectedModel || session?.model} audioEnabled={Boolean(info?.capabilities.includes('audio-prompt'))} onBusyChange={value => { inputBusy.current = value }} draft={draft.draft} change={draft.save} expanded={expanded && !block && !loading} toggle={() => { remember(); setExpanded(value => !value) }} enabled={!loading && !block && !forwarding && !conversation.stale && !draft.conflict} busy={busy && !loading && !block && !conversation.stale} pending={Boolean(pending)} catalog={catalog} catalogLoading={catalogLoading} catalogError={catalogError} retryCatalog={() => setCatalogRetry(value => value + 1)} submit={submit} stop={() => { if (session && confirm('Stop the current turn and clear its queued prompts?')) void chatRequest(`threads/${session.threadId}/abort`, z.object({ stopped: z.boolean() }), jsonRequest({})).catch(error => setOperationError(error.message)) }} />
+      {modelPicker && session && <ModelPicker threadId={session.threadId} command={modelPicker.name} arguments={modelPicker.arguments} close={() => setModelPicker(null)} apply={text => { setModelPicker(null); void submit('send', text) }} />}
       {(operationError || receipt?.state === 'transcribing' || pending && ['unknown', 'failed'].includes(receipt?.state || '')) && <div className="chat-operation" role="status"><strong>{receipt?.state === 'transcribing' ? 'Kimaki is transcribing your audio…' : receipt?.state || 'Submission needs attention'}</strong>{receipt?.state === 'unknown' && <span>{receipt.error || 'Delivery uncertain. Your prompt was saved. Inspect Discord before deciding to send again.'}</span>}{operationError && <span>{operationError}</span>}{pending && <small>Operation {pending.id}</small>}{pending && receipt?.state !== 'transcribing' && <button onClick={() => { if (confirm('This does not undo the submission. Only clear the delivery guard after checking Discord and confirming it is safe to submit again.')) { localStorage.removeItem(pendingKey); setPending(null); setReceipt(null); submissionLock.current = false } }}>Resolve delivery guard…</button>}</div>}
     </>}
   </main>

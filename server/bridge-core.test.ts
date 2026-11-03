@@ -24,6 +24,23 @@ it('returns the published payload including Components V2, never a harness trans
   expect(result).toMatchObject({ data: { ok: true, value: { messages: [{ content: message.content, components: message.components }] } } })
   expect(await call('snapshot', { threadId: '100000000000000099' })).toMatchObject({ data: { ok: false, error: { code: 'unlinked' } } })
 })
+it('gates model discovery on adapter support and linked threads', async () => {
+  const { call } = await setup()
+  expect(await call('models', { threadId: id })).toMatchObject({ data: { ok: false, error: { code: 'unsupported' } } })
+  const models = vi.fn(async () => ({ current: null, models: [] }))
+  const enabled = await setup({ models, projectCatalog: async () => ({ entries: [] }) })
+  expect(await enabled.call('info')).toMatchObject({ data: { ok: true, value: { capabilities: expect.arrayContaining(['model-controls', 'project-catalog', 'initial-invocation']) } } })
+  expect(await enabled.call('models', { threadId: id })).toMatchObject({ data: { ok: true } })
+  expect(await enabled.call('models', { threadId: '100000000000000099' })).toMatchObject({ data: { ok: false, error: { code: 'unlinked' } } })
+  expect(models).toHaveBeenCalledTimes(1)
+})
+it('creates the linked session before publishing and dispatching an initial skill', async () => {
+  const order: string[] = []
+  const { call, adapter } = await setup({ create: async () => { order.push('create'); return { threadId: id, sessionId: 'ses_new' } }, publish: async (_input, _thread, progress) => { order.push('publish'); progress(mid) }, dispatch: vi.fn(async () => { order.push('dispatch') }) })
+  await call('submit', { requestId: '7c18b13a-6d07-419d-b54f-e8024fc91673', projectId: id, kind: 'skill', name: 'research', text: 'Investigate', delivery: 'send' })
+  await vi.waitFor(() => expect(adapter.dispatch).toHaveBeenCalledTimes(1))
+  expect(order).toEqual(['create', 'publish', 'dispatch'])
+})
 it('merges updates and delete tombstones recorded during a history fetch', async () => {
   let finish!: (messages: unknown[]) => void
   const { bridge, call } = await setup({ history: () => new Promise(resolve => { finish = resolve }) })

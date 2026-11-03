@@ -26,6 +26,24 @@ start a bot, with bounded retries and an explicit regular-bot fallback.
   earlier messages** pages backward by 50, including history predating installation.
 - Plain prompts, native queue submission, native project commands and typed skill
   invocation through Kimaki. Skills that cannot be queued are explicitly rejected.
+- Full slash completion in compact and expanded editors: case-insensitive name,
+  description and fuzzy matching; keyboard navigation; insertion without execution;
+  loading/error/retry/empty states. Vim Normal mode keeps its navigation and Escape.
+  MCP prompts are ordinary commands named `server:prompt`, labeled separately.
+- The updated bridge resolves registered project catalogs before a thread exists,
+  and validates initial commands/skills before creating their linked session.
+  Catalogs refresh every 30 seconds while visible and on window focus, rather than
+  subscribing to OpenCode catalog events. Dispatch always revalidates availability.
+- `/models` and `/model` open enabled-model discovery; `/thinking`, `/variants`,
+  `/effort` and `/model-variant` select variants of the session's current model.
+  Apply publishes the selection before calling Kimaki's native model writer, using
+  the same durable receipts/deduplication as prompts. Model changes are session-only,
+  apply from the next step, cannot queue or include attachments, and never interrupt
+  or prompt the agent. Default variant removes the explicit variant override.
+  Older bridges do not advertise these controls. Prepare the new fork and explicitly
+  activate it; preparation does not restart a running bot.
+  Command names colliding with controls or skill shortcuts use `/command <name>`;
+  `/skill <id>` is also accepted. The TUI-only `/init` remains excluded.
 - Canonical bot-authored input messages attributed to the local operator, published
   before harness dispatch using Kimaki's own Markdown packing/formatting. Durable SQLite operation receipts and request-ID/hash
   deduplication prevent silent automatic retries. Ambiguous outcomes remain guarded.
@@ -110,6 +128,8 @@ installer; this dependency is not covered by ThreadDeck's own licensing alone.
   in Discord**. No forged Discord interactions or direct harness replies are used.
 - Editing/removing the native queue, bot-administration slash commands, arbitrary
   shell shortcuts, remote-machine forwarding and multi-user authentication.
+- Arbitrary MCP tool discovery/execution as slash actions. MCP **prompts** work;
+  tools still run through the agent's normal OpenCode tool/permission flow.
 - Exactly-once distributed side effects. If publication/dispatch becomes uncertain,
   inspect the operation and Discord before explicitly resolving the delivery guard.
 - Offline-complete history: after an unresumable connection gap the active page is

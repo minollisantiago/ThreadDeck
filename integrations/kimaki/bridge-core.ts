@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { ZodError } from 'zod'
 import { ChatError, submitSchema, publishedMessageSchema, threadIdSchema, type ChatSubmission, type PublishedMessage, type MessageChange, type OperationReceipt } from '../../shared/chat.ts'
 export { ChatError }
+export { invocation, modelControls, parseInvocation } from '../../shared/slash.ts'
 
 export interface BridgeAdapter {
   ready?(): boolean
@@ -16,6 +17,8 @@ export interface BridgeAdapter {
   dispatch(input: ChatSubmission, threadId: string, messageId: string): Promise<void>
   transcribe?(input: ChatSubmission, threadId: string, messageId: string, progress: (id: string) => void): Promise<ChatSubmission>
   catalog(threadId: string): Promise<unknown>
+  projectCatalog?(projectId: string): Promise<unknown>
+  models?(threadId: string): Promise<unknown>
   file(input: unknown): Promise<unknown>
   abort(threadId: string): Promise<void>
 }
@@ -139,7 +142,7 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
     try {
       let value: unknown
       switch (route) {
-        case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', ready: adapter.ready?.() ?? false, capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort', ...(adapter.transcribe ? ['audio-prompt'] : [])] }; break
+        case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', ready: adapter.ready?.() ?? false, capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort', ...(adapter.transcribe ? ['audio-prompt'] : []), ...(adapter.projectCatalog ? ['project-catalog', 'initial-invocation'] : []), ...(adapter.models ? ['model-controls'] : [])] }; break
         case 'threads': value = await adapter.threads(); break
         case 'snapshot': {
           const id = target(input.threadId), p = projection(id)
@@ -185,6 +188,14 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
           value = JSON.parse(String(row.receipt)); break
         }
         case 'catalog': value = await adapter.catalog(target(input.threadId)); break
+        case 'project-catalog': {
+          if (!adapter.projectCatalog) throw new ChatError('unsupported', 'Project catalog requires an updated Kimaki bridge')
+          value = await adapter.projectCatalog(threadIdSchema.parse(input.projectId)); break
+        }
+        case 'models': {
+          if (!adapter.models) throw new ChatError('unsupported', 'Model controls require an updated Kimaki bridge')
+          value = await adapter.models(target(input.threadId)); break
+        }
         case 'file': target(input.threadId); value = await adapter.file(input); break
         case 'abort': await adapter.abort(target(input.threadId)); value = { stopped: true }; break
         default: throw new ChatError('unsupported', 'Unsupported bridge operation')

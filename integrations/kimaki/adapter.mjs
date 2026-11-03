@@ -4,8 +4,9 @@ import { lstat, readFile, chmod } from 'node:fs/promises'
 import path from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
-import { ChatError, createClientBridge } from './threaddeck-core.js'
-import { sessionDirectory } from './bot.js'
+import { ChatError, createClientBridge, invocation, modelControls, parseInvocation } from './threaddeck-core.js'
+import { sessionDirectory, oc } from './bot.js'
+import { switchModel } from './commands/preference-commands.js'
 import { runInSession, abort } from './prompt.js'
 import { startSession } from './sessions.js'
 import { readCatalog } from './slash-commands.js'
@@ -40,26 +41,58 @@ export function attachThreadDeckBridge(bot) {
       return { path: filename, name: metadata.name, uri: pathToFileURL(filename).href, audioPrompt: file.audioPrompt }
     }))
   }
-  async function catalog(threadId) {
-    const sessionId = bot.store.getState().roots[threadId]
-    const directory = result(await sessionDirectory(bot, sessionId))
+  async function projectDirectory(projectId) {
+    const project = await bot.db.query.channel_directories.findFirst({ where: { channel_id: projectId } })
+    if (!project) throw new ChatError('invalid', 'Project is not registered locally')
+    return project.directory
+  }
+  async function directoryCatalog(directory, controls = false) {
     const entries = result(await readCatalog(bot, directory))
+    // readCatalog waits for plugin activation but intentionally hides Kimaki's
+    // bundled skills for Discord registration. The desktop has no such limit.
+    const skills = result(await oc(bot, 'skill.list', client => client.skill.list({ location: { directory } })))
     return { entries: [
+      ...(controls ? modelControls : []),
       ...entries.commands.filter(c => !SKIPPED_COMMANDS.has(c.name)).map(c => ({ kind: 'command', name: c.name, description: c.description })),
-      ...entries.skills.map(s => ({ kind: 'skill', name: s.id, description: s.description })),
+      ...skills.data.map(s => ({ kind: 'skill', name: s.id, description: s.description })),
     ] }
   }
-  async function route(input, threadId) {
+  async function catalog(threadId) {
+    const directory = result(await sessionDirectory(bot, bot.store.getState().roots[threadId]))
+    return directoryCatalog(directory, true)
+  }
+  async function models(threadId) {
+    const sessionId = bot.store.getState().roots[threadId]
+    const directory = result(await sessionDirectory(bot, sessionId))
+    result(await readCatalog(bot, directory))
+    const [available, session] = await Promise.all([
+      oc(bot, 'model.list', client => client.model.list({ location: { directory } })),
+      oc(bot, 'session.get', client => client.session.get({ sessionID: sessionId })),
+    ])
+    return { current: result(session).model || null, models: result(available).data.filter(model => model.enabled).map(model => ({ providerID: model.providerID, id: model.id, name: model.name, variants: model.variants.map(variant => variant.id) })) }
+  }
+  async function modelRoute(input, threadId) {
+    if (!threadId || input.files.length || input.delivery === 'queue') throw new ChatError('invalid', 'Model controls require an existing conversation, Send now, and no attachments')
+    const available = await models(threadId)
+    const args = input.text.trim().split(/\s+/).filter(Boolean)
+    const selecting = input.name === 'models' || input.name === 'model'
+    const model = selecting ? available.models.find(model => `${model.providerID}/${model.id}` === args[0]) : available.models.find(model => model.providerID === available.current?.providerID && model.id === available.current?.id)
+    const variant = selecting ? args[1] : args[0]
+    if (!model || !selecting && !variant || args.length > (selecting ? 2 : 1) || variant && variant !== 'default' && !model.variants.includes(variant)) throw new ChatError('invalid', 'Choose an available model and variant from the picker')
+    return { kind: 'model', model: { providerID: model.providerID, id: model.id, ...(variant && variant !== 'default' && { variant }) } }
+  }
+  async function route(input, threadId, directory) {
     let kind = input.kind, name = input.name, text = input.text
+    if (kind === 'prompt' && !text.trimStart().startsWith('/')) return { kind: input.delivery === 'queue' ? 'queue' : 'steer', text }
+    const entries = (threadId ? await catalog(threadId) : await directoryCatalog(directory)).entries
     if (kind === 'prompt' && text.trimStart().startsWith('/')) {
-      const match = text.trim().match(/^\/([\w.:-]+)(?:\s+([\s\S]*))?$/)
-      if (!match) return { kind: input.delivery === 'queue' ? 'queue' : 'steer', text }
-      kind = match[1].endsWith('-skill') ? 'skill' : 'command'
-      name = kind === 'skill' ? match[1].slice(0, -6) : match[1]; text = match[2] || ''
+      const invocation = parseInvocation(text, entries)
+      if (!invocation) throw new ChatError('invalid', 'Command or skill is unavailable in this project')
+      kind = invocation.kind; name = invocation.name; text = invocation.arguments
     }
     if (kind === 'prompt') return { kind: input.delivery === 'queue' ? 'queue' : 'steer', text }
-    const entries = (await catalog(threadId)).entries
     if (!entries.some(e => e.kind === kind && e.name === name)) throw new ChatError('invalid', 'Command or skill is unavailable in this project')
+    if (kind === 'control') return modelRoute({ ...input, name, text }, threadId)
     if (kind === 'skill') {
       if (input.delivery === 'queue') throw new ChatError('invalid', 'Kimaki skill actions cannot be queued; choose Send now')
       return { kind: 'skill', id: name, arguments: text }
@@ -80,15 +113,14 @@ export function attachThreadDeckBridge(bot) {
       if (input.files.some(file => file.audioPrompt && !supportedAudioName(file.name))) throw new ChatError('invalid', 'Unsupported audio prompt format')
       if (input.threadId) { await thread(input.threadId); await route(input, input.threadId) }
       else {
-        if (input.kind !== 'prompt' || /^\/[\w.:-]+(?:\s|$)/.test(input.text.trimStart())) throw new ChatError('invalid', 'Start a conversation with a prompt before invoking commands')
-        const project = await bot.db.query.channel_directories.findFirst({ where: { channel_id: input.projectId } })
-        if (!project) throw new ChatError('invalid', 'Project is not registered locally')
+        const directory = await projectDirectory(input.projectId)
+        await route(input, null, directory)
       }
     },
     async create(input) {
       const project = await bot.db.query.channel_directories.findFirst({ where: { channel_id: input.projectId } })
       const created = result(await startSession(bot, { channelId: project.channel_id, directory: project.directory,
-        route: { kind: 'steer', text: input.text }, author: actor(), messageId: input.requestId,
+        route: { kind: 'steer', text: input.kind === 'prompt' ? input.text : `/${input.name}${input.kind === 'skill' ? '-skill' : ''} ${input.text}` }, author: actor(), messageId: input.requestId,
         startMessageId: null, showInput: false, run: false, threaddeckSetup: true }))
       if (memberId) await (await thread(created.threadId)).members.add(memberId).catch(() => {})
       return created
@@ -100,7 +132,8 @@ export function attachThreadDeckBridge(bot) {
         if (!file.audioPrompt) return file
         try { return await preparePromptAudio(file) } catch (error) { throw new ChatError('audio_conversion', error.message) }
       }))
-      const shown = input.kind === 'prompt' ? input.text : `/${input.name}${input.kind === 'skill' ? '-skill' : ''}${input.text ? ` ${input.text}` : ''}`
+      const prefix = input.kind === 'prompt' ? '' : invocation({ kind: input.kind, name: input.name }, input.kind === 'command' ? (await catalog(threadId)).entries : [])
+      const shown = input.kind === 'prompt' ? input.text : `${prefix}${input.text ? ` ${input.text}` : ''}`
       const payloads = markdownPayloads(`**ThreadDeck · local operator${input.delivery === 'queue' ? ' · queued' : ''}**\n\n${shown}`)
       for (const [index, payload] of payloads.entries()) {
         const nonce = createHash('sha256').update(`${input.requestId}:${index}`).digest('hex').slice(0, 24)
@@ -134,10 +167,17 @@ export function attachThreadDeckBridge(bot) {
     async dispatch(input, threadId, messageId) {
       const channel = await thread(threadId), sessionId = bot.store.getState().roots[threadId]
       const directory = result(await sessionDirectory(bot, sessionId))
+      const resolved = input.transcribedAudio ? { kind: input.delivery === 'queue' ? 'queue' : 'steer', text: input.text } : await route(input, threadId)
+      if (resolved.kind === 'model') {
+        result(await switchModel(bot, { sessionId, model: resolved.model }))
+        return
+      }
       result(await runInSession(bot, { sessionId, threadId, threadName: channel.name, directory,
-        route: input.transcribedAudio ? { kind: input.delivery === 'queue' ? 'queue' : 'steer', text: input.text } : await route(input, threadId), author: actor(), messageId, files: (await files(input)).map(f => ({ uri: f.uri, name: f.name })) }))
+        route: resolved, author: actor(), messageId, files: (await files(input)).map(f => ({ uri: f.uri, name: f.name })) }))
     },
     catalog,
+    projectCatalog: async projectId => directoryCatalog(await projectDirectory(projectId)),
+    models,
     async abort(threadId) { result(await abort(bot, { threadId })) },
     async file(input) {
       const channel = await thread(input.threadId)

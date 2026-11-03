@@ -1,0 +1,19 @@
+.chat-command-list.slash-picker { max-height: min(360px, 45vh); padding: 6px; flex-shrink: 0; }
+.slash-picker header { display: flex; justify-content: space-between; gap: 12px; padding: 8px; color: var(--subtle); font-size: 11px; }
+.slash-picker header span { font-size: 10px; }
+.slash-picker button[role="option"] { grid-template-columns: minmax(0, 1fr) auto; border-radius: 6px; }
+.slash-picker button[aria-selected="true"] { background: var(--row); outline: 1px solid var(--rule); outline-offset: -1px; }
+.slash-picker button[role="option"] small { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slash-picker .slash-category { color: var(--subtle); font-size: 10px; }
+.slash-picker p { padding: 8px; font-size: 12px; }
+.model-picker { position: fixed; inset: 0; margin: auto; height: fit-content; width: min(620px, calc(100vw - 32px)); max-height: 80vh; padding: 20px; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--text); font: 13px/1.6 var(--font); }
+.chat-composer > p.chat-composer-feedback { font-size: 11px; color: var(--subtle); margin: 8px 0 0; }
+.model-picker::backdrop { background: #0008; }
+.model-picker header, .model-picker footer { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.model-picker input { width: 100%; padding: 10px; margin: 12px 0; background: var(--row); color: var(--text); border: 1px solid var(--rule); border-radius: 6px; }
+.model-picker-options { display: grid; gap: 4px; max-height: 40vh; overflow: auto; margin: 12px 0; }
+.model-picker-options button { text-align: left; padding: 10px; border-radius: 6px; display: grid; gap: 4px; }
+.model-picker-options button[aria-pressed="true"] { background: var(--row); outline: 1px solid var(--accent); outline-offset: -1px; }
+.model-picker small, .model-picker p { color: var(--subtle); font-size: 12px; }
+.model-picker footer button { padding: 8px 12px; border: 1px solid var(--rule); border-radius: 6px; }
+@media (max-width: 600px) { .slash-picker header span { display: none; } }

@@ -13,13 +13,16 @@ import { TooltipHint } from '../components/ui/tooltip'
 import { inlineAudioType } from '../../shared/audio'
 import { AudioRecorder } from './audio-recorder'
 import { AttachmentRow } from './attachment-row'
+import { invocation, parseInvocation } from '../../shared/slash'
+import { useSlashPicker } from './slash-picker'
 
-export function PromptComposer({ draft, change, expanded, toggle, enabled, busy, pending, catalog, submit, stop, model, audioEnabled = false, onBusyChange }: {
+export function PromptComposer({ draft, change, expanded, toggle, enabled, busy, pending, catalog, submit, stop, model, audioEnabled = false, onBusyChange, catalogLoading, catalogError, retryCatalog }: {
   draft: Draft; change: (patch: Partial<Draft>) => void; expanded: boolean; toggle: () => void
   enabled: boolean; busy: boolean; pending: boolean; catalog: ChatCatalog; submit: (delivery: 'send' | 'queue') => void; stop: () => void
   model?: Session['model']
   audioEnabled?: boolean
   onBusyChange?: (busy: boolean) => void
+  catalogLoading?: boolean; catalogError?: string; retryCatalog?: () => void
 }) {
   const [vimEnabled, setVim] = useState(() => localStorage.getItem('threaddeck:vim') !== 'false')
   const [mode, setMode] = useState('NORMAL'), [uploadError, setUploadError] = useState(''), [uploading, setUploading] = useState(false)
@@ -55,7 +58,20 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
     window.addEventListener('threaddeck:composer-focus', focus); window.addEventListener('threaddeck:composer-toggle', expand)
     return () => { window.removeEventListener('threaddeck:composer-focus', focus); window.removeEventListener('threaddeck:composer-toggle', expand) }
   }, [])
-  const matches = /^\/[^\s]*$/.test(draft.text) ? catalog.entries.filter(entry => `/${entry.name}${entry.kind === 'skill' ? '-skill' : ''}`.startsWith(draft.text)).slice(0, 12) : []
+  const picker = useSlashPicker({ text: draft.text, catalog, loading: catalogLoading, error: catalogError, retry: retryCatalog, select: entry => {
+    const text = `${invocation(entry, catalog.entries)} `
+    change({ text, anchor: text.length, head: text.length })
+    if (view.current) view.current.focus(); else input.current?.focus()
+  } })
+  const selectedInvocation = parseInvocation(draft.text, catalog.entries)
+  useLayoutEffect(() => {
+    const content = view.current?.contentDOM
+    if (!content) return
+    content.setAttribute('aria-autocomplete', 'list')
+    if (picker.controls) content.setAttribute('aria-controls', picker.controls); else content.removeAttribute('aria-controls')
+    if (picker.activeDescendant) content.setAttribute('aria-activedescendant', picker.activeDescendant); else content.removeAttribute('aria-activedescendant')
+  }, [expanded, picker.controls, picker.activeDescendant])
+  const sendOnly = selectedInvocation?.kind === 'skill' || selectedInvocation?.kind === 'control'
   const ready = enabled && !pending && !uploading && !recording && draft.text.length <= 50_000 && !draft.files.some(file => file.available === false) && (!draft.files.some(file => file.audioPrompt) || audioEnabled) && Boolean(draft.text.trim() || draft.files.length)
   useEffect(() => {
     if (!submitRecording || recording || uploading) return
@@ -80,6 +96,8 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
     } catch (error) { setUploadError(error instanceof Error ? error.message : 'Upload failed'); if (recorded) throw error } finally { uploadLock.current = false; setUploading(false) }
   }
   return <section className={`chat-composer ${expanded ? 'expanded' : ''} ${dragging ? 'dragging-files' : ''}`} aria-label={expanded ? 'Expanded prompt editor' : 'Prompt composer'} onKeyDownCapture={event => {
+    const editing = event.target instanceof HTMLElement && event.target.closest('textarea,.cm-content')
+    if (editing && picker.keyDown(event, expanded && vimEnabled && mode === 'NORMAL', expanded && vimEnabled)) return
     if (event.key !== 'Escape' || event.nativeEvent.isComposing || !(event.target instanceof HTMLElement) || !event.target.closest('textarea,.cm-content')) return
     // Escape belongs to Vim in every mode, including repeated presses in Normal.
     if (expanded && vimEnabled) return
@@ -98,11 +116,11 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
     void uploadFiles(files)
   }} onDragEnter={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); dragDepth.current++; if (enabled && !uploadLock.current) setDragging(true) } }} onDragOver={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); event.dataTransfer.dropEffect = enabled && !uploadLock.current ? 'copy' : 'none' } }} onDragLeave={event => { if (event.dataTransfer.types.includes('Files')) { dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDragging(false) } }} onDropCapture={event => { if (!event.dataTransfer.types.includes('Files')) return; event.preventDefault(); event.stopPropagation(); dragDepth.current = 0; setDragging(false); void uploadFiles([...event.dataTransfer.files]) }}>
     {expanded && <div className="chat-editor-heading"><button onClick={toggle}>Back to chat <kbd>Ctrl P · P</kbd></button></div>}
-    {matches.length > 0 && <div className="chat-command-list" aria-label="Available commands and skills">{matches.map(entry => <button key={`${entry.kind}:${entry.name}`} onClick={() => { const text = `/${entry.name}${entry.kind === 'skill' ? '-skill' : ''} `; change({ text, anchor: text.length, head: text.length }); input.current?.focus() }}><strong>/{entry.name}{entry.kind === 'skill' ? '-skill' : ''}</strong><small>{entry.kind} · {entry.description}</small></button>)}</div>}
+    {picker.popup}
     <div className="chat-composer-box">
       {busy && <div className="chat-composer-status" role="status" aria-label="Agent activity"><span className="chat-agent-activity"><span className="chat-activity-dots" aria-hidden="true"><i /><i /><i /></span><span>Agent is working…</span></span></div>}
       {dragging && <div className="chat-drop-hint" aria-hidden="true"><Paperclip size={22} /><strong>Drop files to attach</strong><span>Up to 10 files · 10 MiB each</span></div>}
-      {expanded ? <div ref={mount} className="chat-editor-mount" /> : <textarea ref={input} aria-label="Write a prompt" value={draft.text} placeholder="Ask anything, / for commands and skills, or attach files…" onChange={event => change({ text: event.target.value, anchor: event.target.selectionStart, head: event.target.selectionEnd })} onSelect={event => { const el = event.currentTarget, anchor = el.selectionDirection === 'backward' ? el.selectionEnd : el.selectionStart, head = el.selectionDirection === 'backward' ? el.selectionStart : el.selectionEnd; if (anchor !== latest.current.draft.anchor || head !== latest.current.draft.head) change({ anchor, head }) }} />}
+      {expanded ? <div ref={mount} className="chat-editor-mount" /> : <textarea ref={input} aria-label="Write a prompt" aria-autocomplete="list" aria-controls={picker.controls} aria-activedescendant={picker.activeDescendant} value={draft.text} placeholder="Ask anything, / for commands and skills, or attach files…" onChange={event => change({ text: event.target.value, anchor: event.target.selectionStart, head: event.target.selectionEnd })} onSelect={event => { const el = event.currentTarget, anchor = el.selectionDirection === 'backward' ? el.selectionEnd : el.selectionStart, head = el.selectionDirection === 'backward' ? el.selectionStart : el.selectionEnd; if (anchor !== latest.current.draft.anchor || head !== latest.current.draft.head) change({ anchor, head }) }} />}
       {draft.files.length > 0 && <div className="chat-staged-files">{draft.files.map(file => audioEnabled && inlineAudioType(file.name) ? <span key={file.id}>{file.name}{file.available === false && ' · reattach after reload'}<label className="chat-audio-prompt-toggle"><input type="checkbox" checked={Boolean(file.audioPrompt)} onChange={event => change({ files: draft.files.map(item => ({ ...item, audioPrompt: item.id === file.id ? event.target.checked : false })) })} />Audio prompt</label><button disabled={uploading || recording} aria-label={`Remove ${file.name}`} onClick={() => change({ files: draft.files.filter(f => f.id !== file.id) })}>×</button></span> : <AttachmentRow key={file.id} name={file.name} size={file.size} available={file.available} disabled={uploading || recording} remove={() => change({ files: draft.files.filter(f => f.id !== file.id) })} />)}</div>}
       {audioEnabled && <AudioRecorder controls={recordControls} enabled={enabled && !pending && !uploading} attached={draft.files.some(file => Boolean(file.audioPrompt))} onBusy={setRecording} onRecord={file => uploadFiles([file], true)} onSubmit={() => setSubmitRecording(true)} submitLabel={busy ? 'Queue recording' : 'Send recording'} />}
       {draft.files.some(file => file.audioPrompt) && <p className="chat-audio-notice">Kimaki transcribes and runs your audio when you send. Recording and transcript are published to Discord.</p>}
@@ -110,9 +128,10 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
         const files = [...(event.target.files || [])]; event.target.value = ''; await uploadFiles(files)
       }} /><TooltipHint label={model ? `${model.providerID}/${model.id}${model.variant ? ` · ${model.variant}` : ''}` : 'This session has not reported its model yet'}><span className="chat-model" role="status" aria-label="Session model"><Cpu size={13} aria-hidden="true" /><span className="chat-model-name">{uploading ? 'Uploading…' : model ? `${model.id}${model.variant ? ` · ${model.variant}` : ''}` : 'Model unavailable'}</span></span></TooltipHint><div className="chat-tool-spacer" />{expanded && <>{vimEnabled && <span className="chat-vim-mode" role="status" aria-label="Vim mode">{mode}</span>}<button className="chat-vim" onClick={() => { localStorage.setItem('threaddeck:vim', String(!vimEnabled)); setVim(value => !value) }}>Vim {vimEnabled ? 'on' : 'off'}</button></>}
       <TooltipHint label={<>{expanded ? 'Restore compact composer' : 'Expand composer'} <kbd>Ctrl P · P</kbd></>}><button aria-label={expanded ? 'Restore compact composer' : 'Expand composer'} onClick={toggle}><Expand size={16} /></button></TooltipHint>
-      {busy && <button onClick={stop}><Square size={12} />Stop</button>}<span className="chat-record-control" ref={setRecordControls} />{!recording && <button className="chat-send" aria-label={pending ? 'Pending…' : busy ? 'Queue' : 'Send'} disabled={!ready} onClick={() => submit(busy ? 'queue' : 'send')}><ArrowUp size={14} aria-hidden="true" /></button>}</div>
+      {busy && <button onClick={stop}><Square size={12} />Stop</button>}<span className="chat-record-control" ref={setRecordControls} />{!recording && <button className="chat-send" aria-label={pending ? 'Pending…' : busy && !sendOnly ? 'Queue' : 'Send'} disabled={!ready} onClick={() => submit(busy && !sendOnly ? 'queue' : 'send')}><ArrowUp size={14} aria-hidden="true" /></button>}</div>
     </div>
     {(!expanded || busy || draft.text.length > 50_000) && <div className="chat-composer-foot">{!expanded && <span><kbd>Ctrl P · P</kbd> expand editor</span>}{busy && <button disabled={!ready} onClick={() => submit('send')}>Send now / interrupt</button>}{draft.text.length > 50_000 && <span className="chat-composer-feedback" role="status">Over the 50,000 character prompt limit</span>}</div>}
     {uploadError && <p className="chat-error" role="alert">{uploadError}</p>}
+    {sendOnly && <p className="chat-composer-feedback">{selectedInvocation?.kind === 'control' ? 'Session controls cannot be queued.' : 'Skills require Send now and cannot be queued.'}</p>}
   </section>
 }
