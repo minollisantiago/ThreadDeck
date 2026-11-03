@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { entryCategory, invocation, modelControls, parseInvocation, slashMatches, type SlashEntry } from '../shared/slash'
+import { entryCategory, invocation, modelControls, parseInvocation, slashMatches, withSessionControls, type SlashEntry } from '../shared/slash'
 
 const entries: SlashEntry[] = [...modelControls, { kind: 'skill', name: 'research', description: 'Investigate primary sources' }, { kind: 'command', name: 'docs:find', description: 'Search documentation' }, { kind: 'command', name: 'review' }]
 it('keeps the full catalog searchable by prefix, description and fuzzy spelling', () => {
@@ -25,4 +25,11 @@ it('disambiguates command names that collide with controls or skill shortcuts', 
   expect(invocation(controls.at(-1)!, controls)).toBe('/command research-skill')
   expect(parseInvocation('/research-skill', controls)?.kind).toBe('skill')
   expect(parseInvocation('/skill research args', controls)?.kind).toBe('skill')
+})
+it('merges desktop controls with native catalog entries without losing same-named project commands', () => {
+  const catalog = withSessionControls({ entries: [...entries, { kind: 'command', name: 'rename' }] })
+  expect(slashMatches('/rename', catalog.entries)[0]).toMatchObject({ kind: 'control', name: 'rename' })
+  expect(parseInvocation('/rename Better title', catalog.entries)).toMatchObject({ kind: 'control', name: 'rename', arguments: 'Better title' })
+  expect(parseInvocation('/command rename arguments', catalog.entries)).toMatchObject({ kind: 'command', name: 'rename', arguments: 'arguments' })
+  expect(withSessionControls(catalog)).toEqual(catalog)
 })

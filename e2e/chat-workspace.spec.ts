@@ -1616,7 +1616,8 @@ test('command reference surfaces catalog failures and supports retry', async ({ 
   expect(await dialog.boundingBox()).toEqual(keybindBounds)
   failed = false
   await dialog.getByRole('button', { name: 'Retry', exact: true }).click()
-  await expect(dialog).toContainText('No commands or skills are available for this project.')
+  await expect(dialog.getByText('/rename', { exact: true })).toBeVisible()
+  await expect(dialog).not.toContainText('No commands or skills are available for this project.')
   expect(await dialog.boundingBox()).toEqual(keybindBounds)
 })
 test('desktop regular-bot fallback remains visible after the startup screen', async ({ page }) => {

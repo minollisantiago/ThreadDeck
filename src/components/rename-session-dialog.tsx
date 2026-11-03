@@ -6,9 +6,9 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import './rename-session-dialog.css'
 
-export function RenameSessionDialog({ session, close }: { session: Session; close: () => void }) {
+export function RenameSessionDialog({ session, close, initialTitle = session.title, saved }: { session: Session; close: () => void; initialTitle?: string; saved?: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null), input = useRef<HTMLInputElement>(null)
-  const [title, setTitle] = useState(session.title), [saving, setSaving] = useState(false), [error, setError] = useState('')
+  const [title, setTitle] = useState(initialTitle), [saving, setSaving] = useState(false), [error, setError] = useState('')
   useLayoutEffect(() => {
     const panel = dialog.current
     panel?.showModal(); input.current?.select()
@@ -25,7 +25,7 @@ export function RenameSessionDialog({ session, close }: { session: Session; clos
         const result = await response.json()
         throw new Error(result.error || 'Rename could not be confirmed. Check the current name before retrying.')
       }
-      close()
+      saved?.(); close()
     } catch (error) {
       setError(error instanceof Error && !(error instanceof TypeError) ? error.message : 'Rename could not be confirmed. The name may have changed; check it before retrying.')
       setSaving(false)

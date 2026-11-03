@@ -44,6 +44,13 @@ start a bot, with bounded retries and an explicit regular-bot fallback.
   activate it; preparation does not restart a running bot.
   Command names colliding with controls or skill shortcuts use `/command <name>`;
   `/skill <id>` is also accepted. The TUI-only `/init` remains excluded.
+- `/rename` opens the same native rename dialog as the sidebar context menu;
+  `/rename <title>` pre-fills it. Only Save changes the linked session/Discord name.
+  Cancel preserves the draft, while success clears the unchanged invocation.
+  This desktop session control is merged with the project catalog, so it works
+  without a bridge update, does not send an agent prompt, and cannot be queued.
+  OpenCode's TUI actions are not returned by `command.list`; desktop equivalents
+  must be registered explicitly rather than assumed to be project commands.
 - Canonical bot-authored input messages attributed to the local operator, published
   before harness dispatch using Kimaki's own Markdown packing/formatting. Durable SQLite operation receipts and request-ID/hash
   deduplication prevent silent automatic retries. Ambiguous outcomes remain guarded.

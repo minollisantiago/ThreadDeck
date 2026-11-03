@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { catalogSchema, type ChatCatalog } from '../../shared/chat'
 import { chatRequest } from '../chat/api'
-import { invocation, entryCategory } from '../../shared/slash'
+import { invocation, entryCategory, withSessionControls } from '../../shared/slash'
 
 export function CommandReference({ threadId }: { threadId?: string }) {
   const [catalog, setCatalog] = useState<ChatCatalog | null>(null), [error, setError] = useState(''), [query, setQuery] = useState(''), [retry, setRetry] = useState(0)
@@ -10,7 +10,7 @@ export function CommandReference({ threadId }: { threadId?: string }) {
     const controller = new AbortController()
     setCatalog(null); setError('')
     void chatRequest(`threads/${threadId}/catalog`, catalogSchema, { signal: controller.signal }).then(value => {
-      if (!controller.signal.aborted) setCatalog(value)
+      if (!controller.signal.aborted) setCatalog(withSessionControls(value))
     }).catch(error => { if (!controller.signal.aborted) setError(error instanceof Error ? error.message : 'Command catalog unavailable') })
     return () => controller.abort()
   }, [threadId, retry])
@@ -25,6 +25,6 @@ export function CommandReference({ threadId }: { threadId?: string }) {
       </>}
     </>}
     <section><h3>Kimaki app actions</h3><dl><div><dt>Send / Queue</dt><dd>Send a prompt or queue it while a turn is working.</dd></div><div><dt>Send now / interrupt</dt><dd>Interrupt the working turn with your next prompt.</dd></div><div><dt>Stop</dt><dd>Stop the turn and clear queued prompts, after confirmation.</dd></div></dl></section>
-    <p className="command-reference-note">Skills and model controls require Send now and cannot be queued. /models (alias /model) selects a model; /thinking, /variants, /effort and /model-variant select its variant. MCP prompts use /server:prompt; arbitrary MCP tool calls are not slash commands. Bot-management slash commands other than these model controls, and Discord interaction answers, still require Discord.</p>
+    <p className="command-reference-note">Skills and session controls require Send now and cannot be queued. /rename opens the existing rename dialog; an optional title pre-fills it. /models (alias /model) selects a model; /thinking, /variants, /effort and /model-variant select its variant. MCP prompts use /server:prompt; arbitrary MCP tool calls are not slash commands. Bot-management slash commands other than these session controls, and Discord interaction answers, still require Discord.</p>
   </div>
 }

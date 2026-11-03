@@ -3,8 +3,9 @@ import { z } from 'zod'
 import { ArrowDown } from 'lucide-react'
 import { discordLinks, type Project, type Session } from '../../shared/model'
 import { catalogSchema, chatFileSchema, chatInfoSchema, receiptSchema, modelCatalogSchema, type ChatCatalog, type ChatInfo, type OperationReceipt } from '../../shared/chat'
-import { parseInvocation } from '../../shared/slash'
+import { parseInvocation, withSessionControls } from '../../shared/slash'
 import { ModelPicker } from './model-picker'
+import { RenameSessionDialog } from '../components/rename-session-dialog'
 import { ChatRequestError, chatRequest, jsonRequest } from './api'
 import { draftFileSchema, useDraft } from './drafts'
 import { PromptComposer } from './composer'
@@ -32,6 +33,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
   const [catalog, setCatalog] = useState<ChatCatalog>({ entries: [] }), [preview, setPreview] = useState<{ name: string; url: string } | null>(null)
   const [catalogLoading, setCatalogLoading] = useState(true), [catalogError, setCatalogError] = useState(''), [catalogRetry, setCatalogRetry] = useState(0)
   const [modelPicker, setModelPicker] = useState<{ name: string; arguments: string } | null>(null)
+  const [renamePicker, setRenamePicker] = useState<{ title: string; draft: string } | null>(null)
   const [selectedModel, setSelectedModel] = useState<Session['model']>()
   useEffect(() => { setSelectedModel(undefined) }, [session?.model?.providerID, session?.model?.id, session?.model?.variant])
   const [pending, setPending] = useState<Pending | null>(() => { try { const saved = pendingSchema.parse(JSON.parse(localStorage.getItem(pendingKey) || 'null')); return { ...saved, attachments: saved.attachments?.map(file => ({ ...file, available: false })) } } catch { return null } })
@@ -105,7 +107,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
       running = true
       try {
         const result = await chatRequest(session ? `threads/${session.threadId}/catalog` : `projects/${project.id}/catalog`, catalogSchema, { signal: abort.signal })
-        if (!abort.signal.aborted) { setCatalog(result); setCatalogError('') }
+        if (!abort.signal.aborted) { setCatalog(session ? withSessionControls(result) : result); setCatalogError('') }
       } catch (error) { if (!abort.signal.aborted) setCatalogError(error instanceof Error ? error.message : 'Command catalog unavailable') }
       finally { running = false; if (!abort.signal.aborted) setCatalogLoading(false) }
     }
@@ -146,6 +148,10 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     if (current.text.trimStart().startsWith('/') && (catalogLoading || catalogError)) { setOperationError(catalogError || 'Wait for the command catalog to load.'); return }
     if (invocation?.kind === 'skill' && delivery === 'queue') { setOperationError('Skills cannot be queued. Choose Send now.'); return }
     if (invocation?.kind === 'control') {
+      if (invocation.name === 'rename') {
+        if (!session || delivery === 'queue' || current.files.length) { setOperationError('Rename requires an existing conversation, Send now, and no attachments.'); return }
+        setRenamePicker({ title: invocation.arguments.trim() || session.title, draft: current.text }); return
+      }
       if (!session || !info.capabilities.includes('model-controls') || delivery === 'queue' || current.files.length) { setOperationError('Model controls require an existing conversation, Send now, and no attachments.'); return }
       if (modelText === undefined) { setModelPicker({ name: invocation.name, arguments: invocation.arguments }); return }
     }
@@ -228,6 +234,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
       {aboveLatest && !expanded && !block && !loading && <div className="chat-scroll-anchor"><TooltipHint label="Scroll to latest message"><button className="chat-jump-latest" aria-label="Scroll to latest message" onClick={() => { if (transcript.current) { transcript.current.scrollTop = transcript.current.scrollHeight; remember() } }}><ArrowDown size={16} /></button></TooltipHint></div>}
       <PromptComposer model={selectedModel || session?.model} audioEnabled={Boolean(info?.capabilities.includes('audio-prompt'))} onBusyChange={value => { inputBusy.current = value }} draft={draft.draft} change={draft.save} expanded={expanded && !block && !loading} toggle={() => { remember(); setExpanded(value => !value) }} enabled={!loading && !block && !forwarding && !conversation.stale && !draft.conflict} busy={busy && !loading && !block && !conversation.stale} pending={Boolean(pending)} catalog={catalog} catalogLoading={catalogLoading} catalogError={catalogError} retryCatalog={() => setCatalogRetry(value => value + 1)} submit={submit} stop={() => { if (session && confirm('Stop the current turn and clear its queued prompts?')) void chatRequest(`threads/${session.threadId}/abort`, z.object({ stopped: z.boolean() }), jsonRequest({})).catch(error => setOperationError(error.message)) }} />
       {modelPicker && session && <ModelPicker threadId={session.threadId} command={modelPicker.name} arguments={modelPicker.arguments} close={() => setModelPicker(null)} apply={text => { setModelPicker(null); void submit('send', text) }} />}
+      {renamePicker && session && <RenameSessionDialog session={session} initialTitle={renamePicker.title} close={() => { setRenamePicker(null); requestAnimationFrame(() => window.dispatchEvent(new Event('threaddeck:composer-focus'))) }} saved={() => { if (draft.current.current.text === renamePicker.draft) draft.save({ text: '', head: 0, anchor: 0 }) }} />}
       {(operationError || receipt?.state === 'transcribing' || pending && ['unknown', 'failed'].includes(receipt?.state || '')) && <div className="chat-operation" role="status"><strong>{receipt?.state === 'transcribing' ? 'Kimaki is transcribing your audio…' : receipt?.state || 'Submission needs attention'}</strong>{receipt?.state === 'unknown' && <span>{receipt.error || 'Delivery uncertain. Your prompt was saved. Inspect Discord before deciding to send again.'}</span>}{operationError && <span>{operationError}</span>}{pending && <small>Operation {pending.id}</small>}{pending && receipt?.state !== 'transcribing' && <button onClick={() => { if (confirm('This does not undo the submission. Only clear the delivery guard after checking Discord and confirming it is safe to submit again.')) { localStorage.removeItem(pendingKey); setPending(null); setReceipt(null); submissionLock.current = false } }}>Resolve delivery guard…</button>}</div>}
     </>}
   </main>

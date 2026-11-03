@@ -3,10 +3,16 @@ import type { ChatCatalog } from './chat'
 export type SlashEntry = ChatCatalog['entries'][number]
 export const modelCommands = ['models', 'model', 'thinking', 'variants', 'effort', 'model-variant'] as const
 export const modelControls: SlashEntry[] = modelCommands.map(name => ({ kind: 'control', name, description: name === 'models' || name === 'model' ? 'Switch session model' : 'Switch model variant / thinking effort' }))
+// These controls belong to the desktop, not OpenCode's project command.list.
+// Each entry must have a real UI handler; never advertise unsupported TUI actions.
+export const desktopSessionControls: SlashEntry[] = [{ kind: 'control', name: 'rename', description: 'Rename session and linked Discord thread' }]
+export function withSessionControls(catalog: ChatCatalog): ChatCatalog {
+  return { entries: [...desktopSessionControls, ...catalog.entries.filter(entry => entry.kind !== 'control' || !desktopSessionControls.some(control => control.name === entry.name))] }
+}
 export function invocation(entry: SlashEntry, entries: SlashEntry[] = []) {
   if (entry.kind === 'skill') return `/${entry.name}-skill`
   // Preserve exact command names even when a control or skill uses the same spelling.
-  if (entry.kind === 'command' && (['command', 'skill'].includes(entry.name) || modelCommands.some(name => name === entry.name) || entries.some(other => other.kind === 'skill' && `${other.name}-skill` === entry.name))) return `/command ${entry.name}`
+  if (entry.kind === 'command' && (['command', 'skill'].includes(entry.name) || modelCommands.some(name => name === entry.name) || desktopSessionControls.some(control => control.name === entry.name) || entries.some(other => other.kind === 'skill' && `${other.name}-skill` === entry.name))) return `/command ${entry.name}`
   return `/${entry.name}`
 }
 export function parseInvocation(text: string, entries: SlashEntry[]) {
