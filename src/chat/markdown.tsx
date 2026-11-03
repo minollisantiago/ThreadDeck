@@ -1,7 +1,7 @@
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useEffect, useState, type ReactNode } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { CheckCheck, Copy } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { CopyWarning } from './copy-warning'
 import './markdown.css'
@@ -17,7 +17,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
     const text = event.currentTarget.parentElement?.querySelector('pre')?.textContent || ''
     setStatus('copying')
     try { await navigator.clipboard.writeText(text); setStatus('copied') } catch { setStatus('error') }
-  }}>{status === 'copied' ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}</Button><pre>{children}</pre></div>
+  }}><span className="chat-code-copy-icons" data-copied={status === 'copied'} aria-hidden="true"><Copy className="chat-code-copy-idle" /><CheckCheck className="chat-code-copy-success" /></span></Button><pre>{children}</pre></div>
     {status === 'error' && <CopyWarning>Couldn’t copy code. Try again.</CopyWarning>}
   </div>
 }

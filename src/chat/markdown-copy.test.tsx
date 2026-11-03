@@ -6,8 +6,26 @@ import { ChatMarkdown } from './markdown'
 const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   if (clipboardDescriptor) Object.defineProperty(navigator, 'clipboard', clipboardDescriptor)
   else Reflect.deleteProperty(navigator, 'clipboard')
+})
+
+it('soft-swaps to a double check after success and restores the copy icon after 1.8 seconds', async () => {
+  vi.useFakeTimers()
+  const writeText = vi.fn().mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+  render(<ChatMarkdown text={'```sh\necho copied\n```'} />)
+  const button = screen.getByRole('button', { name: 'Copy code' })
+  const icons = button.querySelector('.chat-code-copy-icons')
+  expect(icons?.getAttribute('data-copied')).toBe('false')
+  expect(button.querySelector('.lucide-check-check')).toBeTruthy()
+  await act(async () => { fireEvent.click(button) })
+  expect(screen.getByRole('button', { name: 'Code copied' })).toBe(button)
+  expect(icons?.getAttribute('data-copied')).toBe('true')
+  act(() => { vi.advanceTimersByTime(1800) })
+  expect(screen.getByRole('button', { name: 'Copy code' })).toBe(button)
+  expect(icons?.getAttribute('data-copied')).toBe('false')
 })
 
 it('reports a denied code copy and permits retry with the exact terminal command', async () => {

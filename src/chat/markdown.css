@@ -1,2 +1,8 @@
 .chat-code-block { margin: 18px 0; }
 .chat-code-block > .chat-code { margin: 0; }
+.chat-code-copy-icons { display: grid; }
+.chat-code-copy-icons > svg { grid-area: 1 / 1; transition: opacity 280ms ease, transform 280ms cubic-bezier(.2, .8, .2, 1); }
+.chat-code-copy-success { color: var(--accent); opacity: 0; transform: scale(.75); }
+.chat-code-copy-icons[data-copied=true] > .chat-code-copy-idle { opacity: 0; transform: scale(.65); }
+.chat-code-copy-icons[data-copied=true] > .chat-code-copy-success { opacity: 1; transform: scale(1); }
+@media (prefers-reduced-motion: reduce) { .chat-code-copy-icons > svg { transition: none; } }
