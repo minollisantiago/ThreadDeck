@@ -10,6 +10,7 @@ import { SessionContextMenu } from './session-context-menu'
 import { useSelectedSession, useSessionNavigation } from '../chat/navigation'
 import { PinnedSessions } from '../hooks/use-pinned'
 import { RenameSessionDialog } from './rename-session-dialog'
+import { SessionUnreadPill } from './session-unread-pill'
 
 const labels = { working: 'Working', idle: 'Idle', error: 'Error', input: 'Input requested', permission: 'Permission needed' }
 
@@ -50,7 +51,7 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
       {openSession ? <button className="session-title" onClick={() => openSession(session)}>{session.title}</button> : <span className="session-title">{session.title}</span>}
     </div>
     <div className="session-flags" ref={flags}>
-      {unread && <TooltipHint label="Unread in ThreadDeck. Click to mark as read. Reading in Discord does not clear this flag."><button className="status status-unread" aria-label={`Mark ${session.title} as read`} onClick={() => markRead(session)}>Unread</button></TooltipHint>}
+      {unread && <SessionUnreadPill session={session} verified={verified} now={now} markRead={markRead} />}
       {(!unread || status !== 'idle') && <TooltipHint label={verified && session.agentCount > 1 ? `${session.agentCount} agents` : undefined}><Badge className={`status status-${status}`}><span className="status-dot" />{status === 'unknown' ? 'Unknown' : labels[status]}</Badge></TooltipHint>}
     </div>
     {graphical && <div className="session-tile-meta"><span>Updated {relativeTime(session.updatedAt, now)}</span>{verified && session.agentCount > 0 && <span><Users aria-hidden="true" />{session.agentCount} {session.agentCount === 1 ? 'agent' : 'agents'}</span>}</div>}
