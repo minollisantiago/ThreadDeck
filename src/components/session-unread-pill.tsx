@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { Check } from 'lucide-react'
 import type { Session } from '../../shared/model'
 import { TooltipHint } from './ui/tooltip'
 import './session-unread-pill.css'
@@ -29,6 +30,7 @@ export function SessionUnreadPill({ session, verified, now, markRead }: {
 
   return <TooltipHint label={`${fresh ? 'Just finished. Becomes unread after 20 seconds.' : 'Unread in ThreadDeck.'} Click to mark as read. Reading in Discord does not clear this flag.`}>
     <button className={`status status-unread${fresh ? ' status-just-finished' : ''}`} aria-label={`Mark ${session.title} as read`} onClick={() => markRead(session)}>
+      {fresh && <Check className="finished-check" size={10} aria-hidden="true" />}
       {fresh ? 'Just finished' : 'Unread'}
       {fresh && <FinishedRunway key={responseAt} age={age} />}
     </button>

@@ -1,0 +1,77 @@
+/* Approved lifted-surface treatment. Separate state tokens keep hover, selection,
+   and neutral badges distinct without changing dark themes or session behavior. */
+:root[data-appearance=light] {
+  --card-edge: #c9c2d2;
+  --card-neutral-bg: #e6e1ed;
+  --card-neutral-ink: #51465e;
+  --card-neutral-edge: #a698b5;
+  --selection-ink: #92294f;
+  --selection-bg: #f8dce7;
+  --finished-ink: #754505;
+  --finished-bg: #fff0ce;
+  --finished-edge: #b58639;
+}
+:root[data-appearance=light][data-light-theme=paper] {
+  --card-edge: #c7bcaa;
+  --card-neutral-bg: #e9e0cf;
+  --card-neutral-ink: #514536;
+  --card-neutral-edge: #aa977b;
+}
+:root[data-appearance=light][data-light-theme=slate] {
+  --card-edge: #a4b7ca;
+  --card-neutral-bg: #dce6f1;
+  --card-neutral-ink: #30465e;
+  --card-neutral-edge: #8ba0b7;
+}
+:root[data-appearance=light][data-light-theme=porcelain] {
+  --card-edge: #bdc6d0;
+  --card-neutral-bg: #e1e6ec;
+  --card-neutral-ink: #354253;
+  --card-neutral-edge: #929eac;
+}
+:root[data-appearance=light][data-palette=lavender] { --selection-ink: #6235a0; --selection-bg: #e9dff8; }
+:root[data-appearance=light][data-palette=blue] { --selection-ink: #075d89; --selection-bg: #dceef9; }
+:root[data-appearance=light][data-palette=green] { --selection-ink: #21613c; --selection-bg: #dcf0e2; }
+:root[data-appearance=light][data-palette=peach] { --selection-ink: #91401a; --selection-bg: #fae6d6; }
+
+:root[data-appearance=light] :is(.project-panel, .visual-project) {
+  border: 1px solid var(--card-edge);
+}
+/* The manager intentionally flattens dark cards with !important backgrounds.
+   Restore light surfaces only; headers inherit the same lifted card surface. */
+:root[data-appearance=light] .chat-manager :is(.project-panel, .visual-project) {
+  background: var(--surface) !important;
+}
+:root[data-appearance=light] .app-shell .project-panel .project-heading {
+  background: transparent;
+}
+:root[data-appearance=light] .app-shell .project-panel .project-heading:hover {
+  background: var(--row);
+}
+:root[data-appearance=light] .app-shell :is(.status-idle, .project-total) {
+  color: var(--card-neutral-ink);
+  background: var(--card-neutral-bg);
+  /* An inset edge preserves the established shared badge dimensions. */
+  box-shadow: inset 0 0 0 1px var(--card-neutral-edge);
+}
+:root[data-appearance=light] .chat-manager .session-row[data-selected=true] {
+  background: var(--selection-bg);
+  box-shadow: inset 0 0 0 1px var(--card-neutral-edge);
+}
+:root[data-appearance=light] .chat-manager .session-row[data-selected=true] .session-title {
+  color: var(--text);
+}
+:root[data-appearance=light] .chat-manager .session-row[data-selected=true] .session-copy::before {
+  background: var(--selection-ink);
+}
+:root[data-appearance=light] .session-flags .status.status-just-finished {
+  color: var(--finished-ink);
+  background: var(--finished-bg);
+  box-shadow: inset 0 0 0 1px var(--finished-edge);
+}
+:root[data-appearance=light] .session-flags .status.status-just-finished:hover {
+  background: #ffe6b2;
+}
+/* Decorative check leaves the accessible name and 20-second runway unchanged. */
+.finished-check { display: none; }
+:root[data-appearance=light] .finished-check { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: -1px; }
