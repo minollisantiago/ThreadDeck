@@ -9,6 +9,7 @@ const { readWindowState, fitWindowBounds, saveWindowState } = require('./window-
 const { trayController } = require('./tray.cjs')
 const { installAudioPermissions } = require('./audio-permissions.cjs')
 const { openDiscordLink } = require('./discord.cjs')
+const { registerNotificationIdentity } = require('./notification-identity.cjs')
 
 const configFile = process.argv.find(arg => arg.startsWith('--launch-services='))?.slice('--launch-services='.length)
 let config
@@ -175,6 +176,9 @@ app.whenReady().then(async () => {
   if (quitting || window.isDestroyed()) return
   if (savedWindow?.maximized) window.maximize()
   window.show()
+  try { await registerNotificationIdentity(__dirname) }
+  catch (error) { console.error('Could not register notification branding:', error.message) }
+  if (quitting || window.isDestroyed()) return
   void beginStartup()
 }).catch(error => { if (!quitting) dialog.showErrorBox('ThreadDeck could not start', error.message); app.exit(1) })
 app.on('window-all-closed', () => app.quit())

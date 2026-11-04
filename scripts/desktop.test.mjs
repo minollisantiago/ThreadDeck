@@ -13,6 +13,28 @@ const { appId, taskbarDetails } = require('../electron/taskbar.cjs')
 const { colors, parseAppearance } = require('../electron/appearance.cjs')
 const { readWindowState, fitWindowBounds, saveWindowState } = require('../electron/window-state.cjs')
 const { agentStatus } = require('../electron/agent-status.cjs')
+const { registerNotificationIdentity } = require('../electron/notification-identity.cjs')
+
+test('Windows toast sender metadata uses the shared app ID and safely quoted icon path', async () => {
+  const calls = []
+  const run = async (...args) => { calls.push(args) }
+  await registerNotificationIdentity("C:\\Users\\O'Brien\\Thread Deck", { platform: 'win32', run })
+  const [executable, args, options] = calls[0]
+  assert.match(executable, /WindowsPowerShell\\v1\.0\\powershell\.exe$/)
+  assert.deepEqual(args.slice(0, 3), ['-NoProfile', '-NonInteractive', '-EncodedCommand'])
+  const script = Buffer.from(args[3], 'base64').toString('utf16le')
+  assert.ok(script.includes(`HKCU:\\Software\\Classes\\AppUserModelId\\${appId}`))
+  assert.ok(script.includes("-Name DisplayName -Value 'ThreadDeck'"))
+  assert.ok(script.includes("-Name IconUri -Value 'C:\\Users\\O''Brien\\Thread Deck\\ThreadDeck.ico'"))
+  assert.ok(script.includes("$ErrorActionPreference = 'Stop'"))
+  assert.equal(options.windowsHide, true)
+  assert.equal(options.timeout, 15_000)
+  await registerNotificationIdentity('/desktop', { platform: 'linux', run })
+  assert.equal(calls.length, 1)
+  await assert.rejects(registerNotificationIdentity('C:\\ThreadDeck', {
+    platform: 'win32', run: async () => { throw new Error('Registry unavailable') },
+  }), /Registry unavailable/)
+})
 
 const agent = (extra = {}) => ({ id: 'ses_a', projectId: 'project', threadId: 'thread', title: 'Test agent', status: 'idle', agentCount: 0, responseAt: 100, ...extra })
 const snapshot = (sessions, extra = {}) => ({ health: 'connected', attentionAvailable: true, projects: [{ name: 'Project', sessions }], ...extra })

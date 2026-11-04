@@ -1,9 +1,10 @@
 const { app, shell } = require('electron')
 const { readFileSync, existsSync } = require('node:fs')
 const { appId } = require('./taskbar.cjs')
+const { registerNotificationIdentity } = require('./notification-identity.cjs')
 
 // Run by setup as a native Windows process, without creating a window or bot.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   const config = JSON.parse(readFileSync(process.argv[2], 'utf8'))
   for (const file of config.shortcuts) {
     if (existsSync(file)) {
@@ -18,5 +19,6 @@ app.whenReady().then(() => {
     if (shell.readShortcutLink(file).appUserModelId !== appId) throw new Error(`Taskbar identity was not saved: ${file}`)
     console.log(file)
   }
+  await registerNotificationIdentity(__dirname)
   app.exit(0)
 }).catch(error => { console.error(error.message); app.exit(1) })
