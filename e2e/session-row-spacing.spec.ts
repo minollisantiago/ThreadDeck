@@ -34,9 +34,10 @@ for (const width of [320, 430, 1440]) for (const appearance of ['dark', 'light']
     }))
     const initial = await geometry()
     for (const row of initial) {
-      const extraSpace = width <= 360 ? 4 : 12
+      const extraSpace = width <= 360 ? 4 : width <= 600 ? 12 : 64 - row.gridGap
       expect(row.gap).toBeGreaterThanOrEqual(width <= 360 ? 10 : 18)
       expect(row.gap).toBeCloseTo(row.gridGap + extraSpace, 0)
+      if (width > 600) expect(row.gap).toBeCloseTo(64, 0)
       expect(row.actionGap).toBeCloseTo(row.gridGap, 0)
       expect(row.titleWidth).toBeGreaterThan(24)
       expect(row.truncated).toBe(true)
