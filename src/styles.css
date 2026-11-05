@@ -251,6 +251,10 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .session-pin:hover { background: var(--row); color: var(--text); }.session-pin[data-pinned=true] { color: var(--accent-ink); }
 .session-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .session-row:not(.session-tile) { grid-template-columns: minmax(0, 1fr) auto auto; }
+/* Leave breathing room after truncated titles without spreading out the pills
+   and actions, or changing the separate title/status rows in graphical tiles. */
+.session-row:not(.session-tile) > .session-copy { margin-inline-end: 12px; }
+@media(max-width:360px) { .session-row:not(.session-tile) > .session-copy { margin-inline-end: 4px; } }
 @media(hover:none) { .session-pin { opacity: 1; } }
 .session-attention .session-title { color: var(--text); font-weight: 600; }
 .session-attention-marker { position: absolute; left: -29px; width: 4px; height: 9px; border-radius: 0 3px 3px 0; background: var(--text); }
