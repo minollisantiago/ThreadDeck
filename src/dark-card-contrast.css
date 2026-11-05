@@ -1,0 +1,15 @@
+/* Dark project/channel groups stay on their existing backgrounds. Only their
+   enclosing borders disappear; session tiles, pills, and selection stay intact. */
+:root[data-appearance=dark] .app-shell[data-design] :is(.project-panel, .visual-project) {
+  border: 0;
+}
+
+/* Original's previous 5% white rule disappeared into the canvas. Lift shared
+   dividers and control outlines to 15%, without changing any background token.
+   The fallback also covers the initial frame before the saved theme is applied. */
+:root[data-appearance=dark]:is([data-dark-theme=original], :not([data-dark-theme])) {
+  --rule: #ffffff26;
+}
+:root[data-appearance=dark]:is([data-dark-theme=original], :not([data-dark-theme])) .search-field input {
+  border-color: var(--rule);
+}

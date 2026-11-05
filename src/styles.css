@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./light-card-contrast.css";
+@import "./dark-card-contrast.css";
 
 @font-face { font-family: "JetBrains Mono"; src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
 
