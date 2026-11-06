@@ -1,0 +1,135 @@
+<!doctype html>
+<!-- Throwaway motion study: five Hush working-state concepts. Open directly.
+     No production changes. ?variant=1..5 selects the chat preview. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hush · Working on it</title>
+<style>
+  * { box-sizing:border-box; }
+  :root { color-scheme:dark; --bg:#141619; --panel:#1c1f24; --rule:#323840; --text:#e8edf2; --muted:#9ca7b4; --ink:#88c1f2; }
+  body.light { color-scheme:light; --bg:#f2f4f7; --panel:#fff; --rule:#d6dee6; --text:#263342; --muted:#607185; --ink:#356c9c; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 system-ui,sans-serif; }
+  main { max-width:1180px; margin:auto; padding:40px 28px 120px; }
+  header,.controls,.chat-header,.meta { display:flex; align-items:center; gap:12px; }
+  header { justify-content:space-between; margin-bottom:34px; flex-wrap:wrap; }
+  .eyebrow { font:10px/1.5 ui-monospace,monospace; text-transform:uppercase; letter-spacing:2px; color:var(--muted); }
+  h1 { font-size:clamp(32px,5vw,48px); font-weight:500; letter-spacing:-1.8px; margin:10px 0; line-height:1.15; }
+  .intro { color:var(--muted); max-width:650px; margin:0 0 28px; }
+  button { cursor:pointer; font:inherit; color:inherit; }
+  button:focus-visible { outline:2px solid var(--ink); outline-offset:4px; }
+  .controls { flex-wrap:wrap; }
+  .controls button { border:1px solid var(--rule); background:var(--panel); border-radius:20px; padding:6px 13px; font-size:12px; }
+  .controls .swatch { width:26px; height:26px; border-radius:50%; padding:0; border:3px solid var(--bg); outline:1px solid var(--rule); }
+  .gallery { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+  .card { min-width:0; text-align:left; padding:18px; border:1px solid var(--rule); border-radius:16px; background:var(--panel); }
+  .card[aria-pressed=true] { border-color:var(--ink); box-shadow:0 0 0 1px var(--ink); }
+  .card:hover { background:color-mix(in srgb,var(--panel) 94%,var(--ink)); }
+  .stage { height:150px; display:grid; place-items:center; }
+  .hush { display:block; width:104px; height:104px; overflow:visible; color:var(--ink); }
+  .card strong { display:block; margin:12px 0 4px; font-weight:550; }
+  .card p { color:var(--muted); font-size:12px; min-height:76px; margin:0; }
+  .small { display:flex; align-items:center; gap:10px; padding-top:15px; border-top:1px solid var(--rule); color:var(--muted); font:10px ui-monospace,monospace; }
+  .small .hush { width:26px; height:26px; }
+  .preview { display:grid; grid-template-columns:1fr 1.6fr; gap:36px; margin-top:36px; }
+  h2 { font-size:24px; font-weight:500; letter-spacing:-.5px; margin:8px 0; }
+  #description,.note { color:var(--muted); font-size:13px; }
+  .chat { border:1px solid var(--rule); border-radius:16px; background:var(--panel); overflow:hidden; }
+  .chat-header { justify-content:space-between; padding:15px 22px; border-bottom:1px solid var(--rule); font-size:12px; }
+  .chat-header span { color:var(--muted); }
+  .message { padding:26px; }
+  .meta { font-size:12px; }
+  #chat-avatar .hush { width:32px; height:32px; }
+  #status { color:var(--ink); font-size:11px; }
+  .message p { margin:14px 0 0 44px; font-size:13px; color:var(--muted); }
+  .code { margin:18px 0 0 44px; padding:13px; border:1px solid var(--rule); border-radius:8px; font:11px/1.9 ui-monospace,monospace; color:var(--muted); }
+  .code span { color:var(--ink); }
+  .switcher { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); display:flex; align-items:center; gap:12px; padding:7px; border-radius:30px; background:var(--text); color:var(--bg); box-shadow:0 6px 30px #0004; white-space:nowrap; }
+  .switcher button { background:none; border:0; width:34px; height:32px; font-size:20px; }
+  #current { min-width:155px; text-align:center; font-size:12px; }
+  .defs { position:absolute; width:0; height:0; overflow:hidden; }
+  .body { transform-origin:40px 65px; }
+  .eyes { transform-origin:40px 33px; }
+  .ponder .eyes { animation:ponder-eyes 4.6s ease-in-out infinite; }
+  .ponder .body { animation:ponder-tilt 4.6s ease-in-out infinite; }
+  @keyframes ponder-eyes { 0%,15%,100% { transform:translate(0,0); } 28%,52% { transform:translate(-1.8px,-2px); } 68%,84% { transform:translate(1.8px,-1px); } }
+  @keyframes ponder-tilt { 0%,15%,100% { transform:rotate(0); } 28%,52% { transform:rotate(-5deg); } 68%,84% { transform:rotate(4deg); } }
+  .read .eyes { animation:read-eyes 2.8s linear infinite; }
+  .read .body { animation:read-nod 2.8s ease-in-out infinite; }
+  @keyframes read-eyes { 0%,8% { transform:translate(-2px,-1px); } 38% { transform:translate(2px,-1px); } 42%,48% { transform:translate(-2px,1px); } 80% { transform:translate(2px,1px); } 86%,100% { transform:translate(-2px,-1px); } }
+  @keyframes read-nod { 0%,40%,100% { transform:translateY(0); } 48%,80% { transform:translateY(1.5px); } }
+  .write .body { animation:write-bob 1.5s ease-in-out infinite; }
+  .write .pen { transform-origin:62px 58px; animation:pen-write 1.5s ease-in-out infinite; }
+  .write .scribble { stroke-dasharray:22; animation:ink 1.5s ease-in-out infinite; }
+  @keyframes write-bob { 0%,100% { transform:rotate(-2deg); } 30%,70% { transform:rotate(1.5deg); } }
+  @keyframes pen-write { 0%,100% { transform:translate(0,0) rotate(-6deg); } 25% { transform:translate(3px,1px) rotate(4deg); } 50% { transform:translate(1px,2px) rotate(-4deg); } 75% { transform:translate(4px,3px) rotate(3deg); } }
+  @keyframes ink { 0% { stroke-dashoffset:22; opacity:0; } 15% { opacity:.7; } 75% { stroke-dashoffset:0; opacity:.7; } 100% { stroke-dashoffset:0; opacity:0; } }
+  .work .orbit { transform-origin:40px 43px; animation:orbit 3.5s linear infinite; }
+  .work .body { animation:working 1.75s ease-in-out infinite; }
+  @keyframes orbit { to { transform:rotate(360deg); } }
+  @keyframes working { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-1.5px); } }
+  .focus .body { animation:breathe 4s ease-in-out infinite; }
+  .focus .eyes { animation:blink 5.5s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { transform:scale(1); opacity:.75; } 50% { transform:scale(1.035); opacity:1; } }
+  @keyframes blink { 0%,42%,48%,100% { transform:scaleY(1); } 45% { transform:scaleY(.08); } }
+  /* Explicitly pausing the entire subtree also freezes pupils and props. */
+  body.paused .hush * { animation-play-state:paused !important; }
+  @media(prefers-reduced-motion:reduce) { .hush * { animation:none !important; } .scribble { opacity:.5; } }
+  @media(max-width:1000px) { .gallery { grid-template-columns:repeat(3,1fr); } }
+  @media(max-width:640px) { main { padding:24px 18px 110px; } .gallery { grid-template-columns:repeat(2,1fr); } .preview { grid-template-columns:1fr; gap:18px; } .card { padding:14px; } .card p { min-height:96px; } }
+</style>
+</head>
+<body>
+<svg class="defs" aria-hidden="true"><defs><path id="hush-shape" fill-rule="evenodd" d="M8 68C18 62 17 43 22 31Q20 21 23 15Q25 13 33 19Q40 15 47 19Q55 13 57 15Q60 21 58 31C63 43 62 62 72 68Q40 77 8 68Z M24 21C31 19 36 22 39 29C34 24 29 22 24 21Z M56 21C49 19 44 22 41 29C46 24 51 22 56 21Z M37 32a7 7 0 1 0-14 0a7 7 0 1 0 14 0Z M57 32a7 7 0 1 0-14 0a7 7 0 1 0 14 0Z M35 43Q40 41 45 43L41 50Q40 52 39 50Z"/></defs></svg>
+<main>
+  <header><span class="eyebrow">ThreadDeck / Hush motion lab</span><div class="controls"><button id="theme">Light mode</button><button id="pause" aria-pressed="false">Pause motion</button><button class="swatch" style="background:#88c1f2" data-color="#88c1f2" data-light="#356c9c" aria-label="Blue accent"></button><button class="swatch" style="background:#b1a7f2" data-color="#b1a7f2" data-light="#7360ad" aria-label="Lavender accent"></button><button class="swatch" style="background:#8fd9af" data-color="#8fd9af" data-light="#30754d" aria-label="Green accent"></button></div></header>
+  <div class="eyebrow">Throwaway animation study · five directions</div>
+  <h1>Working on it. With personality.</h1>
+  <p class="intro">Same little guardian. Five ways to say “I’m on it.” Compare the motion up close and at actual chat size. Nothing here changes the live app.</p>
+  <section class="gallery" aria-label="Hush animation concepts">
+    <button class="card" data-kind="ponder" data-status="Thinking…" aria-pressed="true"><span class="eyebrow">01 / Thinking</span><div class="stage"><svg class="hush ponder" viewBox="0 0 80 80" aria-hidden="true"><g class="body" fill="currentColor"><use href="#hush-shape"/><g class="eyes"><circle cx="31" cy="33" r="3"/><circle cx="49" cy="33" r="3"/></g></g></svg></div><strong>The head tilt</strong><p>A curious tilt and an upward glance. Hush is turning an idea over, not just waiting.</p><div class="small"><span class="mini"></span>26 px / chat size</div></button>
+    <button class="card" data-kind="read" data-status="Reading files…" aria-pressed="false"><span class="eyebrow">02 / Reading</span><div class="stage"><svg class="hush read" viewBox="0 0 80 80" aria-hidden="true"><g class="body" fill="currentColor"><use href="#hush-shape"/><g class="eyes"><circle cx="31" cy="33" r="3"/><circle cx="49" cy="33" r="3"/></g></g></svg></div><strong>One line at a time</strong><p>Eyes scan left to right, then drop to the next line. A tiny nod marks the return.</p><div class="small"><span class="mini"></span>26 px / chat size</div></button>
+    <button class="card" data-kind="write" data-status="Writing a reply…" aria-pressed="false"><span class="eyebrow">03 / Writing</span><div class="stage"><svg class="hush write" viewBox="0 0 80 80" aria-hidden="true"><g class="body" fill="currentColor"><use href="#hush-shape"/><g class="eyes"><circle cx="31" cy="34" r="3"/><circle cx="49" cy="34" r="3"/></g></g><g fill="none" stroke="currentColor" stroke-linecap="round"><path class="scribble" d="M57 72h15" stroke-width="2"/><path class="pen" d="m61 64 12-16m-12 16-1 5 5-2" stroke-width="3"/></g></svg></div><strong>The tiny scribe</strong><p>A rhythmic wiggle, a pencil, and a little ink stroke. The most literal “writing” option.</p><div class="small"><span class="mini"></span>26 px / chat size</div></button>
+    <button class="card" data-kind="work" data-status="Running tools…" aria-pressed="false"><span class="eyebrow">04 / Working</span><div class="stage"><svg class="hush work" viewBox="0 0 80 80" aria-hidden="true"><g class="body" fill="currentColor"><use href="#hush-shape"/><g class="eyes"><circle cx="31" cy="33" r="3"/><circle cx="49" cy="33" r="3"/></g></g><g class="orbit" fill="currentColor"><circle cx="40" cy="5" r="2.8"/><circle cx="7" cy="62" r="2" opacity=".6"/><circle cx="73" cy="62" r="1.4" opacity=".3"/></g></svg></div><strong>Little satellites</strong><p>Three orbiting tasks around a steady Hush. A clearer busy signal for longer tool runs.</p><div class="small"><span class="mini"></span>26 px / chat size</div></button>
+    <button class="card" data-kind="focus" data-status="Deep in thought…" aria-pressed="false"><span class="eyebrow">05 / Focus</span><div class="stage"><svg class="hush focus" viewBox="0 0 80 80" aria-hidden="true"><g class="body" fill="currentColor"><use href="#hush-shape"/><g class="eyes"><circle cx="31" cy="33" r="3"/><circle cx="49" cy="33" r="3"/></g></g></svg></div><strong>Quiet concentration</strong><p>A slow breath and an occasional pupil blink. The least distracting choice for a long chat.</p><div class="small"><span class="mini"></span>26 px / chat size</div></button>
+  </section>
+  <section class="preview"><div><div class="eyebrow">Selected motion / live context</div><h2 id="name">01 / The head tilt</h2><p id="description">A curious tilt and an upward glance. Hush is turning an idea over, not just waiting.</p><p class="note">One accent color. No face/body seam. Motion stays inside the avatar rail. Pause any time; system reduced-motion settings are respected.</p><p class="note" id="motion-state" aria-live="polite">Motion: playing · concept 01 · Thinking…</p></div><div class="chat"><div class="chat-header"><strong>ThreadDeck / chat preview</strong><span>Mock data</span></div><div class="message"><div class="meta"><span id="chat-avatar"><svg class="hush ponder" viewBox="0 0 80 80" aria-hidden="true"><g class="body" fill="currentColor"><use href="#hush-shape"/><g class="eyes"><circle cx="31" cy="33" r="3"/><circle cx="49" cy="33" r="3"/></g></g></svg></span><strong>Kimaki</strong><span id="status">Thinking…</span></div><p>I’m checking how the pieces fit together before making the change.</p><div class="code"><span>✓</span> Read workspace.tsx<br><span>✓</span> Found the message renderer<br>↳ Preparing the next step…</div></div></div></section>
+</main>
+<nav class="switcher" aria-label="Motion variant switcher"><button id="prev" aria-label="Previous motion">←</button><span id="current">01 / The head tilt</span><button id="next" aria-label="Next motion">→</button></nav>
+<script>
+  const cards = [...document.querySelectorAll('.card')];
+  let selected = 0, color = '#88c1f2', lightColor = '#356c9c';
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  cards.forEach(card => card.querySelector('.mini').append(card.querySelector('.stage svg').cloneNode(true)));
+  function state() {
+    const mode = reduced.matches ? 'reduced motion / static' : document.body.classList.contains('paused') ? 'paused' : 'playing';
+    document.getElementById('motion-state').textContent = `Motion: ${mode} · concept ${String(selected+1).padStart(2,'0')} · ${cards[selected].dataset.status}`;
+  }
+  function select(index, updateUrl = true) {
+    selected = (index + cards.length) % cards.length;
+    const card = cards[selected], label = `${String(selected+1).padStart(2,'0')} / ${card.querySelector('strong').textContent}`;
+    cards.forEach((c,i) => c.setAttribute('aria-pressed',String(i===selected)));
+    document.getElementById('name').textContent = label;
+    document.getElementById('current').textContent = label;
+    document.getElementById('description').textContent = card.querySelector('p').textContent;
+    document.getElementById('status').textContent = card.dataset.status;
+    document.getElementById('chat-avatar').replaceChildren(card.querySelector('.stage svg').cloneNode(true));
+    if(updateUrl) { const url = new URL(location.href); url.searchParams.set('variant',selected+1); try { history.replaceState(null,'',url); } catch {} }
+    state();
+  }
+  function fromUrl() { const v = Number(new URL(location.href).searchParams.get('variant')); select(Number.isInteger(v)&&v>=1&&v<=cards.length ? v-1 : 0,false); }
+  cards.forEach((card,i) => card.onclick = () => select(i));
+  document.getElementById('prev').onclick = () => select(selected-1);
+  document.getElementById('next').onclick = () => select(selected+1);
+  document.addEventListener('keydown',e => { if(e.target.closest('input,textarea,select,[contenteditable]')) return; if(e.key==='ArrowLeft'||e.key==='ArrowRight') { e.preventDefault(); select(selected+(e.key==='ArrowLeft'?-1:1)); } });
+  const applyColor = () => document.body.style.setProperty('--ink',document.body.classList.contains('light') ? lightColor : color);
+  document.getElementById('theme').onclick = e => { const light = document.body.classList.toggle('light'); e.target.textContent = light ? 'Dark mode' : 'Light mode'; applyColor(); };
+  document.querySelectorAll('.swatch').forEach(button => button.onclick = () => { color=button.dataset.color; lightColor=button.dataset.light; applyColor(); });
+  document.getElementById('pause').onclick = e => { const paused=document.body.classList.toggle('paused'); e.target.textContent=paused?'Resume motion':'Pause motion'; e.target.setAttribute('aria-pressed',String(paused)); state(); };
+  reduced.addEventListener('change',state);
+  window.addEventListener('popstate',fromUrl);
+  fromUrl();
+</script>
+</body>
+</html>
