@@ -64,9 +64,10 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview, for
   const groups = groupPublishedMessages(messages)
   return <>{groups.map((group, groupIndex) => {
     const first = group.messages[0], operator = localOperatorPrompt(first), author = operator ? 'You' : first.author.global_name || first.author.username, role = group.role === 'assistant' ? 'assistant' : 'user'
+    const working = role === 'assistant' && groupIndex === groups.length - 1 && busy && !stale
     return <section className={`chat-message-group ${role}`} key={group.id} aria-label={`Messages from ${author}`} data-message-group={group.id}>
-    <div className="chat-avatar-rail" aria-hidden="true"><span className="chat-avatar">{role === 'assistant' ? <HushAvatar /> : author.slice(0, 1)}</span></div>
-    <div className="chat-message-content"><div className="chat-message-meta"><strong>{author}</strong><TooltipHint label={new Date(first.timestamp).toLocaleString()}><time dateTime={first.timestamp}>{formatMessageTime(first.timestamp)}</time></TooltipHint>{operator?.queued && <small>Queued</small>}</div>
+    <div className="chat-avatar-rail" aria-hidden="true"><span className="chat-avatar">{role === 'assistant' ? <HushAvatar working={working} /> : author.slice(0, 1)}</span></div>
+    <div className="chat-message-content"><div className="chat-message-meta"><strong>{author}</strong>{working ? <span className="chat-response-working" role="status">Working…</span> : <TooltipHint label={new Date(first.timestamp).toLocaleString()}><time dateTime={first.timestamp}>{formatMessageTime(first.timestamp)}</time></TooltipHint>}{operator?.queued && <small>Queued</small>}</div>
     {group.messages.map((raw, index) => { const message = { ...displayPublishedMessage(raw), attachments: publishedAttachments(raw) }, used = new Set<string>(); return <TooltipHint key={message.id} label={new Date(message.timestamp).toLocaleString()}><article className={`chat-message ${role}`} data-message-id={message.id}>
     {index > 0 && <time className="sr-only" dateTime={message.timestamp}>{new Date(message.timestamp).toLocaleString()}</time>}
     {message.content && <ChatMarkdown text={message.content} />}
