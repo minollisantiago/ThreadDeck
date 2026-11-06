@@ -1151,7 +1151,7 @@ for (const width of [430, 1440]) test(`sidebar footer stays anchored while sessi
   expect(after!.y).toBe(before!.y)
   await expect(footer).toBeVisible()
 })
-for (const width of [430, 1440]) test(`composer reports the session model and handles unknown models at ${width}px`, async ({ page }) => {
+for (const width of [430, 1440]) test(`composer reports the session model and hides unknown models at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })
   await fixture(page)
   const model = page.getByRole('status', { name: 'Session model', exact: true })
@@ -1165,12 +1165,12 @@ for (const width of [430, 1440]) test(`composer reports the session model and ha
   await page.keyboard.press('Control+k')
   await page.getByRole('textbox', { name: 'Find a session' }).fill('parallel')
   await page.keyboard.press('Enter')
-  await expect(model).toHaveText('Model unavailable')
+  await expect(model).toHaveCount(0)
   await page.keyboard.press('Control+k')
   await page.keyboard.press('Control+n')
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { name: 'Start a conversation' })).toBeVisible()
-  await expect(model).toHaveText('Model unavailable')
+  await expect(model).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 for (const expanded of [false, true]) test(`Escape releases the ${expanded ? 'expanded' : 'compact'} prompt for app shortcuts`, async ({ page }) => {
