@@ -76,10 +76,10 @@ export function ConversationSearch({ close, onSelect, titleSearch }: { close: ()
     <div className="conversation-search-results" id="conversation-search-results" ref={list} aria-busy={loading}>
       {hits.map((hit, index) => {
         const links = discordLinks(hit)
-        return <article key={hit.id} data-index={index} data-selected={selected === index} onMouseMove={() => setSelected(index)}>
+        return <article key={hit.id} data-index={index} data-selected={selected === index} onMouseMove={() => setSelected(index)} onFocus={() => setSelected(index)} onClick={() => setSelected(index)}>
+          <p className="conversation-search-meta"><span>{hit.project}</span><span aria-hidden="true">·</span><time dateTime={new Date(hit.updatedAt).toISOString()}>{new Date(hit.updatedAt).toLocaleDateString()}</time></p>
           <div className="conversation-search-result-title">{links ? <a href={links.app} onClick={event => { if (onSelect && !event.ctrlKey && !event.metaKey && !event.shiftKey && onSelect(hit)) event.preventDefault() }}><Highlight text={hit.title} query={resultQuery} /></a> : <strong><Highlight text={hit.title} query={resultQuery} /></strong>}{links && <a className="conversation-search-browser" href={links.browser} target="_blank" rel="noreferrer" aria-label={`Open ${hit.title} in browser`}>↗</a>}</div>
-          <p className="conversation-search-meta">{hit.project} · {new Date(hit.updatedAt).toLocaleDateString()}{hit.matches > 0 ? ` · ${hit.matches} matching messages` : ''}</p>
-          {hit.excerpt && <p className="conversation-search-excerpt"><Highlight text={hit.excerpt} query={resultQuery} /></p>}
+          {selected === index && hit.excerpt && <div className="conversation-search-message"><p className="conversation-search-message-label">From the conversation</p><p className="conversation-search-excerpt"><Highlight text={hit.excerpt} query={resultQuery} /></p></div>}
         </article>
       })}
       {!loading && !error && !hits.length && <p className="conversation-search-status">{data?.indexing ? 'Building your history index. Results appear as conversations are indexed.' : 'No matching conversations. Try different words or a shorter phrase.'}</p>}
