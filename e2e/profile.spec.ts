@@ -1,0 +1,212 @@
+import { test, expect, type Page } from '@playwright/test'
+import type { Snapshot } from '../shared/model'
+
+const userId = '100000000000000021'
+const profile = { id: userId, username: 'santiago', displayName: 'Santiago', avatarUrl: null }
+async function fixture(page: Page, offline = false) {
+  const now = Date.now()
+  const snapshot: Snapshot = { health: offline ? 'disconnected' : 'connected', checkedAt: now, lastSuccessAt: offline ? null : now, attentionAvailable: true, inventoryLimited: false, message: null, projects: [
+    { id: '100000000000000010', name: 'TsCanvas', directory: '/fixture/tscanvas', sessions: ['Planning macro-data caches in TsCanvas', 'Investigate the fuzzy finder', 'Unify watchlist shortcut tooltips'].map((title, index) => ({ id: `canvas-${index}`, threadId: `10000000000000000${index + 1}`, guildId: '100000000000000099', projectId: '100000000000000010', title, status: index === 0 ? 'working' : 'idle', agentCount: index === 0 ? 1 : 0, updatedAt: now })) },
+    { id: '100000000000000011', name: 'ThreadDeck', directory: '/fixture/threaddeck', sessions: [{ id: 'deck-1', threadId: '100000000000000008', guildId: '100000000000000099', projectId: '100000000000000011', title: 'Add a personal corner to ThreadDeck', status: 'input', agentCount: 0, updatedAt: now }] },
+  ] }
+  await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
+  await page.route('**/api/events', route => route.abort())
+  await page.route('**/api/chat/**', route => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/api/chat/profile') return route.fulfill({ status: offline ? 503 : 200, json: offline ? { error: 'Discord is unavailable. Local preferences still work.' } : { profile: url.searchParams.has('userId') ? profile : null } })
+    if (url.pathname === '/api/chat/info') return route.fulfill({ json: { protocol: 1, actor: 'local-operator', kimakiVersion: '1.4.0', capabilities: ['history', 'changes', 'prompt', 'queue', 'files', 'catalog', 'abort'] } })
+    if (url.pathname.endsWith('/changes')) return
+    if (url.pathname.endsWith('/catalog')) return route.fulfill({ json: { entries: [] } })
+    if (url.pathname.endsWith('/messages')) return route.fulfill({ json: { cursor: 'profile:0', stale: false, before: null, messages: [
+      { id: '100000000000000101', channel_id: '100000000000000008', timestamp: '2026-11-06T12:00:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: '**ThreadDeck · local operator**\n\nPlan the next release.' },
+      { id: '100000000000000102', channel_id: '100000000000000008', timestamp: '2026-11-06T12:01:00Z', author: { id: 'another-user', username: 'Another person' }, content: 'A different user keeps their own identity.' },
+      { id: '100000000000000103', channel_id: '100000000000000008', timestamp: '2026-11-06T12:02:00Z', author: { id: 'bot', username: 'Kimaki', bot: true }, content: 'Here is the release plan. Your profile photo stays with your prompts.' },
+    ] } })
+    if (url.pathname === '/api/chat/submit') return route.fulfill({ status: 202, json: { id: route.request().postDataJSON().requestId, state: 'submitted', messageIds: [], updatedAt: now } })
+    if (url.pathname.includes('/operations/')) return route.fulfill({ json: { id: url.pathname.split('/').at(-1), state: 'submitted', messageIds: [], updatedAt: now } })
+    return route.fulfill({ status: 404, json: { error: 'Synthetic test endpoint' } })
+  })
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('threaddeck:dark-theme')) localStorage.setItem('threaddeck:dark-theme', JSON.stringify('graphite'))
+    if (!localStorage.getItem('threaddeck:appearance')) localStorage.setItem('threaddeck:appearance', JSON.stringify('dark'))
+  })
+  await page.goto('/')
+}
+
+for (const width of [430, 564, 1440]) test(`preferences stay inside the profile popup and restore focus at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1000 })
+  await fixture(page)
+  const trigger = page.getByRole('button', { name: 'Profile and preferences', exact: true })
+  await trigger.click()
+  const popup = page.getByRole('dialog', { name: 'Profile and preferences', exact: true })
+  await expect(popup).toBeVisible()
+  await expect(popup).toContainText('Local operator')
+  await expect(popup).toContainText('Backend · connected')
+  await expect(popup.getByRole('button', { name: 'Notifications', exact: true })).toHaveCount(0)
+  await expect(popup.getByText('Appearance', { exact: true })).toHaveCount(0)
+  await expect(trigger).toHaveCSS('border-radius', '50%')
+  await expect(popup.locator('.profile-avatar')).toHaveCSS('border-radius', '50%')
+  await page.screenshot({ path: `artifacts/profile-compact-${width}.png` })
+  await popup.getByRole('button', { name: 'All preferences' }).click()
+  await expect(popup.getByRole('heading', { name: 'All preferences' })).toBeVisible()
+  await expect(page.locator('.profile-drawer')).toHaveCount(0)
+  await expect(popup.getByRole('button', { name: 'Back to profile' })).toBeFocused()
+  await expect(popup.getByText('Appearance', { exact: true })).toHaveCount(0)
+  await popup.getByLabel('Discord user ID').fill('invalid')
+  await popup.getByRole('button', { name: 'Load profile' }).click()
+  await expect(popup.getByRole('alert')).toContainText('17–20 digits')
+  await popup.getByLabel('Discord user ID').fill(userId)
+  await popup.getByRole('button', { name: 'Load profile' }).click()
+  await expect(popup.getByText('@santiago', { exact: true })).toBeVisible()
+  await expect(popup.getByRole('link', { name: 'View Discord profile' })).toHaveAttribute('href', `https://discord.com/users/${userId}`)
+  await page.keyboard.press('Control+n')
+  await expect(popup).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'New thread / OpenCode session' })).toHaveCount(0)
+  const bounds = (await popup.boundingBox())!
+  expect(bounds.x).toBeGreaterThanOrEqual(0)
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(width)
+  expect(bounds.y).toBeGreaterThanOrEqual(0)
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(1000)
+  await page.screenshot({ path: `artifacts/profile-preferences-${width}.png` })
+  await page.keyboard.press('Escape')
+  await expect(popup).toBeHidden()
+  await expect(trigger).toBeFocused()
+  await page.reload()
+  await expect(trigger).toContainText('S')
+  await trigger.click()
+  await expect(popup).toBeVisible()
+  await page.screenshot({ path: `artifacts/profile-compact-connected-${width}.png` })
+  await popup.getByRole('button', { name: 'All preferences' }).click()
+  await page.getByRole('button', { name: 'Use local profile' }).click()
+  await expect(popup.getByText('Local operator', { exact: true })).toBeVisible()
+  await popup.getByRole('button', { name: 'Back to profile' }).click()
+  await expect(popup.getByRole('button', { name: 'All preferences' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await trigger.click()
+  await page.keyboard.press('Escape')
+  await expect(trigger).toBeFocused()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test('desktop notifications edit the real native settings and track tray updates', async ({ page }) => {
+  await page.setViewportSize({ width: 564, height: 1000 })
+  await page.addInitScript(() => {
+    let saved = { paused: false, completionAlerts: true, attentionAlerts: true, sounds: true, closeToTray: false }
+    let listener: ((settings: typeof saved) => void) | undefined
+    window.threaddeckDesktop = {
+      control: () => {}, onMaximized: () => () => {},
+      preferences: async patch => { saved = { ...saved, ...patch }; return saved },
+      onPreferences: callback => { listener = callback; return () => { listener = undefined } },
+    }
+    Reflect.set(window, 'profileTestTrayPause', () => { saved.paused = true; listener?.(saved) })
+    Reflect.set(window, 'profileTestSettings', () => saved)
+  })
+  await fixture(page)
+  await page.getByRole('button', { name: 'Profile and preferences', exact: true }).click()
+  const popup = page.getByRole('dialog', { name: 'Profile and preferences', exact: true })
+  await popup.getByRole('button', { name: 'All preferences' }).click()
+  const completion = popup.getByRole('switch', { name: 'When a session finishes' })
+  await expect(completion).toBeChecked()
+  await completion.uncheck()
+  await popup.getByRole('switch', { name: 'Play notification sounds' }).uncheck()
+  expect(await page.evaluate(() => Reflect.get(window, 'profileTestSettings')())).toMatchObject({ completionAlerts: false, sounds: false })
+  await page.evaluate(() => Reflect.get(window, 'profileTestTrayPause')())
+  await expect(popup.getByRole('switch', { name: 'Pause all notifications' })).toBeChecked()
+  await expect(completion).toBeDisabled()
+  await popup.getByRole('switch', { name: 'Pause all notifications' }).uncheck()
+  await expect(completion).toBeEnabled()
+  await popup.locator('.profile-popup-body').evaluate(element => { element.scrollTop = 0 })
+  await page.screenshot({ path: 'artifacts/profile-popup-notifications.png' })
+  await page.keyboard.press('Escape')
+})
+
+test('cached identity stays available offline and backend state never claims Discord presence', async ({ page }) => {
+  await page.addInitScript(profile => localStorage.setItem('threaddeck:profile', JSON.stringify({ selection: profile.id, profile })), profile)
+  await fixture(page, true)
+  await page.getByRole('button', { name: 'Profile and preferences', exact: true }).click()
+  const popup = page.getByRole('dialog', { name: 'Profile and preferences', exact: true })
+  await expect(popup).toContainText('Santiago')
+  await expect(popup).toContainText('Backend · disconnected')
+  await popup.getByRole('button', { name: 'All preferences' }).click()
+  await expect(popup.getByRole('alert')).toContainText('Discord is unavailable')
+  await expect(page.getByText('Connection status, not Discord presence')).toBeVisible()
+  await expect(popup.getByLabel('Discord user ID')).toHaveValue(userId)
+  await expect(popup.getByRole('button', { name: 'Use local profile' })).toBeEnabled()
+})
+
+test('broken Discord images fall back to initials and clicking outside closes the popup', async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 1000 })
+  const cached = { ...profile, avatarUrl: `https://cdn.discordapp.com/avatars/${userId}/abc.png` }
+  await page.route('https://cdn.discordapp.com/**', route => route.abort())
+  await fixture(page)
+  await page.route('**/api/chat/profile?*', route => route.fulfill({ json: { profile: cached } }))
+  const trigger = page.getByRole('button', { name: 'Profile and preferences', exact: true })
+  await trigger.click()
+  await page.getByRole('button', { name: 'All preferences', exact: true }).click()
+  await page.getByLabel('Discord user ID').fill(userId)
+  await page.getByRole('button', { name: 'Load profile' }).click()
+  await expect(page.getByRole('dialog').locator('.profile-avatar')).toHaveText('S')
+  await expect(page.getByRole('dialog').locator('.profile-avatar img')).toHaveCount(0)
+  const outside = page.getByRole('searchbox', { name: 'Search projects or sessions' })
+  await outside.click()
+  await expect(page.getByRole('dialog', { name: 'Profile and preferences', exact: true })).toBeHidden()
+  await expect(outside).toBeFocused()
+})
+
+test('a circular profile photo updates published and outgoing You prompts without reloading', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await fixture(page)
+  const photo = { ...profile, avatarUrl: `https://cdn.discordapp.com/avatars/${userId}/abc.png` }
+  await page.route('https://cdn.discordapp.com/**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" fill="#a7bce3"/><path d="M13 128c0-46 102-46 102 0" fill="#384467"/><circle cx="64" cy="55" r="31" fill="#edc3a5"/><path d="M32 54c-9-51 75-56 65 7L78 35 32 54" fill="#353347"/><circle cx="52" cy="57" r="3" fill="#353347"/><circle cx="76" cy="57" r="3" fill="#353347"/><path d="M54 72q10 8 20 0" fill="none" stroke="#9a5e69" stroke-width="3" stroke-linecap="round"/></svg>' }))
+  await page.route('**/api/chat/profile?*', route => route.fulfill({ json: { profile: photo } }))
+  await page.locator('.chat-manager').getByRole('button', { name: 'Add a personal corner to ThreadDeck', exact: true }).click()
+  const prompt = page.getByRole('region', { name: 'Messages from You', exact: true })
+  await expect(prompt).toBeVisible()
+  await expect(prompt.locator('.chat-avatar img')).toHaveCount(0)
+  const trigger = page.getByRole('button', { name: 'Profile and preferences', exact: true })
+  await trigger.click()
+  const popup = page.getByRole('dialog', { name: 'Profile and preferences', exact: true })
+  await popup.getByRole('button', { name: 'All preferences' }).click()
+  await popup.getByLabel('Discord user ID').fill(userId)
+  await popup.getByRole('button', { name: 'Load profile' }).click()
+  await expect(popup.getByText('@santiago', { exact: true })).toBeVisible()
+  await expect(prompt.locator('.chat-avatar img')).toHaveAttribute('src', photo.avatarUrl)
+  await expect(prompt.locator('.chat-avatar')).toHaveCSS('border-radius', '50%')
+  await expect(trigger.locator('.profile-avatar')).toHaveCSS('border-radius', '50%')
+  await expect(popup.locator('.profile-avatar')).toHaveCSS('border-radius', '50%')
+  await expect(page.getByRole('region', { name: 'Messages from Another person' }).locator('.chat-avatar img')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await page.getByRole('textbox', { name: 'Write a prompt' }).fill('Keep the profile photo beside every prompt I send.')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  const outgoing = page.getByRole('article', { name: 'Outgoing prompt' })
+  await expect(outgoing.locator('.chat-avatar img')).toHaveAttribute('src', photo.avatarUrl)
+  await expect(outgoing.locator('.chat-avatar')).toHaveCSS('border-radius', '50%')
+  await trigger.click()
+  await expect(popup).toBeVisible()
+  await page.screenshot({ path: 'artifacts/profile-circular-chat.png' })
+  await popup.getByRole('button', { name: 'All preferences' }).click()
+  await page.screenshot({ path: 'artifacts/profile-popup-with-photo.png' })
+  await popup.getByRole('button', { name: 'Use local profile' }).click()
+  await expect(prompt.locator('.chat-avatar img')).toHaveCount(0)
+  await expect(outgoing.locator('.chat-avatar img')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+})
+
+test('expanded preferences scroll inside a small popup without covering the viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 560 })
+  await fixture(page)
+  await page.getByRole('button', { name: 'Profile and preferences', exact: true }).click()
+  const popup = page.getByRole('dialog', { name: 'Profile and preferences', exact: true })
+  await popup.getByRole('button', { name: 'All preferences' }).click()
+  await popup.getByLabel('Discord user ID').fill(userId)
+  await popup.getByRole('button', { name: 'Load profile' }).click()
+  await expect(popup.getByText('@santiago', { exact: true })).toBeVisible()
+  const bounds = (await popup.boundingBox())!
+  expect(bounds.x).toBeGreaterThanOrEqual(0)
+  expect(bounds.y).toBeGreaterThanOrEqual(0)
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(320)
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(560)
+  expect(await popup.locator('.profile-popup-body').evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true)
+  await popup.getByRole('button', { name: 'Close profile popup' }).click()
+  await expect(popup).toBeHidden()
+})

@@ -141,6 +141,7 @@ app.whenReady().then(async () => {
   ipcMain.on('desktop-ready', event => { if (isDashboard(event)) { desktopReady = true; sendSession() } })
   ipcMain.on('desktop-viewing', (event, id) => { if (isDashboard(event)) tray?.viewing(id) })
   ipcMain.on('desktop-receipts', (event, receipts) => { if (isDashboard(event)) tray?.receipts(receipts) })
+  ipcMain.handle('desktop-preferences', (event, patch) => isDashboard(event) ? tray?.preferences(patch) ?? null : null)
   ipcMain.on('window-control', (event, action) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) return
     if (action === 'minimize') window.minimize()

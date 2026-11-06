@@ -1,14 +1,14 @@
 import { useCallback, useContext, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Github, Keyboard, List, Moon, Network, Settings2, Sun } from 'lucide-react'
+import { Github, Keyboard, Settings2 } from 'lucide-react'
 import { Button } from './ui/button'
 import { TooltipHint } from './ui/tooltip'
 import type { Design } from '../lib/design'
-import { darkThemes, lightThemes, type DarkTheme, type LightTheme } from '../lib/theme'
+import { type DarkTheme, type LightTheme } from '../lib/theme'
 import { WorkspaceControls } from '../chat/navigation'
 import { KeyboardShortcuts } from './keyboard-shortcuts'
 
-export const palettes = ['pink', 'lavender', 'blue', 'green', 'peach'] as const
-export type Palette = typeof palettes[number]
+import { AppearanceSettings, type Palette } from './appearance-settings'
+export { palettes, type Palette } from './appearance-settings'
 
 export function HeaderControls({ appearance, palette, setAppearance, setPalette, lightTheme, setLightTheme, darkTheme, setDarkTheme, design, setDesign, connection, compact = false }: {
   compact?: boolean
@@ -28,9 +28,6 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
   const restoreTo = useRef<HTMLButtonElement | null>(null)
   const workspace = useContext(WorkspaceControls)
   const restoreFocus = useCallback(() => restoreTo.current?.focus(), [])
-  const themeOptions = appearance === 'light'
-    ? lightThemes.map(option => ({ ...option, selected: lightTheme === option.value, swatch: `theme-${option.value}`, select: () => setLightTheme(option.value) }))
-    : darkThemes.map(option => ({ ...option, selected: darkTheme === option.value, swatch: `theme-dark-${option.value}`, select: () => setDarkTheme(option.value) }))
   useLayoutEffect(() => {
     const media = window.matchMedia?.('(max-width: 600px)')
     const panel = controls.current
@@ -64,11 +61,7 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
   return <div className="header-controls">
     <Button ref={trigger} variant="ghost" size="icon" className="mobile-menu-toggle" popoverTarget="header-controls" aria-label="App controls" aria-controls="header-controls" aria-expanded={open}><Settings2 aria-hidden="true" /></Button>
     <div ref={controls} className="appearance-controls" id="header-controls" role="group" aria-label="Appearance and links">
-      <div className="palette-picker" role="group" aria-label="Accent color">{palettes.map(p => <TooltipHint key={p} label={`${p} accent`}><button className={`palette-swatch palette-${p}`} aria-label={`${p} accent`} aria-pressed={palette === p} onClick={() => setPalette(p)}>{palette === p ? '✓' : ''}</button></TooltipHint>)}</div>
-      <div className="theme-picker" role="group" aria-label={`${appearance === 'light' ? 'Light' : 'Dark'} theme background`}>{themeOptions.map(option => <TooltipHint key={option.value} label={`${option.label} theme`}><button className={`theme-swatch ${option.swatch}`} aria-label={`${option.label} theme`} aria-pressed={option.selected} onClick={option.select}>{option.selected ? '✓' : ''}</button></TooltipHint>)}</div>
-      <div className="header-actions">
-      <TooltipHint label={`Switch to ${design === 'classic' ? 'islands' : 'list'} view`}><Button variant="outline" size="icon" aria-label={`Switch to ${design === 'classic' ? 'islands' : 'list'} view`} onClick={() => setDesign(design === 'classic' ? 'islands' : 'classic')}>{design === 'classic' ? <Network aria-hidden="true" /> : <List aria-hidden="true" />}</Button></TooltipHint>
-       <Button ref={theme} variant="outline" size="icon" aria-label={`Switch to ${appearance === 'dark' ? 'light' : 'dark'} mode`} onClick={() => setAppearance(appearance === 'dark' ? 'light' : 'dark')}>{appearance === 'dark' ? <Sun /> : <Moon />}</Button>
+      <AppearanceSettings appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} themeButtonRef={theme}>
        <TooltipHint label="View ThreadDeck on GitHub"><Button asChild variant="outline" size="icon"><a href="https://github.com/minollisantiago/ThreadDeck" data-chat-external target="_blank" rel="noopener noreferrer" aria-label="ThreadDeck on GitHub"><Github aria-hidden="true" /></a></Button></TooltipHint>
        <TooltipHint label="Keyboard shortcuts"><Button ref={shortcuts} variant="outline" size="icon" aria-label="Keyboard shortcuts" aria-haspopup="dialog" onClick={() => {
          const popover = controls.current?.matches(':popover-open')
@@ -76,7 +69,7 @@ export function HeaderControls({ appearance, palette, setAppearance, setPalette,
          if (popover) controls.current?.hidePopover()
          setShortcutsOpen(true)
        }}><Keyboard aria-hidden="true" /></Button></TooltipHint>
-      </div>
+      </AppearanceSettings>
     </div>
      {!compact && connection}
      {shortcutsOpen && <KeyboardShortcuts workspace={Boolean(workspace)} threadId={workspace?.threadId} close={() => setShortcutsOpen(false)} restoreFocus={restoreFocus} />}

@@ -24,6 +24,12 @@ window.addEventListener('DOMContentLoaded', () => {
 contextBridge.exposeInMainWorld('threaddeckDesktop', {
   viewing: id => ipcRenderer.send('desktop-viewing', id),
   readReceipts: receipts => ipcRenderer.send('desktop-receipts', receipts),
+  preferences: patch => ipcRenderer.invoke('desktop-preferences', patch),
+  onPreferences: callback => {
+    const listener = (_event, settings) => callback(settings)
+    ipcRenderer.on('desktop-preferences', listener)
+    return () => ipcRenderer.removeListener('desktop-preferences', listener)
+  },
   onOpenSession: callback => {
     const listener = (_event, id) => callback(id)
     ipcRenderer.on('open-session', listener)

@@ -1,0 +1,7 @@
+.profile-avatar { display: grid; place-items: center; width: 30px; height: 30px; overflow: hidden; flex-shrink: 0; border-radius: 50%; background: color-mix(in srgb, var(--accent) 22%, var(--surface)); color: var(--accent-ink); font: 600 12px var(--font); }
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.profile-avatar svg { width: 17px; height: 17px; }
+.profile-avatar-large { width: 46px; height: 46px; font-size: 17px; }
+.profile-avatar-large svg { width: 23px; height: 23px; }
+.profile-avatar.chat-avatar { width: 32px; height: 32px; border-radius: 50%; }
+@media (width <= 600px) { .profile-avatar.chat-avatar { width: 26px; height: 26px; } }

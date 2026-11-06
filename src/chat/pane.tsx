@@ -61,7 +61,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     // shared clock. A loaded, visible transcript is the evidence of reading.
     if (!session || !publishedReply || !following.current) return
     if (!info || bridgeError || conversation.loading || conversation.error || conversation.stale) return
-    if (preview || expanded || mobileSidebar && sidebarOpen || document.querySelector('dialog[open]')) return
+    if (preview || expanded || mobileSidebar && sidebarOpen || document.querySelector('dialog[open], .profile-popup:popover-open')) return
     if (document.visibilityState !== 'visible' || !document.hasFocus()) return
     markRead(session)
   }
@@ -87,7 +87,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     // Run after the finder/drawer has closed and its focus-restoration cleanup
     // has finished. A request counter also handles reselecting the same thread.
     const frame = requestAnimationFrame(() => {
-      if (!document.querySelector('dialog[open]')) window.dispatchEvent(new CustomEvent('threaddeck:composer-request', { detail: 'focus' }))
+      if (!document.querySelector('dialog[open], .profile-popup:popover-open')) window.dispatchEvent(new CustomEvent('threaddeck:composer-request', { detail: 'focus' }))
     })
     return () => cancelAnimationFrame(frame)
   }, [focusRequest])

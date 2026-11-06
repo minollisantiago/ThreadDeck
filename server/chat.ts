@@ -9,6 +9,7 @@ import { trustedRequest } from './http.ts'
 import { inlineImageType } from '../shared/image.ts'
 import { inlineAudioType } from '../shared/audio.ts'
 import { readDiscordAttachment } from './attachments.ts'
+import { discordUserIdSchema, profileResponseSchema } from '../shared/profile.ts'
 
 export interface ChatBridge { call(route: string, input: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> }
 export function localChatBridge(): ChatBridge {
@@ -51,6 +52,11 @@ export function chatHandler(port: number, bridge = localChatBridge(), data = pro
       const attachment = /^threads\/(\d{17,20})\/messages\/(\d{17,20})\/attachments\/(\d{17,20})$/.exec(route)
       const operation = /^operations\/([a-f0-9-]{36})$/.exec(route)
       if (request.method === 'GET') {
+        if (route === 'profile') {
+          const userId = url.searchParams.get('userId') ?? process.env.THREADDECK_DISCORD_USER_ID
+          const input = userId === undefined ? {} : { userId: discordUserIdSchema.parse(userId) }
+          return json(200, profileResponseSchema.parse(await bridge.call('profile', input, controller.signal)))
+        }
         if (route === 'info' || route === 'threads') return json(200, await bridge.call(route, {}, controller.signal))
         if (projectCatalog) return json(200, await bridge.call('project-catalog', { projectId: projectCatalog[1] }, controller.signal))
         if (operation) return json(200, await bridge.call('operation', { id: z.uuid().parse(operation[1]) }, controller.signal))

@@ -125,7 +125,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     }
     const key = (event: KeyboardEvent) => {
       if (event.isComposing || event.repeat || ['Control', 'Meta', 'Alt', 'Shift'].includes(event.key)) return
-      if (document.querySelector('dialog[open]')) return
+      if (document.querySelector('dialog[open], .profile-popup:popover-open')) return
       const ctrl = event.ctrlKey || event.metaKey, p = event.key.toLowerCase() === 'p'
       if (p && !event.altKey && !event.shiftKey && chord.current && performance.now() - chord.current < 550) { event.preventDefault(); event.stopPropagation(); chord.current = 0; focus(true); return }
       if (ctrl && p && !event.altKey && !event.shiftKey) { event.preventDefault(); event.stopPropagation(); chord.current = performance.now(); focus(); return }
@@ -156,7 +156,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     manager.current?.querySelector<HTMLElement>('button,input,a')?.focus()
     const key = (event: KeyboardEvent) => {
       if (event.defaultPrevented || (event.target instanceof HTMLElement && event.target.closest('[role="menu"]'))) return
-      if (document.querySelector('dialog[open]')) return
+      if (document.querySelector('dialog[open], .profile-popup:popover-open')) return
       if (event.key === 'Escape' && !document.querySelector('[popover]:popover-open')) { event.preventDefault(); setDrawer(false) }
       if (event.key === 'Tab' && manager.current) {
         const controls = [...manager.current.querySelectorAll<HTMLElement>('button,input,a,select')].filter(el => !el.hasAttribute('disabled') && el.getBoundingClientRect().width > 0)

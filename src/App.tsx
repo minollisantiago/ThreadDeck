@@ -6,6 +6,8 @@ import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { HeaderControls, palettes, type Palette } from './components/header-controls'
 import { ConnectionIndicator } from './components/connection-indicator'
+import { ProfileControls } from './components/profile-controls'
+import { ProfileProvider } from './components/profile-provider'
 import { ConnectionNotice } from './components/connection-notice'
 import { ThreadOptions } from './components/thread-options'
 import { FilterTabs } from './components/filter-tabs'
@@ -100,7 +102,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
     let lastSpace = 0
     function keydown(event: KeyboardEvent) {
       const target = event.target
-      const editable = target instanceof HTMLElement && (target.matches('input,textarea,select') || target.isContentEditable || Boolean(target.closest('[contenteditable="true"],dialog')))
+      const editable = target instanceof HTMLElement && (target.matches('input,textarea,select') || target.isContentEditable || Boolean(target.closest('[contenteditable="true"],dialog,.profile-popup')))
       if (event.repeat || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || editable) { lastSpace = 0; return }
       if (event.code === 'Space' || event.key === ' ') {
         // Preserve native Space activation on controls; only the page background owns this shortcut.
@@ -196,7 +198,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button className="empty-state-action" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
       </div>
     </main>
-    <footer>{!workspace && <span><span className="footer-dot" />LOCAL · READ ONLY</span>}<span>{workspace ? 'Titles open chat' : 'Titles open Discord app'} <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span>{workspace && <ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />}</footer>
+    <footer>{!workspace && <span><span className="footer-dot" />LOCAL · READ ONLY</span>}<span>{workspace ? 'Titles open chat' : 'Titles open Discord app'} <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span><ProfileControls healthLabel={healthLabel} verified={verified} loading={loading} connectionDetails={transportError ? 'Cannot reach the dashboard server.' : snapshot?.message || (snapshot?.lastSuccessAt != null ? `Last updated ${new Date(snapshot.lastSuccessAt).toLocaleTimeString()}` : 'Waiting for the first successful update.')} /></footer>
   </div>{historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} />}</PinnedSessions.Provider>
 }
 
@@ -204,5 +206,5 @@ export default function App() {
   const { snapshot, transportError } = useSnapshot()
   const [now, setNow] = useState(Date.now)
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer) }, [])
-  return <ChatWorkspace snapshot={snapshot}><Dashboard snapshot={snapshot} transportError={transportError} now={now} /></ChatWorkspace>
+  return <ProfileProvider><ChatWorkspace snapshot={snapshot}><Dashboard snapshot={snapshot} transportError={transportError} now={now} /></ChatWorkspace></ProfileProvider>
 }

@@ -23,6 +23,21 @@ it('rejects cross-origin writes before contacting Kimaki', async () => {
   const response = await fetch(`${url}/api/chat/submit`, { method: 'POST', headers: { Origin: 'https://evil.example', 'Content-Type': 'application/json' }, body: '{}' })
   expect(response.status).toBe(403); expect(call).not.toHaveBeenCalled()
 })
+it('loads only explicitly chosen Discord profiles through a narrow local endpoint', async () => {
+  const { url, call } = await setup()
+  const profile = { id: '100000000000000001', username: 'santiago', displayName: 'Santiago', avatarUrl: 'https://cdn.discordapp.com/avatars/100000000000000001/abc.png?size=128' }
+  call.mockResolvedValue({ profile })
+  const response = await fetch(`${url}/api/chat/profile?userId=${profile.id}`)
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ profile })
+  expect(call).toHaveBeenLastCalledWith('profile', { userId: profile.id }, expect.any(AbortSignal))
+  call.mockClear()
+  expect((await fetch(`${url}/api/chat/profile?userId=../../secret`)).status).toBe(400)
+  expect((await fetch(`${url}/api/chat/profile`, { headers: { Origin: 'https://evil.example' } })).status).toBe(403)
+  expect(call).not.toHaveBeenCalled()
+  call.mockResolvedValue({ profile: { ...profile, avatarUrl: 'https://evil.example/photo.png' } })
+  expect((await fetch(`${url}/api/chat/profile?userId=${profile.id}`)).status).toBe(400)
+})
 it('validates submission targets and never exposes an arbitrary RPC proxy', async () => {
   const { url, call } = await setup()
   expect((await fetch(`${url}/api/chat/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ threadId: '../../secret' }) })).status).toBe(400)

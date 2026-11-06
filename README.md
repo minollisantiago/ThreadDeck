@@ -43,6 +43,20 @@ with a lightweight Node.js backend. Node 24+ is required.
 
 ## Interface
 
+- The bottom-right circular **profile button** opens a compact popup; **All preferences**
+  expands notification and identity controls inside that same popup (no drawer).
+  Appearance controls remain exclusively in the top menu. The selected profile photo
+  also appears next to **You** on outgoing and published local prompts in chat.
+  Desktop notification settings control completion/attention alerts, sounds, pause,
+  and close-to-tray behavior, using the same settings as the native tray menu.
+- **Identity** can load a chosen Discord user's name and avatar using their user ID.
+  The updated local Kimaki fork is required (`npm run kimaki:prepare`; it never
+  restarts a running bot). `THREADDECK_DISCORD_USER_ID` can provide the default;
+  otherwise ThreadDeck uses a local profile until a user is explicitly selected.
+  A cached identity remains available offline, with initials if its image fails.
+  **Use local profile** removes the cached Discord identity. Profile selection is
+  display-only: it does not authenticate as that user or change message authorship.
+  The connection indicator describes backend health, not Discord presence.
 - **Ctrl+K** (desktop also **Ctrl+Tab**) or double-tap **Space** outside text fields
   and controls opens fuzzy session search. Use ↑/↓ and Enter to open a conversation.
   The finder also provides **New linked conversation** and **Search conversation

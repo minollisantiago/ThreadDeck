@@ -101,6 +101,27 @@ export function attachThreadDeckBridge(bot) {
   }
   const actor = () => ({ id: bot.discord.user.id, username: 'ThreadDeck local operator' })
   const bridge = createClientBridge({
+    async profile(userId = memberId) {
+      if (!userId) return { profile: null }
+      let user
+      try { user = await bot.discord.users.fetch(userId, { force: true }) }
+      catch (error) {
+        if (error?.code === 10013) throw new ChatError('invalid', 'Discord could not find that user. Copy your personal User ID, not a message or server ID.')
+        if (error?.status !== 403) throw new ChatError('unavailable', 'Could not load your Discord profile. Check the Kimaki connection and try again.')
+        // Shared Kimaki gateways reject global /users/:id lookups. Stay inside
+        // their authorized guild scope rather than bypassing the gateway.
+        for (const guild of bot.discord.guilds.cache.values()) {
+          try { user = (await guild.members.fetch({ user: userId, force: true })).user; break }
+          catch (memberError) {
+            if (memberError?.code === 10007 || memberError?.code === 10013 || memberError?.status === 403 || memberError?.status === 404) continue
+            throw new ChatError('unavailable', 'Could not load your server profile. Check the Kimaki connection and try again.')
+          }
+        }
+        if (!user) throw new ChatError('invalid', 'That user was not found in a server connected to Kimaki. Check your personal User ID and make sure your account is in the same server as the bot.')
+      }
+      if (user.bot) throw new ChatError('invalid', 'Choose your Discord user, not a bot account')
+      return { profile: { id: user.id, username: user.username, displayName: user.globalName || user.username, avatarUrl: user.displayAvatarURL({ extension: 'png', size: 128 }) } }
+    },
     ready: () => bot.discord.isReady() && bot.opencode.connected,
     linked,
     async threads() { return { threads: Object.entries(bot.store.getState().roots).map(([threadId, sessionId]) => ({ threadId, sessionId })) } },

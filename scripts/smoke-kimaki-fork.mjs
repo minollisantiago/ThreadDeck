@@ -42,6 +42,25 @@ let sequence = 100000000000000010n
 const discord = new EventEmitter()
 discord.user = { id: '100000000000000099' }
 discord.isReady = () => true
+const profileRequests = []
+// Exercise the real discord.js manager signature, not a permissive imitation.
+const { Client, Guild } = createRequire(manifest.cli)('discord.js')
+const profileClient = new Client({ intents: [] })
+const profileGuild = new Guild(profileClient, { id: '100000000000000088', name: 'Synthetic guild', features: [] })
+profileClient.guilds.cache.set(profileGuild.id, profileGuild)
+discord.guilds = profileClient.guilds
+let profileName = 'Synthetic User'
+let profileFailure = null
+let guildScopedProfiles = false
+profileClient.rest.get = async route => {
+  profileRequests.push(route)
+  assert.match(route, /^(\/users\/\d{17,20}|\/guilds\/\d{17,20}\/members\/\d{17,20})$/)
+  if (guildScopedProfiles && route.startsWith('/users/')) throw { status: 403, code: 'REST route is outside the authorized guild scope' }
+  if (profileFailure) throw profileFailure
+  const user = { id: route.split('/').at(-1), username: 'synthetic-user', global_name: profileName, discriminator: '0', avatar: 'a'.repeat(32), bot: route.endsWith(discord.user.id) }
+  return route.startsWith('/guilds/') ? { user, roles: [], joined_at: '2026-01-01T00:00:00Z' } : user
+}
+discord.users = profileClient.users
 discord.channels = { fetch: async () => ({ id, name: 'Synthetic test', isThread: () => true, isSendable: () => true,
   send: async payload => { sent.push(payload); return { id: String(sequence++) } },
 }) }
@@ -82,6 +101,36 @@ async function submit(input) {
 try {
   assert.equal((await call('info')).protocol, 1)
   assert.equal((await call('info')).ready, true)
+  const profileId = '100000000000000021'
+  assert.deepEqual(await call('profile', { userId: profileId }), { profile: { id: profileId, username: 'synthetic-user', displayName: 'Synthetic User', avatarUrl: `https://cdn.discordapp.com/avatars/${profileId}/${'a'.repeat(32)}.png?size=128` } })
+  assert.deepEqual(profileRequests, [`/users/${profileId}`])
+  profileName = 'Updated Name'
+  assert.equal((await call('profile', { userId: profileId })).profile.displayName, profileName)
+  assert.deepEqual(profileRequests, [`/users/${profileId}`, `/users/${profileId}`])
+  const botProfile = await bridge.handle('profile', { userId: discord.user.id }, new AbortController().signal)
+  assert.equal(botProfile.data.ok, false)
+  assert.match(botProfile.data.error.message, /not a bot account/)
+  profileFailure = { code: 10013 }
+  const missingProfile = await bridge.handle('profile', { userId: profileId }, new AbortController().signal)
+  assert.equal(missingProfile.data.error.code, 'invalid')
+  assert.match(missingProfile.data.error.message, /could not find that user/)
+  profileFailure = new Error('Synthetic Discord outage')
+  const unavailableProfile = await bridge.handle('profile', { userId: profileId }, new AbortController().signal)
+  assert.equal(unavailableProfile.data.error.code, 'unavailable')
+  assert.match(unavailableProfile.data.error.message, /Check the Kimaki connection/)
+  profileFailure = null
+  guildScopedProfiles = true
+  assert.equal((await call('profile', { userId: profileId })).profile.displayName, profileName)
+  assert.equal(profileRequests.at(-1), `/guilds/${profileGuild.id}/members/${profileId}`)
+  profileName = 'Refreshed gateway profile'
+  assert.equal((await call('profile', { userId: profileId })).profile.displayName, profileName)
+  profileFailure = { status: 404, code: 10007 }
+  const missingMember = await bridge.handle('profile', { userId: profileId }, new AbortController().signal)
+  assert.equal(missingMember.data.error.code, 'invalid')
+  assert.match(missingMember.data.error.message, /server connected to Kimaki/)
+  profileFailure = null
+  assert.equal((await bridge.handle('profile', { userId: discord.user.id }, new AbortController().signal)).data.error.code, 'invalid')
+  guildScopedProfiles = false
   const catalog = await call('catalog', { threadId: id })
   assert.ok(catalog.entries.some(entry => entry.kind === 'control' && entry.name === 'models'))
   assert.ok(catalog.entries.some(entry => entry.kind === 'command' && entry.name === 'docs:find'))
@@ -165,8 +214,10 @@ try {
   console.log('Packaged FFmpeg verified: native Kimaki M4A converts to WAV without requiring system ffmpeg.')
   console.log('Slash controls verified: full project catalog, bundled skills, MCP prompts, collision routing, enabled models, variant switching, deduplication and validation without prompting or interrupting the agent.')
   console.log('Only fake transports were used. Running Kimaki and OpenCode were untouched.')
+  console.log('Discord profiles verified with the real discord.js UserManager: refresh bypasses cache, bot accounts are rejected, and lookup failures have actionable errors.')
 } finally {
   await bridge.stop()
+  await profileClient.destroy()
   provider.closeAllConnections()
   await new Promise(resolve => provider.close(resolve))
   if (originalData === undefined) delete process.env.THREADDECK_DATA_DIR; else process.env.THREADDECK_DATA_DIR = originalData

@@ -24,6 +24,18 @@ it('returns the published payload including Components V2, never a harness trans
   expect(result).toMatchObject({ data: { ok: true, value: { messages: [{ content: message.content, components: message.components }] } } })
   expect(await call('snapshot', { threadId: '100000000000000099' })).toMatchObject({ data: { ok: false, error: { code: 'unlinked' } } })
 })
+it('keeps profiles optional for old adapters and validates chosen user IDs', async () => {
+  const disabled = await setup()
+  expect(await disabled.call('profile')).toMatchObject({ data: { ok: false, error: { code: 'unsupported' } } })
+  const profile = vi.fn(async () => ({ profile: null }))
+  const enabled = await setup({ profile })
+  expect(await enabled.call('profile')).toMatchObject({ data: { ok: true, value: { profile: null } } })
+  expect(profile).toHaveBeenLastCalledWith(undefined)
+  await enabled.call('profile', { userId: id })
+  expect(profile).toHaveBeenLastCalledWith(id)
+  await enabled.call('profile', { userId: 'bot' })
+  expect(profile).toHaveBeenCalledTimes(2)
+})
 it('gates model discovery on adapter support and linked threads', async () => {
   const { call } = await setup()
   expect(await call('models', { threadId: id })).toMatchObject({ data: { ok: false, error: { code: 'unsupported' } } })

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useContext, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { z } from 'zod'
 import { type PublishedMessage } from '../../shared/chat'
 import { ChatMarkdown } from './markdown'
@@ -14,6 +14,8 @@ import { HushAvatar } from './hush-avatar'
 import { inlineAudioType } from '../../shared/audio'
 import { AudioMessage } from './audio-message'
 import { AttachmentRow } from './attachment-row'
+import { ProfileAvatar } from '../components/profile-avatar'
+import { ProfileContext } from '../hooks/use-profile'
 
 export function attachmentUrl(threadId: string, messageId: string, id: string) { return `/api/chat/threads/${threadId}/messages/${messageId}/attachments/${id}` }
 const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().nullish(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
@@ -25,6 +27,7 @@ function ImageViewer({ src, name, opener, close }: { src: string; name: string; 
   return <dialog className="chat-image-dialog" ref={ref} aria-label={name} onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === ref.current) close() }}><button autoFocus onClick={close}>Close image</button><ImagePreview key={src} src={src} name={name} /></dialog>
 }
 export function PublishedMessages({ messages, threadId, discordUrl, preview, forwardAudio, busy = false, stale = false }: { messages: PublishedMessage[]; threadId: string; discordUrl?: string; preview: (name: string, url: string) => void; forwardAudio?: (name: string, url: string) => void; busy?: boolean; stale?: boolean }) {
+  const profile = useContext(ProfileContext)?.profile ?? null
   const [image, setImage] = useState<{ src: string; name: string; opener: HTMLElement } | null>(null)
   function imageView(url: string, name: string, key: string, width?: number | null, height?: number | null): ReactNode {
     return <div key={key} className="chat-image"><button aria-label={`Enlarge ${name}`} onClick={event => setImage({ src: url, name, opener: event.currentTarget })}><ImagePreview key={url} src={url} name={name} lazy width={width} height={height} /></button><span>{name}<a href={url} download={name}>Download</a></span></div>
@@ -66,7 +69,7 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview, for
     const first = group.messages[0], operator = localOperatorPrompt(first), author = operator ? 'You' : first.author.global_name || first.author.username, role = group.role === 'assistant' ? 'assistant' : 'user'
     const working = role === 'assistant' && groupIndex === groups.length - 1 && busy && !stale
     return <section className={`chat-message-group ${role}`} key={group.id} aria-label={`Messages from ${author}`} data-message-group={group.id}>
-    <div className="chat-avatar-rail" aria-hidden="true"><span className="chat-avatar">{role === 'assistant' ? <HushAvatar working={working} /> : author.slice(0, 1)}</span></div>
+    <div className="chat-avatar-rail" aria-hidden="true">{role === 'assistant' ? <span className="chat-avatar"><HushAvatar working={working} /></span> : <ProfileAvatar profile={operator || first.author.id === profile?.id ? profile : null} className="chat-avatar" fallback={author.slice(0, 1)} />}</div>
     <div className="chat-message-content"><div className="chat-message-meta"><strong>{author}</strong>{working ? <span className="chat-response-working" role="status">Working…</span> : <TooltipHint label={new Date(first.timestamp).toLocaleString()}><time dateTime={first.timestamp}>{formatMessageTime(first.timestamp)}</time></TooltipHint>}{operator?.queued && <small>Queued</small>}</div>
     {group.messages.map((raw, index) => { const message = { ...displayPublishedMessage(raw), attachments: publishedAttachments(raw) }, used = new Set<string>(); return <TooltipHint key={message.id} label={new Date(message.timestamp).toLocaleString()}><article className={`chat-message ${role}`} data-message-id={message.id}>
     {index > 0 && <time className="sr-only" dateTime={message.timestamp}>{new Date(message.timestamp).toLocaleString()}</time>}

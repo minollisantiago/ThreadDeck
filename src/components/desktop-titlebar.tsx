@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Layers2, Maximize2, Minimize2, Minus, X } from 'lucide-react'
 import { TooltipHint } from './ui/tooltip'
+import type { DesktopPreferences } from '../../shared/desktop'
 
 declare global {
   interface Window {
@@ -9,6 +10,8 @@ declare global {
       onMaximized: (callback: (maximized: boolean) => void) => () => void
       viewing?: (id: string | null) => void
       readReceipts?: (receipts: Record<string, number>) => void
+      preferences?: (patch?: Partial<DesktopPreferences>) => Promise<DesktopPreferences | null>
+      onPreferences?: (callback: (settings: DesktopPreferences) => void) => () => void
       onOpenSession?: (callback: (id: string) => void) => () => void
       botMode?: () => Promise<'fork' | 'regular' | null>
       onBotMode?: (callback: (mode: 'fork' | 'regular' | null) => void) => () => void

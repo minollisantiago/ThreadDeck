@@ -5,7 +5,7 @@ const { agentStatus } = require('./agent-status.cjs')
 
 function trayController({ app, window, origin, openSession }) {
   const settingsFile = path.join(app.getPath('userData'), 'tray-settings.json')
-  let settings = { closeToTray: false, paused: false }
+  let settings = { closeToTray: false, paused: false, completionAlerts: true, attentionAlerts: true, sounds: true }
   try {
     const saved = JSON.parse(readFileSync(settingsFile, 'utf8'))
     for (const key of Object.keys(settings)) if (typeof saved[key] === 'boolean') settings[key] = saved[key]
@@ -20,6 +20,7 @@ function trayController({ app, window, origin, openSession }) {
     try { writeFileSync(settingsFile, JSON.stringify(settings)) }
     catch (error) { console.error('Could not save tray settings:', error.message) }
     render()
+    window.webContents?.send('desktop-preferences', { ...settings })
   }
   function render() {
     if (stopped) return
@@ -39,7 +40,7 @@ function trayController({ app, window, origin, openSession }) {
   }
   function notify(title, body, id) {
     if (settings.paused || !Notification.isSupported()) return
-    const notification = new Notification({ title, body, icon })
+    const notification = new Notification({ title, body, icon, silent: !settings.sounds })
     notifications.add(notification)
     notification.on('click', () => id ? open(id) : show())
     notification.on('close', () => notifications.delete(notification))
@@ -55,6 +56,7 @@ function trayController({ app, window, origin, openSession }) {
       const snapshot = await response.json()
       if (stopped) return
       const events = model.update(snapshot, window.isFocused() && window.isVisible() ? activeSession : null)
+        .filter(event => event.kind === 'response' ? settings.completionAlerts : settings.attentionAlerts)
       if (snapshot.health !== 'connected') {
         if (!disconnected && snapshot.lastSuccessAt !== null) notify('ThreadDeck disconnected', 'Local source unavailable. Reconnecting automatically.')
         disconnected = true
@@ -84,6 +86,13 @@ function trayController({ app, window, origin, openSession }) {
   render()
   void poll()
   return {
+    preferences: patch => {
+      if (patch && typeof patch === 'object' && !Array.isArray(patch)) {
+        for (const key of Object.keys(settings)) if (Object.hasOwn(patch, key) && typeof patch[key] === 'boolean') settings[key] = patch[key]
+        save()
+      }
+      return { ...settings }
+    },
     closeToTray: () => settings.closeToTray,
     hide: () => window.hide(),
     viewing: id => { activeSession = typeof id === 'string' ? id : null },

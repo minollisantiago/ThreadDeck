@@ -3,10 +3,12 @@ import { DatabaseSync } from 'node:sqlite'
 import { createHash, randomUUID } from 'node:crypto'
 import { ZodError } from 'zod'
 import { ChatError, submitSchema, publishedMessageSchema, threadIdSchema, type ChatSubmission, type PublishedMessage, type MessageChange, type OperationReceipt } from '../../shared/chat.ts'
+import { discordUserIdSchema, profileResponseSchema } from '../../shared/profile.ts'
 export { ChatError }
 export { invocation, modelControls, parseInvocation } from '../../shared/slash.ts'
 
 export interface BridgeAdapter {
+  profile?(userId?: string): Promise<unknown>
   ready?(): boolean
   linked(threadId: string): boolean
   threads(): Promise<unknown>
@@ -142,6 +144,11 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
     try {
       let value: unknown
       switch (route) {
+        case 'profile': {
+          if (!adapter.profile) throw new ChatError('unsupported', 'Update the local Kimaki bridge to load Discord profiles. Local preferences still work.')
+          const userId = input.userId === undefined ? undefined : discordUserIdSchema.parse(input.userId)
+          value = profileResponseSchema.parse(await adapter.profile(userId)); break
+        }
         case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', ready: adapter.ready?.() ?? false, capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort', ...(adapter.transcribe ? ['audio-prompt'] : []), ...(adapter.projectCatalog ? ['project-catalog', 'initial-invocation'] : []), ...(adapter.models ? ['model-controls'] : [])] }; break
         case 'threads': value = await adapter.threads(); break
         case 'snapshot': {
