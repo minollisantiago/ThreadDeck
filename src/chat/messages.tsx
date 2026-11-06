@@ -16,7 +16,7 @@ import { AudioMessage } from './audio-message'
 import { AttachmentRow } from './attachment-row'
 
 export function attachmentUrl(threadId: string, messageId: string, id: string) { return `/api/chat/threads/${threadId}/messages/${messageId}/attachments/${id}` }
-const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().optional(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
+const componentSchema = z.looseObject({ type: z.number(), content: z.string().optional(), components: z.array(z.unknown()).optional(), accessory: z.unknown().optional(), accent_color: z.number().nullish(), label: z.string().optional(), items: z.array(z.unknown()).optional(), media: z.unknown().optional(), file: z.unknown().optional() })
 const mediaSchema = z.object({ url: z.string().nullish(), proxy_url: z.string().nullish(), attachment_id: z.string().nullish(), content_type: z.string().nullish() })
 const embedSchema = z.object({ title: z.string().optional(), description: z.string().optional(), image: mediaSchema.optional(), thumbnail: mediaSchema.optional(), fields: z.array(z.object({ name: z.string(), value: z.string() })).optional() })
 function ImageViewer({ src, name, opener, close }: { src: string; name: string; opener: HTMLElement; close: () => void }) {
@@ -51,7 +51,7 @@ export function PublishedMessages({ messages, threadId, discordUrl, preview, for
     const item = parsed.data
     if (item.type === 10) return <ChatMarkdown key={key} text={item.content || ''} />
     if (item.type === 14) return <hr key={key} />
-    if ([1, 9, 17].includes(item.type)) return <div key={key} className={item.type === 17 ? 'chat-container' : 'chat-component-group'} style={item.accent_color !== undefined ? { '--chat-container-accent': `#${item.accent_color.toString(16).padStart(6, '0')}` } as CSSProperties : undefined}>{item.components?.map((child, i) => component(child, `${key}-${i}`, message, used))}{item.accessory ? component(item.accessory, `${key}-accessory`, message, used) : null}</div>
+    if ([1, 9, 17].includes(item.type)) return <div key={key} className={item.type === 17 ? 'chat-container' : 'chat-component-group'} style={item.accent_color != null ? { '--chat-container-accent': `#${item.accent_color.toString(16).padStart(6, '0')}` } as CSSProperties : undefined}>{item.components?.map((child, i) => component(child, `${key}-${i}`, message, used))}{item.accessory ? component(item.accessory, `${key}-accessory`, message, used) : null}</div>
     if ([12, 13, 11].includes(item.type)) {
       const media = item.type === 12 ? item.items || [] : [{ media: item.media || item.file }]
       return <div className="chat-attachments" key={key}>{media.map((raw, i) => {
