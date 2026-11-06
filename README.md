@@ -7,7 +7,18 @@ the desktop conversation. Chat requires the prepared local Kimaki fork: see
 
 ## Quick start
 
-From your WSL checkout:
+**New machine or first-time Kimaki user?** Follow the [complete setup guide](docs/setup.md)
+for prerequisites, Discord/model authorization, launch options and verification.
+
+**Using an agent?** Give it this prompt (it needs terminal access on your machine):
+
+> Set up ThreadDeck from https://github.com/minollisantiago/ThreadDeck.
+> Read and follow docs/setup.md before changing anything. Check prerequisites,
+> preserve existing services and configuration, and pause for authorization or
+> credentials I must provide privately. Verify the app and a real chat round trip;
+> report any unverified steps instead of declaring success early.
+
+Already have WSL, Node 24+, OpenCode V2 and configured Kimaki? From your WSL checkout:
 
 ```sh
 npm install
