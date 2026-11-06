@@ -1,14 +1,27 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { readFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import path from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { renameSessionSchema } from '../shared/sessions.ts'
 import type { Monitor } from './monitor.ts'
 import { trustedRequest } from './http.ts'
 
-const exec = promisify(execFile)
 export async function renameSession(threadId: string, title: string) {
-  // End option parsing before the user-controlled positional title.
-  await exec('kimaki', ['session', 'title', '--session', threadId, '--', title], { timeout: 30_000, maxBuffer: 64 * 1024 })
+  const directory = process.env.KIMAKI_DATA_DIR || path.join(homedir(), '.kimaki')
+  const port = Number(process.env.KIMAKI_LOCK_PORT || 29988)
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid Kimaki lock port')
+  const token = (await readFile(path.join(directory, 'lock-token'), 'utf8')).trim()
+  if (!/^[a-f0-9]{64}$/.test(token)) throw new Error('Kimaki credentials unavailable')
+  // Use the same native action as the CLI, without its positional argument parser.
+  // Goke treats values after `--` as forwarded options, not the required title.
+  // JSON also preserves option-like titles (e.g. "--help") without shell escaping.
+  const response = await fetch(`http://127.0.0.1:${port}/kimaki/session.title`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ threadId, text: title }), signal: AbortSignal.timeout(30_000), redirect: 'error',
+  })
+  if (!response.ok) throw new Error('Kimaki rename failed')
+  const result: unknown = await response.json()
+  if (typeof result !== 'object' || result === null || !('title' in result) || result.title !== title) throw new Error('Kimaki rename could not be confirmed')
 }
 
 export function sessionHandler(port: number, monitor: Pick<Monitor, 'read' | 'refresh'>, rename = renameSession) {

@@ -1,10 +1,9 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { afterEach, expect, it, vi } from 'vitest'
-import { sessionHandler, renameSession } from './sessions.ts'
+import { sessionHandler } from './sessions.ts'
 import type { Snapshot } from '../shared/model.ts'
 
-vi.mock('node:child_process', () => ({ execFile: vi.fn((_file, _args, _options, callback) => callback(null, '', '')) }))
 const servers: ReturnType<typeof createServer>[] = []
 afterEach(async () => {
   vi.clearAllMocks()
@@ -53,9 +52,4 @@ it('refreshes after partial failure and does not leak CLI errors or retry', asyn
   expect(text).not.toContain('secret')
   expect(rename).toHaveBeenCalledTimes(1)
   expect(monitor.refresh).toHaveBeenCalledWith(true)
-})
-it('passes user titles as a single argument after the option terminator', async () => {
-  const { execFile } = await import('node:child_process')
-  await renameSession('100000000000000001', '--help $(touch /bad)')
-  expect(execFile).toHaveBeenCalledWith('kimaki', ['session', 'title', '--session', '100000000000000001', '--', '--help $(touch /bad)'], expect.objectContaining({ timeout: 30_000 }), expect.any(Function))
 })
