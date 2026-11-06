@@ -32,16 +32,20 @@
 .profile-setting-row input:checked { background: var(--accent); }
 .profile-setting-row input:checked::before { transform: translateX(13px); background: var(--ground); }
 .profile-setting-row input:disabled { opacity: .45; cursor: not-allowed; }
-.profile-user-label { display: block; color: var(--text); font-size: 11px; margin-bottom: 8px; }
-.profile-user-input { display: flex; gap: 7px; }
-.profile-user-input input { width: 0; flex: 1; min-width: 0; background: var(--ground); color: var(--text); border: 1px solid var(--rule); border-radius: 7px; padding: 9px; font: 11px var(--font); }
+.profile-user-heading { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.profile-user-label { color: var(--text); font-size: 11px; }
+.profile-help { display: grid; place-items: center; width: 22px; height: 22px; padding: 3px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: help; }
+.profile-help:hover, .profile-help:focus-visible { background: var(--hover); color: var(--text); }
+.profile-help svg { width: 14px; height: 14px; }
+.profile-user-input { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 8px; }
+.profile-user-input input { width: 100%; min-width: 0; min-height: 36px; background: var(--ground); color: var(--text); border: 1px solid var(--rule); border-radius: 7px; padding: 9px; font: 11px var(--font); }
 .profile-user-input input[aria-invalid=true] { border-color: var(--danger); }
-.profile-user-input button, .profile-identity-actions button { font: 10px var(--font); background: var(--row); color: var(--text); border: 1px solid var(--rule); padding: 9px; border-radius: 7px; cursor: pointer; }
-.profile-identity-actions { display: flex; gap: 7px; flex-wrap: wrap; }
-.profile-identity-actions button { display: flex; align-items: center; gap: 7px; }
-.profile-identity-actions svg, .profile-discord-link svg { width: 12px; height: 12px; }
+.profile-user-input button, .profile-identity-actions button { min-height: 36px; min-width: 0; font: 10px/1.45 var(--font); background: var(--row); color: var(--text); border: 1px solid var(--rule); padding: 8px; border-radius: 7px; cursor: pointer; }
+.profile-identity-actions { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 8px; margin-top: 12px; }
+.profile-identity-actions button { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.profile-identity-actions svg { width: 12px; height: 12px; flex-shrink: 0; }
+.profile-popup[data-preferences=true] .profile-menu-item { margin-top: 8px; padding-inline: 0; }
 .profile-user-input button:disabled, .profile-identity-actions button:disabled { opacity: .5; cursor: not-allowed; }
-.profile-discord-link { display: flex; gap: 8px; align-items: center; width: fit-content; margin-top: 14px; color: var(--accent-ink); font-size: 11px; }
 .profile-error { color: var(--danger); font-size: 11px; overflow-wrap: anywhere; }
 .profile-popup-connection { display: flex; gap: 10px; padding: 13px 18px; border-top: 1px solid var(--rule); background: var(--ground); flex-shrink: 0; align-items: baseline; }
 .profile-popup-connection strong { display: block; font-weight: 500; font-size: 10px; }
@@ -49,3 +53,4 @@
 .profile-popup :focus-visible, .profile-trigger:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 .profile-popup .profile-menu-item:focus-visible { outline-offset: -3px; }
 .app-shell > footer > .profile-trigger { margin-left: auto; }
+@media (width <= 360px) { .profile-identity-actions { grid-template-columns: 1fr; } }
