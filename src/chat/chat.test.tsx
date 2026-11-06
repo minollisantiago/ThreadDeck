@@ -43,6 +43,36 @@ it('uses the theme-colored Hush mascot for agents while keeping user initials', 
   expect([...icon.querySelectorAll('[fill]')].map(node => node.getAttribute('fill'))).toEqual(['currentColor', 'currentColor'])
   expect(container.querySelector('.user .chat-avatar')?.textContent).toBe('S')
 })
+it('animates only the current response while busy and restores its timestamp when complete', () => {
+  const prompt = { ...message, id: '100000000000000003', author: { id: 'human', username: 'Sam' }, content: 'Next question' }
+  const reply = { ...message, id: '100000000000000004', content: 'Working through it' }
+  const props = { threadId: message.channel_id, preview: () => {} }
+  const { container, rerender } = render(<PublishedMessages {...props} messages={[message, prompt, reply]} busy />)
+  const groups = () => container.querySelectorAll('.chat-message-group.assistant')
+  expect(container.querySelectorAll('.chat-hush-avatar[data-working="true"]')).toHaveLength(1)
+  expect(groups()[0].querySelector('.chat-message-meta time')).toBeTruthy()
+  expect(groups()[1].querySelector('.chat-message-meta time')).toBeNull()
+  expect(screen.getByText('Working…').getAttribute('role')).toBe('status')
+  const continuation = { ...reply, id: '100000000000000005', content: 'More details' }
+  rerender(<PublishedMessages {...props} messages={[message, prompt, reply, continuation]} busy />)
+  expect(container.querySelectorAll('.chat-hush-avatar[data-working="true"]')).toHaveLength(1)
+  expect(screen.getAllByText('Working…')).toHaveLength(1)
+  rerender(<PublishedMessages {...props} messages={[message, prompt, reply, continuation]} />)
+  expect(container.querySelectorAll('.chat-hush-avatar[data-working="true"]')).toHaveLength(0)
+  expect(screen.queryByText('Working…')).toBeNull()
+  expect(groups()[1].querySelector('.chat-message-meta time')?.getAttribute('datetime')).toBe(reply.timestamp)
+})
+it('does not animate a previous response while waiting for a new reply or when the connection is stale', () => {
+  const prompt = { ...message, id: '100000000000000003', content: '**ThreadDeck · local operator**\n\nAnother question' }
+  const props = { threadId: message.channel_id, preview: () => {} }
+  const { container, rerender } = render(<PublishedMessages {...props} messages={[message, prompt]} busy />)
+  expect(screen.queryByText('Working…')).toBeNull()
+  expect(container.querySelector('.chat-hush-avatar')?.getAttribute('data-working')).toBe('false')
+  rerender(<PublishedMessages {...props} messages={[message]} busy stale />)
+  expect(screen.queryByText('Working…')).toBeNull()
+  expect(container.querySelector('.chat-hush-avatar')?.getAttribute('data-working')).toBe('false')
+  expect(container.querySelector('.chat-message-meta time')).toBeTruthy()
+})
 it('renders one author header for a model interaction while preserving message identity, callouts, and edits', () => {
   const messages = [message, { ...message, id: '100000000000000003', content: 'Answer text', edited_timestamp: '2026-10-24T00:02:00Z' }, { ...message, id: '100000000000000004', content: '', components: [{ type: 17, components: [{ type: 10, content: 'Important callout' }] }] }, { ...message, id: '100000000000000005', content: '-# Session footer' }]
   const { container } = render(<PublishedMessages threadId={message.channel_id} messages={messages} preview={() => {}} />)
