@@ -2,6 +2,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import DOMPurify from 'dompurify'
 import { ArrowLeft, Code2, Download } from 'lucide-react'
 
+// Match the attachment proxy's 10 MiB cap, including self-contained JS/CSS bundles.
+const previewLimit = 10 * 1024 * 1024
+
 export function safePreview(html: string) {
   const parser = new DOMParser(), source = parser.parseFromString(html, 'text/html'), styles = new Map<string, string>()
   // DOMPurify's XML guard drops whole stylesheets containing valid CSS syntax
@@ -44,8 +47,20 @@ function AttachmentPreview({ name, url, close }: { name: string; url: string; cl
     const controller = new AbortController()
     void fetch(url, { signal: controller.signal }).then(async response => {
       if (!response.ok || !response.body) throw new Error('HTML attachment unavailable')
+      const tooLarge = () => new Error('HTML previews are limited to 10 MiB; download this file instead')
+      const length = response.headers.get('content-length')
+      if (length && Number(length) > previewLimit) { await response.body.cancel(); throw tooLarge() }
       let size = 0; const chunks: Uint8Array[] = []
-      for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) { size += chunk.length; if (size > 2 * 1024 * 1024) throw new Error('HTML previews are limited to 2 MiB; download this file instead'); chunks.push(chunk) }
+      const reader = response.body.getReader()
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          size += value.length
+          if (size > previewLimit) { await reader.cancel(); throw tooLarge() }
+          chunks.push(value)
+        }
+      } finally { reader.releaseLock() }
       const bytes = new Uint8Array(size); let offset = 0
       for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length }
       const text = new TextDecoder().decode(bytes)

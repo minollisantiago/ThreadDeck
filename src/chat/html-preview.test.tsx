@@ -65,3 +65,36 @@ it('treats Escape as declining and never carries consent or old HTML to another 
   await loaded()
   expect(frame().getAttribute('sandbox')).toBe('')
 })
+
+it('previews bundled interactive HTML larger than 2 MiB after explicit consent', async () => {
+  const bundled = html + '<!--' + 'x'.repeat(3 * 1024 * 1024) + '-->'
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(bundled)))
+  render(<HtmlPreview name="study.html" url="/large-file" close={vi.fn()} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Unsafe preview' }))
+  await loaded()
+  expect(frame().getAttribute('srcdoc')).toBe(bundled)
+  expect(frame().getAttribute('sandbox')).toBe('allow-scripts')
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
+it('accepts HTML exactly at the 10 MiB attachment limit', async () => {
+  const bundled = html.padEnd(10 * 1024 * 1024, ' ')
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(bundled)))
+  render(<HtmlPreview name="study.html" url="/boundary" close={vi.fn()} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Unsafe preview' }))
+  await loaded()
+  expect(frame().getAttribute('srcdoc')?.length).toBe(bundled.length)
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
+it.each([true, false])('cancels oversized HTML downloads with content-length present: %s', async declared => {
+  const cancel = vi.fn()
+  const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new Uint8Array(10 * 1024 * 1024 + 1)) }, cancel })
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(stream, { headers: declared ? { 'Content-Length': String(10 * 1024 * 1024 + 1) } : {} })))
+  render(<HtmlPreview name="study.html" url="/oversized" close={vi.fn()} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Unsafe preview' }))
+  expect((await screen.findByRole('alert')).textContent).toBe('HTML previews are limited to 10 MiB; download this file instead')
+  expect(cancel).toHaveBeenCalledOnce()
+  expect(screen.queryByTitle('study.html')).toBeNull()
+  expect(screen.getByRole('link', { name: 'Download' }).getAttribute('href')).toBe('/oversized')
+})
