@@ -33,7 +33,7 @@ async function fixture(page: Page, offline = false) {
   await page.goto('/')
 }
 
-for (const width of [430, 564, 1440]) test(`preferences stay inside the profile popup and restore focus at ${width}px`, async ({ page }) => {
+for (const width of [430, 564, 1440]) test(`profile identity is available directly and restores focus at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 })
   await fixture(page)
   const trigger = page.getByRole('button', { name: 'Profile and preferences', exact: true })
@@ -44,13 +44,13 @@ for (const width of [430, 564, 1440]) test(`preferences stay inside the profile 
   await expect(popup).toContainText('Backend · connected')
   await expect(popup.getByRole('button', { name: 'Notifications', exact: true })).toHaveCount(0)
   await expect(popup.getByText('Appearance', { exact: true })).toHaveCount(0)
-  await expect(trigger).toHaveCSS('border-radius', '50%')
+  await expect(trigger).toHaveCSS('border-radius', '8px')
   await expect(popup.locator('.profile-avatar')).toHaveCSS('border-radius', '50%')
   await page.screenshot({ path: `artifacts/profile-compact-${width}.png` })
-  await popup.getByRole('button', { name: 'All preferences' }).click()
-  await expect(popup.getByRole('heading', { name: 'All preferences' })).toBeVisible()
+  await expect(popup.getByRole('button', { name: 'All preferences' })).toHaveCount(0)
+  await expect(popup.getByRole('heading', { name: 'Identity' })).toBeVisible()
   await expect(page.locator('.profile-drawer')).toHaveCount(0)
-  await expect(popup.getByRole('button', { name: 'Back to profile' })).toBeFocused()
+  await expect(popup.getByRole('button', { name: 'Close profile popup' })).toBeFocused()
   await expect(popup.getByText('Appearance', { exact: true })).toHaveCount(0)
   await popup.getByLabel('Discord user ID', { exact: true }).fill('invalid')
   await popup.getByRole('button', { name: 'Load profile' }).click()
@@ -76,11 +76,8 @@ for (const width of [430, 564, 1440]) test(`preferences stay inside the profile 
   await trigger.click()
   await expect(popup).toBeVisible()
   await page.screenshot({ path: `artifacts/profile-compact-connected-${width}.png` })
-  await popup.getByRole('button', { name: 'All preferences' }).click()
   await page.getByRole('button', { name: 'Use local profile' }).click()
   await expect(popup.getByText('Local operator', { exact: true })).toBeVisible()
-  await popup.getByRole('button', { name: 'Back to profile' }).click()
-  await expect(popup.getByRole('button', { name: 'All preferences' })).toBeFocused()
   await page.keyboard.press('Escape')
   await trigger.click()
   await page.keyboard.press('Escape')
@@ -102,9 +99,8 @@ test('desktop notifications edit the real native settings and track tray updates
     Reflect.set(window, 'profileTestSettings', () => saved)
   })
   await fixture(page)
-  await page.getByRole('button', { name: 'Profile and preferences', exact: true }).click()
-  const popup = page.getByRole('dialog', { name: 'Profile and preferences', exact: true })
-  await popup.getByRole('button', { name: 'All preferences' }).click()
+  await page.getByRole('button', { name: 'App controls', exact: true }).click()
+  const popup = page.getByRole('dialog', { name: 'Interface & notifications', exact: true })
   const completion = popup.getByRole('switch', { name: 'When a session finishes' })
   await expect(completion).toBeChecked()
   await completion.uncheck()
@@ -120,6 +116,30 @@ test('desktop notifications edit the real native settings and track tray updates
   await page.keyboard.press('Escape')
 })
 
+test('dock popovers preserve edge alignment and spacing after resizing', async ({ page }) => {
+  await page.setViewportSize({ width: 564, height: 1000 })
+  await fixture(page)
+  for (const [triggerName, popupName, edge] of [
+    ['Profile and preferences', 'Profile and preferences', 'left'],
+    ['App controls', 'Interface & notifications', 'right'],
+  ] as const) {
+    const trigger = page.getByRole('button', { name: triggerName, exact: true })
+    await trigger.click()
+    const popup = page.getByRole('dialog', { name: popupName, exact: true })
+    for (const width of [564, 320, 430]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await expect(popup).toBeVisible()
+      await expect.poll(async () => {
+        const dock = (await page.locator('.user-panel').boundingBox())!, bounds = (await popup.boundingBox())!
+        const difference = edge === 'left' ? bounds.x - dock.x : bounds.x + bounds.width - dock.x - dock.width
+        return Math.round(Math.abs(difference) + Math.abs(dock.y - bounds.y - bounds.height - 20))
+      }).toBe(0)
+    }
+    await page.keyboard.press('Escape')
+    await expect(trigger).toBeFocused()
+  }
+})
+
 test('cached identity stays available offline and backend state never claims Discord presence', async ({ page }) => {
   await page.addInitScript(profile => localStorage.setItem('threaddeck:profile', JSON.stringify({ selection: profile.id, profile })), profile)
   await fixture(page, true)
@@ -127,7 +147,6 @@ test('cached identity stays available offline and backend state never claims Dis
   const popup = page.getByRole('dialog', { name: 'Profile and preferences', exact: true })
   await expect(popup).toContainText('Santiago')
   await expect(popup).toContainText('Backend · disconnected')
-  await popup.getByRole('button', { name: 'All preferences' }).click()
   await expect(popup.getByRole('alert')).toContainText('Discord is unavailable')
   await expect(page.getByText('Connection status, not Discord presence')).toBeVisible()
   await expect(popup.getByLabel('Discord user ID', { exact: true })).toHaveValue(userId)
@@ -142,7 +161,6 @@ test('broken Discord images fall back to initials and clicking outside closes th
   await page.route('**/api/chat/profile?*', route => route.fulfill({ json: { profile: cached } }))
   const trigger = page.getByRole('button', { name: 'Profile and preferences', exact: true })
   await trigger.click()
-  await page.getByRole('button', { name: 'All preferences', exact: true }).click()
   await page.getByLabel('Discord user ID', { exact: true }).fill(userId)
   await page.getByRole('button', { name: 'Load profile' }).click()
   await expect(page.getByRole('dialog').locator('.profile-avatar')).toHaveText('S')
@@ -166,7 +184,6 @@ test('a circular profile photo updates published and outgoing You prompts withou
   const trigger = page.getByRole('button', { name: 'Profile and preferences', exact: true })
   await trigger.click()
   const popup = page.getByRole('dialog', { name: 'Profile and preferences', exact: true })
-  await popup.getByRole('button', { name: 'All preferences' }).click()
   await popup.getByLabel('Discord user ID', { exact: true }).fill(userId)
   await popup.getByRole('button', { name: 'Load profile' }).click()
   await expect(popup.getByText('@santiago', { exact: true })).toBeVisible()
@@ -184,7 +201,6 @@ test('a circular profile photo updates published and outgoing You prompts withou
   await trigger.click()
   await expect(popup).toBeVisible()
   await page.screenshot({ path: 'artifacts/profile-circular-chat.png' })
-  await popup.getByRole('button', { name: 'All preferences' }).click()
   await page.screenshot({ path: 'artifacts/profile-popup-with-photo.png' })
   await popup.getByRole('button', { name: 'Use local profile' }).click()
   await expect(prompt.locator('.chat-avatar img')).toHaveCount(0)
@@ -192,12 +208,11 @@ test('a circular profile photo updates published and outgoing You prompts withou
   await page.keyboard.press('Escape')
 })
 
-test('expanded preferences scroll inside a small popup without covering the viewport', async ({ page }) => {
+test('identity settings scroll inside a small popup without covering the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 560 })
   await fixture(page)
   await page.getByRole('button', { name: 'Profile and preferences', exact: true }).click()
   const popup = page.getByRole('dialog', { name: 'Profile and preferences', exact: true })
-  await popup.getByRole('button', { name: 'All preferences' }).click()
   await popup.getByLabel('Discord user ID', { exact: true }).fill(userId)
   await popup.getByRole('button', { name: 'Load profile' }).click()
   await expect(popup.getByText('@santiago', { exact: true })).toBeVisible()
@@ -217,7 +232,6 @@ for (const width of [320, 564]) test(`identity buttons align and Discord ID help
   await fixture(page)
   await page.getByRole('button', { name: 'Profile and preferences', exact: true }).click()
   const popup = page.getByRole('dialog', { name: 'Profile and preferences', exact: true })
-  await popup.getByRole('button', { name: 'All preferences' }).click()
   const section = popup.getByRole('region', { name: 'Identity', exact: true })
   await expect(section.locator('form .profile-note')).toHaveCount(0)
   const input = (await section.getByLabel('Discord user ID', { exact: true }).boundingBox())!

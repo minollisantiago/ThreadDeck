@@ -16,10 +16,8 @@ import { ProjectUnreadPill } from './components/project-unread-pill'
 import { ProjectCreateButton } from './components/project-create-button'
 import { ProjectActivity } from './components/project-activity'
 import { SessionRow } from './components/session-row'
-import { ProjectIslands } from './components/project-islands'
 import { ProjectCollapse } from './components/project-collapse'
 import { StatePanels } from './components/state-panels'
-import { isDesign, type Design } from './lib/design'
 import { isDarkTheme, isLightTheme, type DarkTheme, type LightTheme } from './lib/theme'
 import { useSnapshot } from './hooks/use-snapshot'
 import { useThreadListMotion } from './hooks/use-thread-list-motion'
@@ -92,8 +90,6 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const [palette, setPalette] = useState<Palette>(() => saved('threaddeck:palette', 'pink', (v): v is Palette => palettes.some(p => p === v)))
   const [lightTheme, setLightTheme] = useState<LightTheme>(() => saved('threaddeck:light-theme', 'original', isLightTheme))
   const [darkTheme, setDarkTheme] = useState<DarkTheme>(() => saved('threaddeck:dark-theme', 'original', isDarkTheme))
-  const [design, setDesign] = useState<Design>(() => saved('threaddeck:design', 'classic', isDesign))
-  const [visualCollapsed, setVisualCollapsed] = useState<Record<string, boolean>>({})
   const search = useRef<HTMLInputElement>(null)
   const results = useRef<HTMLDivElement>(null)
   useEffect(() => { document.documentElement.dataset.appearance = appearance; persist('threaddeck:appearance', appearance) }, [appearance])
@@ -101,7 +97,6 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   useEffect(() => { document.documentElement.dataset.lightTheme = lightTheme; persist('threaddeck:light-theme', lightTheme) }, [lightTheme])
   useEffect(() => { document.documentElement.dataset.darkTheme = darkTheme; persist('threaddeck:dark-theme', darkTheme) }, [darkTheme])
   useEffect(() => { persist('threaddeck:collapsed', collapsed) }, [collapsed])
-  useEffect(() => { persist('threaddeck:design', design) }, [design])
   useEffect(() => { persist('threaddeck:grouping', grouping) }, [grouping])
   useEffect(() => {
     let lastSpace = 0
@@ -137,7 +132,6 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   useEffect(() => {
     if (!selectedProject) return
     setCollapsed(previous => previous[selectedProject] === false ? previous : { ...previous, [selectedProject]: false })
-    setVisualCollapsed(previous => previous[selectedProject] === false ? previous : { ...previous, [selectedProject]: false })
   }, [selectedSession, selectedProject])
   useEffect(() => {
     if (!snapshot || snapshot.lastSuccessAt === null) return
@@ -157,13 +151,13 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const shown = projectOrder(visibleProjects(projects, query, filter, now, verified, unread, pins.pinned, selectedSession), verified, unread)
   const groups = stateGroups(shown, verified, unread, pins.pinned)
   const listOrder = grouping === 'state' ? groups.flatMap(group => [group.id, ...group.threads.map(({ session }) => session.id)]) : shown.flatMap(project => [project.id, ...sessionOrder(project.sessions, verified, unread, pins.pinned).map(session => session.id)])
-  useThreadListMotion(results, `${grouping}:${design}:${filter}:${query}:${listOrder.join(',')}`)
+  useThreadListMotion(results, `${grouping}:${filter}:${query}:${listOrder.join(',')}`)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
   const userPanel = <div className="user-panel" data-collapsed={Boolean(workspace?.collapsedRail)} aria-label="User panel">
     <ProfileControls showIdentity={!workspace?.collapsedRail} healthLabel={healthLabel} verified={verified} loading={loading} connectionDetails={transportError ? 'Cannot reach the dashboard server.' : snapshot?.message || (snapshot?.lastSuccessAt != null ? `Last updated ${new Date(snapshot.lastSuccessAt).toLocaleTimeString()}` : 'Waiting for the first successful update.')} />
     {!workspace?.collapsedRail && <ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />}
-    <HeaderControls compact docked rail={workspace?.collapsedRail} appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} connection={null} />
+    <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} />
   </div>
   if (workspace?.collapsedRail) return <div className="collapsed-sidebar" aria-label="Collapsed sidebar">
     <TooltipHint label="ThreadDeck"><div className="collapsed-sidebar-brand"><BrandLogo size={25} aria-label="ThreadDeck" role="img" /></div></TooltipHint>
@@ -171,7 +165,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
     {userPanel}
   </div>
   const searchAction = <TooltipHint label={<>Advanced search — {workspace ? 'fuzzy session finder' : 'search chat logs'} {workspace && <><KbdGroup><Kbd>Ctrl</Kbd>+<Kbd>K</Kbd></KbdGroup> / </>}<Kbd>Double Space</Kbd></>}><Button variant="outline" size="icon" className="advanced-search" aria-label="Advanced search" aria-haspopup="dialog" onClick={openFinder}><SearchCode aria-hidden="true" /></Button></TooltipHint>
-  return <PinnedSessions.Provider value={pins}>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design={design}>
+  return <PinnedSessions.Provider value={pins}>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design="classic">
     <header className="page-header">
       <div className="identity"><div className="brand-icon"><BrandLogo aria-hidden="true" /></div><h1>ThreadDeck</h1></div>
       {workspace?.toggleSidebar && <SidebarToggle open={Boolean(workspace.sidebarOpen)} toggle={workspace.toggleSidebar} />}
@@ -203,9 +197,8 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       <ConnectionNotice visible={!verified && !loading} hasSnapshot={Boolean(snapshot?.lastSuccessAt)} />
       <div className="section-caption"><span>{grouping === 'project' ? 'PROJECTS' : 'STATES'} <span className="caption-count">{(grouping === 'project' ? shown.length : groups.length).toString().padStart(2, '0')}</span></span><ThreadOptions grouping={grouping} setGrouping={setGrouping} unreadCount={unread.size} markAllRead={markAllRead} /></div>
       <div className="project-list" ref={results}>
-        {grouping === 'state' && <StatePanels groups={groups} verified={verified} now={now} unread={unread} markRead={markRead} markUnread={markUnread} graphical={design === 'islands'} />}
-        {grouping === 'project' && design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} markUnread={markUnread} markProjectRead={markProjectRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}
-        {grouping === 'project' && design === 'classic' && shown.map(project => {
+        {grouping === 'state' && <StatePanels groups={groups} verified={verified} now={now} unread={unread} markRead={markRead} markUnread={markUnread} graphical={false} />}
+        {grouping === 'project' && shown.map(project => {
           const defaultCollapsed = !project.sessions.some(s => unread.has(s.id) || pins.pinned.has(s.id) || s.id === selectedSession || verified && isActive(s))
           const isCollapsed = collapsed[project.id] ?? (narrowed ? false : defaultCollapsed)
           return <ProjectPanel key={project.id} project={project} verified={verified} now={now} unread={unread} markRead={markRead} markUnread={markUnread} markProjectRead={markProjectRead} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />

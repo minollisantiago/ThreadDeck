@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, configure, fireEvent, render, screen } from '@testing-library/react'
 import { Dashboard } from './App'
+// jsdom cannot open native popovers; these tests check their controls and persistence.
+configure({ defaultHidden: true })
 
 afterEach(() => { cleanup(); localStorage.clear() })
 

@@ -103,8 +103,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .app-shell { max-width: 1280px; padding: 48px 40px 24px; margin-inline: auto; }
 .page-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
 .identity { display: flex; align-items: center; gap: 16px; }
-.brand-icon { display: grid; place-items: center; width: 46px; height: 46px; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); border-radius: 13px; color: var(--accent-ink); }
-.brand-icon svg { width: 25px; height: 25px; stroke-width: 1.5; }
+.page-header .brand-icon { display: grid; place-items: center; width: 25px; height: 25px; background: transparent; border-radius: 0; color: var(--accent-ink); flex-shrink: 0; }
+.brand-icon svg { width: 25px; height: 25px; stroke-width: 1.6; }
 .eyebrow { margin: 0 0 3px; color: var(--subtle); font-size: 9px; letter-spacing: 1.8px; }
 h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 13px; }
 .live-label { font-size: 9px; color: var(--accent-ink); letter-spacing: 1px; border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); border-radius: var(--pill-radius); padding: 3px 5px; }

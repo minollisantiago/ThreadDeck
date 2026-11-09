@@ -105,14 +105,14 @@ it('does not steal slash from editable fields or modified browser shortcuts', ()
   fireEvent.keyDown(document.body, { key: '/', ctrlKey: true })
   expect(document.activeElement).not.toBe(input)
 })
-it('places the GitHub icon link beside the theme control instead of on the branding', () => {
+it('places the GitHub link inside interface settings rather than on the branding', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
-  const link = screen.getByRole('link', { name: 'ThreadDeck on GitHub' })
+  const link = screen.getByRole('link', { name: 'ThreadDeck on GitHub', hidden: true })
   expect(link.getAttribute('href')).toBe('https://github.com/minollisantiago/ThreadDeck')
   expect(link.getAttribute('target')).toBe('_blank')
   expect(link.getAttribute('rel')).toContain('noopener')
-  expect(link.closest('.appearance-controls')).not.toBeNull()
-  expect(link.previousElementSibling?.getAttribute('aria-label')).toBe('Switch to light mode')
+  expect(link.closest('.interface-popup')).not.toBeNull()
+  expect(screen.getByRole('button', { name: 'Switch to light mode' }).closest('.interface-popup')).toBeNull()
   expect(screen.getByRole('heading', { name: /ThreadDeck/ }).closest('a')).toBeNull()
 })
 it('keeps titles non-external and provides an explicit Discord link', () => {
@@ -193,7 +193,7 @@ it('moves update details into the connection tooltip', () => {
   const indicator = container.querySelector('.connection')
   expect(indicator?.closest('.user-panel')).toBeTruthy()
   expect(container.querySelector('.page-header .header-controls')).toBeNull()
-  expect(screen.getByRole('button', { name: 'Keyboard shortcuts' }).previousElementSibling).toBe(screen.getByRole('link', { name: 'ThreadDeck on GitHub' }))
+  expect(screen.getByRole('button', { name: 'Keyboard shortcuts', hidden: true }).previousElementSibling).toBe(screen.getByRole('link', { name: 'ThreadDeck on GitHub', hidden: true }))
   expect(indicator?.parentElement?.lastElementChild?.classList.contains('header-controls')).toBe(true)
   expect(container.querySelector('.profile-trigger-copy strong')?.textContent).toBe('Local operator')
   expect(container.querySelector('.user-panel-footer')?.textContent).not.toContain('Titles open')
@@ -296,10 +296,9 @@ it('disables mark all as read when no responses are unread', () => {
   render(<Dashboard snapshot={snapshot} now={now} />)
   expect(screen.getByRole('button', { name: 'Mark all as read' }).hasAttribute('disabled')).toBe(true)
 })
-it.each(['list', 'islands', 'state'] as const)('marks only the right-clicked thread read in the %s view', view => {
+it.each(['list', 'state'] as const)('marks only the right-clicked thread read in the %s view', view => {
   const unread: Snapshot = { ...snapshot, projects: snapshot.projects.map(project => ({ ...project, sessions: project.sessions.map(session => ({ ...session, status: 'idle', agentCount: 0, responseAt: now })) })) }
   const { unmount } = render(<Dashboard snapshot={unread} now={now} />)
-  if (view === 'islands') fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
   if (view === 'state') groupThreads('state')
   fireEvent.contextMenu(screen.getByText('Old conversation'), { clientX: 100, clientY: 200 })
   const menu = screen.getByRole('menu', { name: 'Thread actions' })
@@ -314,11 +313,10 @@ it.each(['list', 'islands', 'state'] as const)('marks only the right-clicked thr
   render(<Dashboard snapshot={unread} now={now} />)
   expect(screen.queryByRole('button', { name: 'Mark Old conversation as read' })).toBeNull()
 })
-it.each(['list', 'islands', 'state'] as const)('marks a previously read thread unread again in the %s view', view => {
+it.each(['list', 'state'] as const)('marks a previously read thread unread again in the %s view', view => {
   const data: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[1], sessions: [{ ...snapshot.projects[1].sessions[0], responseAt: now }] }] }
   const { unmount } = render(<Dashboard snapshot={data} now={now} />)
   fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
-  if (view === 'islands') fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
   if (view === 'state') groupThreads('state')
   fireEvent.contextMenu(screen.getByText('Old conversation'))
   expect(screen.getByRole('menuitem', { name: 'Mark as unread' }).getAttribute('aria-disabled')).toBe('true')
@@ -367,11 +365,10 @@ it('toggles state grouping, shows project pills, preserves filters and restores 
   groupThreads('project')
   expect(screen.getByRole('button', { name: /Alpha/ }).getAttribute('aria-expanded')).toBe('false')
 })
-it('persists grouping independently of appearance and supports state tiles and project search', async () => {
+it('persists grouping independently of appearance and supports state rows and project search', async () => {
   const { unmount, container } = render(<Dashboard snapshot={snapshot} now={now} />)
   groupThreads('state')
-  fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
-  expect(container.querySelector('.state-panel .session-tile')).not.toBeNull()
+  expect(container.querySelector('.state-panel .session-row')).not.toBeNull()
   unmount()
   render(<Dashboard snapshot={snapshot} now={now} />)
   fireEvent.focus(screen.getByRole('button', { name: 'Group threads' }))

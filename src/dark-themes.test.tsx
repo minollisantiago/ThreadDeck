@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, configure, fireEvent, render, screen, within } from '@testing-library/react'
 import { Dashboard } from './App'
 import { darkThemes, lightThemes } from './lib/theme'
+// Popover visibility and docking are covered by the browser tests.
+configure({ defaultHidden: true })
 
 afterEach(() => { cleanup(); localStorage.clear() })
 
