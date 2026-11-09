@@ -53,7 +53,7 @@ export function scheduleAdapter(bot) {
         if (input.changes.sendAt !== undefined) checked(parseSendAt({ value: input.changes.sendAt, now: bot.clock.now() }), 'edit')
         return checked(await editTask(bot, { id: input.id, ...input.changes }, current => revisionOf(current) === input.revision), 'edit')
       }
-      return checked(await runTaskNow(bot, input.id, current => revisionOf(current) === input.revision), 'run')
+      return { ...checked(await runTaskNow(bot, input.id, current => revisionOf(current) === input.revision), 'run'), projectId: row.channel_id }
     },
   }
 }

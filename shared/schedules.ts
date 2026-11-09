@@ -32,7 +32,7 @@ export const scheduleOperationSchema = z.object({
   id: requestId, action: z.enum(['create', 'edit', 'run', 'delete']),
   state: z.enum(['accepted', 'running', 'succeeded', 'failed', 'unknown']),
   updatedAt: z.number(), error: z.string().optional(),
-  result: z.object({ routineId: scheduleIdSchema, ran: z.boolean().optional(), reason: z.string().optional(), threadId: z.string().nullable().optional(), sessionId: z.string().nullable().optional() }).optional(),
+  result: z.object({ routineId: scheduleIdSchema, projectId: threadIdSchema.optional(), ran: z.boolean().optional(), reason: z.string().optional(), threadId: z.string().nullable().optional(), sessionId: z.string().nullable().optional() }).optional(),
 })
 export type ScheduleOperation = z.infer<typeof scheduleOperationSchema>
 export const schedulesCapability = 'schedules-v1'

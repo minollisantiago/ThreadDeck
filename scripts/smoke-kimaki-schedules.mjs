@@ -82,6 +82,7 @@ try {
   const onceTask = (await call('schedules')).schedules.find(t => t.id === once.routineId)
   const skipped = await submit({ action: 'run', id: onceTask.id, revision: onceTask.revision })
   assert.equal(skipped.state, 'succeeded', JSON.stringify(skipped)); assert.equal(skipped.result.ran, false)
+  assert.equal(skipped.result.projectId, id)
   assert.ok(!(await call('schedules')).schedules.some(t => t.id === onceTask.id))
   // Corrupt payloads remain visible but cannot be edited or run.
   await database.db.update(schema.scheduled_tasks).set({ payload_json: '{}' }).where(orm.eq(schema.scheduled_tasks.id, task.id))

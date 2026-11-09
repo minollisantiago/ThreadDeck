@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { AlertCircle, Clock3, Hash, Play, RefreshCw, Trash2, X } from 'lucide-react'
+import { AlertCircle, Clock3, Hash, MessageSquare, Play, RefreshCw, Trash2, X } from 'lucide-react'
 import type { Project } from '../../shared/model'
 import { scheduleTitle, type Schedule } from '../../shared/schedules'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { TooltipHint } from '../components/ui/tooltip'
 import { SidebarToggle } from '../chat/sidebar-toggle'
+import { useSessionNavigation } from '../chat/navigation'
+import { scheduleRunSession } from './run-session'
 import { useSchedulesContext, type ScheduleEditorTarget } from './use-schedules'
 import './schedules.css'
 
@@ -24,17 +26,23 @@ function Dialog({ title, children, close, busy = false }: { title: string; child
   }, [])
   return <dialog ref={dialog} className="schedule-dialog" aria-label={title} onCancel={event => { event.preventDefault(); if (!busy) close() }}><header><h2>{title}</h2><Button type="button" variant="ghost" size="icon" disabled={busy} aria-label={`Close ${title.toLowerCase()}`} onClick={close}><X size={17} /></Button></header>{children}</dialog>
 }
-export function ScheduleOperationNotice() {
+export function ScheduleOperationNotice({ projects }: { projects: Project[] }) {
   const workspace = useSchedulesContext(), operation = workspace.operation
+  const navigate = useSessionNavigation()
+  const session = scheduleRunSession(operation, workspace.tasks, projects)
   if (!workspace.operationId) return null
   const pending = operation?.state === 'accepted' || operation?.state === 'running'
   const uncertain = !operation || operation.state === 'unknown' || Boolean(workspace.operationError)
+  const dispatched = operation?.state === 'succeeded' && operation.action === 'run' && operation.result?.ran === true
+  const notification = dispatched && operation.result?.sessionId === null
   return <section className="schedule-operation" aria-label="Schedule operation status" role="status"><strong>{pending ? 'Schedule operation in progress' : operation?.state === 'succeeded' ? operation.result?.ran === false ? 'Occurrence not dispatched' : 'Schedule operation confirmed' : operation?.state === 'failed' ? 'Schedule operation rejected' : 'Schedule outcome unknown'}</strong>
     {operation?.result?.ran === false && <p>{operation.result.reason}</p>}
     {operation?.action === 'run' && operation.result?.ran && <p>Dispatched to Kimaki. This does not mean the AI turn has finished.</p>}
     {operation?.error && <p>{operation.error}</p>}{workspace.operationError && <p>{workspace.operationError}</p>}
     {pending && <p>You can leave this pane. Do not repeat the operation; status is checked automatically.</p>}
-    <small>Operation {workspace.operationId}</small><div><Button variant="outline" onClick={() => void workspace.checkOperation(workspace.operationId!)}>Check operation status</Button>{(!pending || workspace.operationError) && <Button variant="ghost" onClick={() => { if (!uncertain || window.confirm('Only continue if you have inspected schedules and Discord. A previous operation may still complete. Dismissing does not cancel it.')) workspace.dismissOperation() }}>{uncertain ? 'I have checked the outcome' : 'Dismiss result'}</Button>}</div>
+    {notification && <p>This was a notification-only run; no conversation was created.</p>}
+    {dispatched && !notification && !session && <p>The conversation link is not available in the local project inventory yet.</p>}
+    <small>Operation {workspace.operationId}</small><div>{dispatched && !notification && <Button variant="outline" disabled={!session || !navigate} onClick={() => { if (session) navigate?.(session) }}><MessageSquare size={14} />Open thread</Button>}{!dispatched && <Button variant="outline" onClick={() => void workspace.checkOperation(workspace.operationId!)}>Check operation status</Button>}{(!pending || workspace.operationError) && <Button variant="ghost" onClick={() => { if (!uncertain || window.confirm('Only continue if you have inspected schedules and Discord. A previous operation may still complete. Dismissing does not cancel it.')) workspace.dismissOperation() }}>{uncertain ? 'I have checked the outcome' : 'Dismiss result'}</Button>}</div>
   </section>
 }
 export function SchedulePane({ projects, sidebar, sidebarOpen }: { projects: Project[]; sidebar: () => void; sidebarOpen: boolean }) {
@@ -56,7 +64,7 @@ export function SchedulePane({ projects, sidebar, sidebarOpen }: { projects: Pro
     finally { setSubmitting(false) }
   }
   return <main className="chat-pane schedule-pane"><header className="chat-pane-header">{!sidebarOpen && <SidebarToggle open={false} toggle={sidebar} className="schedule-mobile-navigation" />}<div><span className="chat-channel-name"><span className="channel-hash">#</span>{project?.name || 'Schedules'}</span><strong>{task ? scheduleTitle(task) : 'Project schedules'}</strong></div><TooltipHint label="Refresh schedules"><Button variant="ghost" size="icon" aria-label="Refresh schedules" disabled={workspace.loading} onClick={() => void workspace.refresh()}><RefreshCw size={15} /></Button></TooltipHint></header>
-  <div ref={transcript} className="chat-transcript schedule-document"><div className="schedule-page"><ScheduleOperationNotice />{workspace.error && <div className="schedule-alert" role="alert"><AlertCircle size={17} /><div><strong>Schedules unavailable</strong><p>{workspace.error}</p>{workspace.checkedAt !== null && <p>Last successful refresh: {new Date(workspace.checkedAt).toLocaleTimeString()}. Displayed data may be stale; changes are disabled.</p>}</div></div>}
+  <div ref={transcript} className="chat-transcript schedule-document"><div className="schedule-page"><ScheduleOperationNotice projects={projects} />{workspace.error && <div className="schedule-alert" role="alert"><AlertCircle size={17} /><div><strong>Schedules unavailable</strong><p>{workspace.error}</p>{workspace.checkedAt !== null && <p>Last successful refresh: {new Date(workspace.checkedAt).toLocaleTimeString()}. Displayed data may be stale; changes are disabled.</p>}</div></div>}
   {task ? <><div className="schedule-kicker"><Clock3 size={14} />SCHEDULE <span>#{task.id}</span><span className={`schedule-status schedule-status-${task.status}`}>{task.status === 'running' ? 'Dispatching' : task.status === 'failed' ? 'Failed' : 'Planned'}</span></div><h2>{scheduleTitle(task)}</h2>
     <section className="schedule-next"><div><span className="schedule-label">{task.status === 'planned' ? 'NEXT PLANNED RUN' : task.status === 'running' ? 'OCCURRENCE BEING DISPATCHED' : 'NO FUTURE RUN PLANNED'}</span><strong>{task.status === 'failed' ? 'Failed one-time schedule' : date(task.nextRunAt, task.timezone)}</strong><small>{task.kind === 'at' ? 'One-time' : `Recurring · ${task.expression}`} · {task.timezone}</small>{task.timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone && task.status === 'planned' && <small>Your local time: {new Date(task.nextRunAt).toLocaleString()}</small>}</div><Clock3 size={30} strokeWidth={1} /></section>
     <div className="schedule-section-heading"><h3>Instruction</h3><span>Full saved prompt</span></div><div className="schedule-instruction">{task.prompt ?? 'The stored payload could not be decoded. The preview is not safe to edit.'}</div>
@@ -104,7 +112,7 @@ function ScheduleEditor({ target, projects }: { target: ScheduleEditorTarget; pr
     <div className="schedule-editor-columns"><label>Agent<Input aria-label="Agent" value={agent} onChange={event => setAgent(event.target.value)} disabled={busy} placeholder="Default" /></label><label>Model<Input aria-label="Model" value={model} onChange={event => setModel(event.target.value)} disabled={busy} placeholder="provider/model (optional)" /></label></div>
     <label>When the previous session is still busy<select value={String(overlap)} onChange={event => setOverlap(event.target.value === 'true')} disabled={busy}><option value="false">Do not overlap (cron skips; one-time waits)</option><option value="true">Allow concurrent sessions</option></select></label>
     {original?.preRun && <p className="schedule-note">The existing pre-run shell command is preserved. It is not executed by saving.</p>}
-    {error && <p role="alert" className="schedule-form-error">{error}</p>}{submittedId && <ScheduleOperationNotice />}
+    {error && <p role="alert" className="schedule-form-error">{error}</p>}{submittedId && <ScheduleOperationNotice projects={projects} />}
     <p className="schedule-note">New schedules start a conversation in this project. Existing destinations and advanced options are preserved on edit. Saving does not run the task.</p></div><footer><Button type="button" variant="outline" disabled={submitting} onClick={close}>{busy ? 'Close' : 'Cancel'}</Button><Button type="submit" disabled={busy || workspace.locked || !workspace.available}>{busy ? 'Saving…' : original ? 'Save changes' : 'Create schedule'}</Button></footer></form></Dialog>
 }
 export function ScheduleDialogs({ projects }: { projects: Project[] }) {

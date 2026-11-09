@@ -59,6 +59,12 @@ editor. The pane explicitly labels stored timezone and local-time conversion.
   the AI turn's entire lifetime. Planned cron routines may still show a previous
   dispatch error. Successful one-time routines disappear. Failed rows do not
   promise another future execution.
+- After a confirmed Run now dispatch, **Open thread** opens that exact run's
+  conversation inside ThreadDeck, even before it appears in the recent-session
+  inventory. New receipts retain the project so consumed one-time routines can
+  still be opened. Older receipts use the existing session or matching routine
+  project when available. Pending/uncertain operations retain **Check operation
+  status** instead. Notification-only runs do not invent a conversation link.
 - No fake pause/resume switch, execution-history view or second scheduler is
   introduced. Existing shell pre-run commands are shown read-only and explicitly
   called out by Run now confirmation.

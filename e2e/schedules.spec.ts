@@ -23,7 +23,7 @@ test('schedule icon actions expose thread-style tooltips on hover and keyboard f
 })
 async function fixture(page: Page, unavailable = false, losePostResponse = false, initialTasks = [fixtureTask]) {
   const mutations: Record<string, unknown>[] = []
-  let tasks = structuredClone(initialTasks), state = 'succeeded'
+  let tasks = structuredClone(initialTasks), state = 'succeeded', runSessionId: string | null = 'ses_scheduled'
   await page.route('**/api/events', route => route.abort())
   const snapshot: Snapshot = { health: 'connected', checkedAt: Date.now(), lastSuccessAt: Date.now(), attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'NaturalGas', directory: '/fixture/naturalgas', sessions: [] }, { id: '100000000000000009', name: 'Empty project', directory: '/fixture/empty', sessions: [] }] }
   await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
@@ -34,19 +34,20 @@ async function fixture(page: Page, unavailable = false, losePostResponse = false
       if (input.action === 'edit') tasks = tasks.map(task => ({ ...task, ...input.changes, revision: 'b'.repeat(64) }))
       if (input.action === 'create') tasks.push({ ...fixtureTask, id: 4, projectId: input.projectId, prompt: input.prompt })
       if (input.action === 'delete') tasks = tasks.filter(task => task.id !== input.id)
+      if (input.action === 'run' && tasks.find(task => task.id === input.id)?.kind === 'at') tasks = tasks.filter(task => task.id !== input.id)
       if (losePostResponse) return route.abort('failed')
       return route.fulfill({ status: 202, json: { id: input.requestId, action: input.action, state: 'accepted', updatedAt: Date.now() } })
     }
     if (route.request().url().includes('/operations/')) {
       const id = route.request().url().split('/').at(-1), input = mutations.find(mutation => mutation.requestId === id)
       if (!input) return route.fulfill({ status: 404, json: { error: 'Operation has not been accepted yet' } })
-      return route.fulfill({ json: { id, action: input.action, state, updatedAt: Date.now(), ...(state === 'succeeded' && { result: { routineId: input.action === 'create' ? 4 : input.id } }) } })
+      return route.fulfill({ json: { id, action: input.action, state, updatedAt: Date.now(), ...(state === 'succeeded' && { result: { routineId: input.action === 'create' ? 4 : input.id, ...(input.action === 'run' && { ran: true, projectId, threadId: '100000000000000020', sessionId: runSessionId }) } }) } })
     }
     return route.fulfill({ status: unavailable ? 503 : 200, json: unavailable ? { code: 'unsupported', error: 'Schedules need the updated local Kimaki bridge' } : { schedules: tasks, checkedAt: Date.now() } })
   })
   await page.goto('/')
   await page.getByRole('button', { name: 'Schedules', exact: true }).click()
-  return { mutations, setState(value: string) { state = value } }
+  return { mutations, setState(value: string) { state = value }, notificationOnly() { runSessionId = null } }
 }
 for (const width of [430, 1600]) test(`project sidebar opens tasks and edits in a focused dialog at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1050 })
@@ -198,4 +199,36 @@ test('an empty schedules sidebar keeps creation available for all registered pro
   await expect(page.locator('.chat-manager .project-panel')).toHaveCount(0)
   await page.getByRole('button', { name: 'New schedule', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'New project schedule' }).getByRole('combobox', { name: 'Project', exact: true }).locator('option')).toHaveCount(2)
+})
+for (const width of [430, 1600]) test(`confirmed runs open their conversation inside the app before inventory arrives at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1050 })
+  const { mutations } = await fixture(page, false, false, [{ ...fixtureTask, kind: 'at', expression: '2027-01-04T12:00:00Z' }])
+  await page.route('**/api/chat/info', route => route.fulfill({ json: { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', capabilities: ['history', 'changes', 'prompt', 'queue', 'catalog'] } }))
+  await page.route('**/api/chat/threads/*/catalog', route => route.fulfill({ json: { entries: [] } }))
+  await page.route('**/api/chat/threads/*/changes?*', () => {})
+  const reads: string[] = []
+  await page.route('**/api/chat/threads/*/messages', route => {
+    reads.push(route.request().url())
+    return route.fulfill({ json: { cursor: 'schedule:0', before: null, stale: false, messages: [{ id: '100000000000000030', channel_id: '100000000000000020', author: { id: 'bot', username: 'Kimaki', bot: true }, timestamp: '2026-11-09T12:00:00Z', content: '# Scheduled run conversation\n\nThis is the dispatched conversation.' }] } })
+  })
+  await page.getByRole('button', { name: /^Weekly backtests/ }).click()
+  await page.getByRole('button', { name: 'Run now', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Run this schedule now?' }).getByRole('button', { name: 'Run now', exact: true }).click()
+  const notice = page.getByRole('status', { name: 'Schedule operation status' })
+  await expect(notice.getByRole('button', { name: 'Check operation status' })).toHaveCount(0)
+  await notice.getByRole('button', { name: 'Open thread', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Scheduled run conversation', exact: true })).toBeVisible()
+  await expect(page.locator('.schedules-tabs button[aria-pressed=true]')).toHaveText('Threads')
+  expect(reads.every(url => url.includes('/threads/100000000000000020/messages'))).toBe(true)
+  expect(mutations).toHaveLength(1)
+  expect(new URL(page.url()).pathname).toBe('/')
+})
+test('notification-only runs never offer a misleading conversation link', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1050 })
+  const controls = await fixture(page)
+  controls.notificationOnly()
+  await page.getByRole('button', { name: 'Run now', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Run this schedule now?' }).getByRole('button', { name: 'Run now', exact: true }).click()
+  await expect(page.getByText('This was a notification-only run; no conversation was created.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open thread', exact: true })).toHaveCount(0)
 })

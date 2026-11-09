@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { Snapshot } from '../../shared/model'
+import type { Session, Snapshot } from '../../shared/model'
 import type { Schedule } from '../../shared/schedules'
 import { ChatWorkspace } from '../chat/workspace'
 import { ScheduleSidebar, ScheduleTabs } from './sidebar'
@@ -9,7 +9,7 @@ import { useDraft } from '../chat/drafts'
 import { useSchedules } from './use-schedules'
 
 vi.mock('../components/desktop-titlebar', () => ({ DesktopTitlebar: () => null }))
-vi.mock('../chat/pane', () => ({ ConversationPane: function FixturePane() { const { draft, save } = useDraft('schedules-test-draft'); return <textarea aria-label="Conversation draft" value={draft.text} onChange={event => save({ text: event.target.value })} /> } }))
+vi.mock('../chat/pane', () => ({ ConversationPane: function FixturePane({ target }: { target: { session?: Session } }) { const { draft, save } = useDraft('schedules-test-draft'); return <><span data-testid="opened-session">{target.session?.id}</span><textarea aria-label="Conversation draft" value={draft.text} onChange={event => save({ text: event.target.value })} /></> } }))
 const projectId = '100000000000000001'
 const task: Schedule = { id: 1, projectId, status: 'planned', kind: 'cron', expression: '0 12 * * 1', timezone: 'UTC', nextRunAt: '2027-01-04T12:00:00Z', prompt: 'Weekly backtest\n\n' + 'Full instruction '.repeat(30), preview: 'Weekly backtest...', threadId: null, notifyOnly: false, agent: 'build', model: null, preRun: null, allowConcurrency: false, lastError: null, revision: 'a'.repeat(64), editable: true }
 const snapshot: Snapshot = { projects: [{ id: projectId, name: 'NaturalGas', directory: '/project', sessions: [{ id: 'session', threadId: '100000000000000002', guildId: null, projectId, title: 'Conversation', status: 'idle', agentCount: 0, updatedAt: 1 }] }], health: 'connected', checkedAt: Date.now(), lastSuccessAt: Date.now(), attentionAvailable: true, inventoryLimited: false, message: null }
@@ -132,6 +132,27 @@ it('confirms Run now and keeps an unresolved operation from being posted twice',
   await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Run this schedule now?' })).toBeNull())
   expect((screen.getByRole('button', { name: 'Run now' }) as HTMLButtonElement).disabled).toBe(true)
   expect(localStorage.getItem('threaddeck:schedule-operation:v1')).toBe(posted[0].requestId)
+  expect(screen.queryByRole('button', { name: 'Open thread' })).toBeNull()
+})
+it('opens the dispatched thread inside the app even when its one-time routine is already removed', async () => {
+  tasks = [{ ...task, kind: 'at', expression: '2027-01-04T12:00:00Z' }]
+  const real = globalThis.fetch
+  vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+    if (url.includes('/operations/')) return Response.json({ id: url.split('/').at(-1), action: 'run', state: 'succeeded', updatedAt: 10, result: { routineId: task.id, projectId, ran: true, threadId: '100000000000000003', sessionId: 'ses_scheduled' } })
+    const response = await real(url, options)
+    if (options?.method === 'POST') tasks = []
+    return response
+  }))
+  setup(); await schedules()
+  fireEvent.click(screen.getByRole('button', { name: 'Run now' }))
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Run this schedule now?' })).getByRole('button', { name: 'Run now' }))
+  const open = await screen.findByRole('button', { name: 'Open thread' })
+  expect(screen.queryByRole('button', { name: 'Check operation status' })).toBeNull()
+  await waitFor(() => expect(screen.queryByRole('button', { name: /^Weekly backtest/ })).toBeNull())
+  fireEvent.click(open)
+  expect((await screen.findByTestId('opened-session')).textContent).toBe('ses_scheduled')
+  expect(screen.getByRole('button', { name: 'Threads' }).getAttribute('aria-pressed')).toBe('true')
+  expect(posted).toHaveLength(1)
 })
 it('keeps destructive deletion in Actions and requires explicit confirmation', async () => {
   setup(); await schedules()
