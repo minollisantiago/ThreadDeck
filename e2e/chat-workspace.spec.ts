@@ -507,7 +507,11 @@ for (const width of [430, 1440]) test(`author avatars have their own rail with a
     await expect(group.locator('.chat-avatar')).toHaveCount(1)
     const avatar = await group.locator('.chat-avatar').boundingBox(), content = await group.locator('.chat-message-content').boundingBox(), name = await group.locator('.chat-message-meta strong').boundingBox(), text = await group.locator('.chat-markdown').first().boundingBox()
     expect(avatar!.width).toBe(size)
-    await expect(group.locator('.chat-avatar')).toHaveCSS('border-radius', await group.evaluate(element => element.classList.contains('user')) ? '50%' : width === 430 ? '8px' : '9px')
+    await expect(group.locator('.chat-avatar')).toHaveCSS('border-radius', '50%')
+    if (await group.evaluate(element => element.classList.contains('assistant'))) {
+      await expect(group.locator('.chat-avatar')).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+      expect((await group.locator('.chat-hush-avatar').boundingBox())!.width).toBeCloseTo(size - 6, 0)
+    }
     expect(Math.abs(content!.x - avatar!.x - avatar!.width - gap)).toBeLessThan(1)
     expect(name!.x).toBeCloseTo(content!.x, 0)
     expect(text!.x).toBeCloseTo(content!.x, 0)
@@ -530,6 +534,7 @@ for (const width of [430, 1440]) test(`author avatars have their own rail with a
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.getByLabel('Conversation messages', { exact: true }).evaluate(node => { node.scrollTop = 0 })
   await page.screenshot({ path: `artifacts/production-chat/author-rail-implemented-${width}.png`, animations: 'disabled' })
+  await answer.screenshot({ path: `artifacts/production-chat/agent-avatar-circle-${width}.png`, animations: 'disabled' })
 })
 for (const width of [430, 1440]) test(`copies the published Markdown of one complete agent group at ${width}px`, async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
