@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- THROWAWAY: compare the existing rename focus ring with the requested quiet,
+     background-derived inset. Same dialog/layout; no live sessions or mutations.
+     Open directly, ?variant=current|inset or ?compare=1. -->
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ThreadDeck · Rename focus study</title>
+<style>
+@font-face{font-family:JetBrains;src:url('../../public/fonts/JetBrainsMono-Regular.woff2')}
+*{box-sizing:border-box}body{margin:0;background:#101014;color:#eeeeef;font:13px/1.5 JetBrains,ui-monospace,monospace;--surface:#222229;--text:#eeeeef;--muted:#b4b2bf}
+.gallery{display:grid;grid-template-columns:1fr;gap:24px;max-width:1100px;margin:auto;padding:30px 24px 90px}.compare .gallery{grid-template-columns:1fr 1fr}
+.caption{margin:0 0 14px;color:var(--muted);font-size:12px;font-weight:400}.scene{position:relative;min-height:320px;padding:32px 24px;background:#0d0d10;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.transcript{position:absolute;inset:14px 20px;color:#5d5b69;line-height:2.4;font-size:11px;opacity:.5;pointer-events:none}.transcript span{color:#96657a}
+.dialog{position:relative;width:440px;max-width:100%;padding:24px;background:var(--surface);border-radius:12px;box-shadow:0 16px 60px #0004}
+h2{font-size:16px;line-height:24px;margin:0 0 12px;font-weight:600}.description{font-size:12px;line-height:19.2px;margin:0 0 18px;color:var(--muted)}label{display:block;font-size:12px;margin-bottom:8px}
+input{width:100%;height:40px;border:1px solid #45454b;background:var(--surface);border-radius:8px;padding:8px 12px;color:var(--text);font:14px/20px JetBrains,monospace;outline:none}
+.current input{outline:2px solid #f77c9d;outline-offset:4px}
+.inset input{border-color:transparent;background:color-mix(in srgb,var(--surface) 94%,black);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--surface) 84%,var(--text))}
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}button{font:inherit;color:inherit;cursor:pointer}.actions button{border:0;border-radius:8px;padding:8px 12px;background:transparent;font-size:14px;font-weight:500}.actions button:first-child{color:var(--muted)}.actions button:last-child{background:#2e2e37}
+.note{margin:12px 0 0;font-size:11px;color:#93919f;line-height:1.7}.switcher{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;background:#303039;padding:8px 12px;border:1px solid #4a4a54;border-radius:10px;white-space:nowrap;font-size:11px}.switcher button{border:0;background:transparent;padding:4px 8px}.switcher a{color:#eeeeef}.compare .switcher{display:none}
+@media(max-width:760px){.compare .gallery{grid-template-columns:1fr}.gallery{padding:20px 16px 90px}.scene{padding:24px 16px}}
+</style>
+<main class="gallery" id="gallery"></main>
+<nav class="switcher"><button id="prev" aria-label="Previous variant">←</button><span id="state"></span><button id="next" aria-label="Next variant">→</button><a href="?compare=1">Compare</a></nav>
+<script>
+const params=new URLSearchParams(location.search),compare=params.get('compare')==='1';let variant=params.get('variant')==='current'?'current':'inset';
+const variants={current:['Current · accent outline','External pink ring, 4px outside the field.'],inset:['Proposed · subtle inset','1px inner edge · surface + 16% text · gently recessed fill · no accent halo.']};
+function render(){document.body.classList.toggle('compare',compare);document.getElementById('gallery').innerHTML=(compare?['current','inset']:[variant]).map(key=>`<section class="${key}"><h1 class="caption">${variants[key][0]}</h1><div class="scene"><div class="transcript"># Shell · Review session title changes<br>Published response · a moment ago<br><br><span>Review changes</span><br># Shell · Run targeted tests<br>Session connected · ready</div><div class="dialog"><h2>Rename conversation</h2><p class="description">Changes the session title and linked Discord thread name.</p><label for="name-${key}">Name</label><input id="name-${key}" value="IOL Connection" aria-label="Conversation name"><div class="actions"><button>Cancel</button><button>Save</button></div></div></div><p class="note">${variants[key][1]}</p></section>`).join('');document.getElementById('state').textContent=variants[variant][0]+' · MOCK ONLY';}
+function cycle(){variant=variant==='inset'?'current':'inset';params.set('variant',variant);history.replaceState(null,'','?'+params);render()}
+document.getElementById('prev').onclick=cycle;document.getElementById('next').onclick=cycle;document.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight'].includes(event.key)&&!event.target.matches('input,textarea,[contenteditable]'))cycle()});render();
+</script>
+</html>
