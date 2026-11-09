@@ -6,6 +6,10 @@ the chat pane with its full instruction, schedule, destination, agent/model,
 overlap policy and last dispatch error. The displayed title comes from the saved
 instruction; Kimaki does not have a separate routine-name field.
 
+Projects without matching schedules are hidden, including when searching or
+filtering. **New schedule** still lets you choose any registered project, even
+one that has no routines yet.
+
 ## Activation
 
 Schedules require the local bridge capability `schedules-v1`:

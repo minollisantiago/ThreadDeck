@@ -32,8 +32,8 @@ beforeEach(() => {
   }))
 })
 afterEach(() => { cleanup(); localStorage.clear(); delete window.threaddeckDesktop; vi.unstubAllGlobals(); vi.restoreAllMocks() })
-function setup() {
-  return render(<ChatWorkspace snapshot={snapshot}><ScheduleTabs /><ScheduleSidebar projects={snapshot.projects} /></ChatWorkspace>)
+function setup(value = snapshot) {
+  return render(<ChatWorkspace snapshot={value}><ScheduleTabs /><ScheduleSidebar projects={value.projects} /></ChatWorkspace>)
 }
 async function schedules() { fireEvent.click(screen.getByRole('button', { name: 'Schedules' })); await screen.findByRole('button', { name: /^Weekly backtest/ }) }
 it('reuses project tree rows, full saved prompts and the main pane', async () => {
@@ -65,6 +65,26 @@ it('edits losslessly and only sends changed fields, preserving legacy scheduling
   expect(posted[0]).toMatchObject({ action: 'edit', id: 1, revision: task.revision, changes: { agent: '' } })
   expect(posted[0].changes).toEqual({ agent: '' })
   await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit schedule' })).toBeNull())
+})
+it('hides empty projects and filtered-out groups while keeping all projects available for creation', async () => {
+  const emptyProject = { id: '100000000000000009', name: 'Empty project', directory: '/empty', sessions: [] }
+  setup({ ...snapshot, projects: [...snapshot.projects, emptyProject] }); await schedules()
+  expect(screen.queryByRole('button', { name: 'Toggle schedules for Empty project' })).toBeNull()
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search projects or schedules' }), { target: { value: emptyProject.name } })
+  expect(screen.queryByRole('button', { name: /Toggle schedules for/ })).toBeNull()
+  expect(screen.getByText('No matching schedules.')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+  fireEvent.click(screen.getByRole('button', { name: 'One-time' }))
+  expect(screen.queryByRole('button', { name: /Toggle schedules for/ })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'All' }))
+  expect(screen.getByRole('button', { name: 'Toggle schedules for NaturalGas' })).toBeTruthy()
+  tasks = []
+  fireEvent.click(screen.getAllByRole('button', { name: 'Refresh schedules' })[0])
+  await waitFor(() => expect(screen.queryByRole('button', { name: /Toggle schedules for/ })).toBeNull())
+  expect(screen.getByText('No schedules yet. Use New schedule to add one.')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'New schedule' }))
+  const dialog = screen.getByRole('dialog', { name: 'New project schedule' })
+  expect(within(dialog).getByRole('option', { name: 'Empty project' })).toBeTruthy()
 })
 it('retains editor drafts when refreshed data changes and protects dirty cancellation', async () => {
   setup(); await schedules()
@@ -127,6 +147,30 @@ it('keeps destructive deletion in Actions and requires explicit confirmation', a
   fireEvent.click(within(screen.getByRole('dialog', { name: 'Delete this schedule?' })).getByRole('button', { name: 'Delete schedule' }))
   await waitFor(() => expect(posted).toHaveLength(1))
   expect(posted[0]).toMatchObject({ action: 'delete', id: task.id })
+})
+it('shares thread-style filter tabs and slash search controls, including Escape and clear', async () => {
+  setup(); await schedules()
+  const filters = screen.getByRole('group', { name: 'Filter schedules' })
+  expect(filters.classList.contains('session-filters')).toBe(true)
+  fireEvent.click(within(filters).getByRole('button', { name: 'One-time' }))
+  expect(filters.getAttribute('data-motion-direction')).toBe('right')
+  fireEvent.click(within(filters).getByRole('button', { name: 'All' }))
+  expect(filters.getAttribute('data-motion-direction')).toBe('left')
+  const search = screen.getByRole('searchbox', { name: 'Search projects or schedules' })
+  expect(search.getAttribute('aria-keyshortcuts')).toBe('/')
+  expect(screen.getByRole('button', { name: 'Search shortcuts' }).textContent).toBe('/')
+  fireEvent.keyDown(document.body, { key: '/' })
+  expect(document.activeElement).toBe(search)
+  fireEvent.change(search, { target: { value: 'Weekly' } })
+  expect(screen.queryByRole('button', { name: 'Search shortcuts' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+  expect((search as HTMLInputElement).value).toBe('')
+  fireEvent.change(search, { target: { value: 'Another query' } })
+  fireEvent.keyDown(search, { key: 'Escape' })
+  expect((search as HTMLInputElement).value).toBe('')
+  expect(document.activeElement).not.toBe(search)
+  fireEvent.click(screen.getByRole('button', { name: 'Search shortcuts' }))
+  expect(document.activeElement).toBe(search)
 })
 it('ignores a late status response from a dismissed operation instead of unlocking a newer one', async () => {
   let hold = false, release!: (response: Response) => void

@@ -1,9 +1,9 @@
 import { useContext, useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, FolderPlus, Hash, Layers2, Plus, Search, SearchCode, X } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, FolderPlus, Hash, Layers2, Plus, SearchCode } from 'lucide-react'
 import { TooltipHint } from './components/ui/tooltip'
 import { Kbd, KbdGroup } from './components/ui/kbd'
 import { Button } from './components/ui/button'
-import { Input } from './components/ui/input'
+import { SidebarSearch } from './components/sidebar-search'
 import { HeaderControls, palettes, type Palette } from './components/header-controls'
 import { ConnectionIndicator } from './components/connection-indicator'
 import { ProfileControls } from './components/profile-controls'
@@ -182,7 +182,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
 
     <main>
       <div className="toolbar">
-        <div className="search-field"><Search aria-hidden="true" /><Input ref={search} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search projects or sessions…" aria-label="Search projects or sessions" aria-keyshortcuts="/" onKeyDown={e => { if (e.key === 'Escape') { setQuery(''); search.current?.blur() } }} />{query ? <button className="clear-search" aria-label="Clear search" onClick={() => setQuery('')}><X /></button> : <div className="search-shortcuts"><TooltipHint label={<>Filter projects or sessions <Kbd>/</Kbd> — outside text fields</>}><button type="button" aria-label="Search shortcuts" onClick={() => search.current?.focus()}><kbd>/</kbd></button></TooltipHint></div>}</div>
+        <SidebarSearch inputRef={search} query={query} setQuery={setQuery} placeholder="Search projects or sessions…" label="Search projects or sessions" hint="Filter projects or sessions" />
         {!workspace && searchAction}
         <div className="filter-toolbar">
         <FilterTabs filter={filter} setFilter={setFilter} />

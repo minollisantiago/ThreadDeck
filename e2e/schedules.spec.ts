@@ -4,18 +4,18 @@ import type { Snapshot } from '../shared/model'
 
 const projectId = '100000000000000010'
 const fixtureTask: Schedule = { id: 3, projectId, status: 'planned', kind: 'cron', expression: '0 12 * * 1', timezone: 'UTC', nextRunAt: '2027-01-04T12:00:00Z', prompt: 'Weekly backtests\n\nRead routines/daily-ng-backtests.md and follow all instructions. Summarize material changes and attach the report.', preview: 'Weekly backtests...', threadId: null, notifyOnly: false, agent: 'build', model: null, preRun: null, allowConcurrency: false, lastError: null, revision: 'a'.repeat(64), editable: true }
-async function fixture(page: Page, unavailable = false, losePostResponse = false) {
+async function fixture(page: Page, unavailable = false, losePostResponse = false, initialTasks = [fixtureTask]) {
   const mutations: Record<string, unknown>[] = []
-  let tasks = [structuredClone(fixtureTask)], state = 'succeeded'
+  let tasks = structuredClone(initialTasks), state = 'succeeded'
   await page.route('**/api/events', route => route.abort())
-  const snapshot: Snapshot = { health: 'connected', checkedAt: Date.now(), lastSuccessAt: Date.now(), attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'NaturalGas', directory: '/fixture/naturalgas', sessions: [] }] }
+  const snapshot: Snapshot = { health: 'connected', checkedAt: Date.now(), lastSuccessAt: Date.now(), attentionAvailable: true, inventoryLimited: false, message: null, projects: [{ id: projectId, name: 'NaturalGas', directory: '/fixture/naturalgas', sessions: [] }, { id: '100000000000000009', name: 'Empty project', directory: '/fixture/empty', sessions: [] }] }
   await page.route('**/api/snapshot', route => route.fulfill({ json: snapshot }))
   await page.route('**/api/chat/**', route => route.fulfill({ status: 503, json: { error: 'Chat deliberately unavailable in schedules fixture' } }))
   await page.route('**/api/schedules**', route => {
     if (route.request().method() === 'POST') {
       const input = route.request().postDataJSON(); mutations.push(input)
       if (input.action === 'edit') tasks = tasks.map(task => ({ ...task, ...input.changes, revision: 'b'.repeat(64) }))
-      if (input.action === 'create') tasks.push({ ...fixtureTask, id: 4, prompt: input.prompt })
+      if (input.action === 'create') tasks.push({ ...fixtureTask, id: 4, projectId: input.projectId, prompt: input.prompt })
       if (input.action === 'delete') tasks = tasks.filter(task => task.id !== input.id)
       if (losePostResponse) return route.abort('failed')
       return route.fulfill({ status: 202, json: { id: input.requestId, action: input.action, state: 'accepted', updatedAt: Date.now() } })
@@ -23,7 +23,7 @@ async function fixture(page: Page, unavailable = false, losePostResponse = false
     if (route.request().url().includes('/operations/')) {
       const id = route.request().url().split('/').at(-1), input = mutations.find(mutation => mutation.requestId === id)
       if (!input) return route.fulfill({ status: 404, json: { error: 'Operation has not been accepted yet' } })
-      return route.fulfill({ json: { id, action: input.action, state, updatedAt: Date.now(), ...(state === 'succeeded' && { result: { routineId: input.action === 'create' ? 4 : 3 } }) } })
+      return route.fulfill({ json: { id, action: input.action, state, updatedAt: Date.now(), ...(state === 'succeeded' && { result: { routineId: input.action === 'create' ? 4 : input.id } }) } })
     }
     return route.fulfill({ status: unavailable ? 503 : 200, json: unavailable ? { code: 'unsupported', error: 'Schedules need the updated local Kimaki bridge' } : { schedules: tasks, checkedAt: Date.now() } })
   })
@@ -117,4 +117,68 @@ test('a lost creation response resolves through its receipt without offering a d
   await expect(page.locator('.schedule-instruction')).toHaveText('Created despite a lost HTTP response')
   expect(mutations).toHaveLength(1)
   await expect(page.getByText('Schedule operation confirmed')).toBeVisible()
+})
+for (const width of [430, 1600]) test(`schedule filters and search match thread controls at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 1050 })
+  await fixture(page)
+  await page.getByRole('button', { name: 'Threads', exact: true }).click()
+  const threadFilter = page.getByRole('group', { name: 'Filter sessions' }).getByRole('button', { name: 'All sessions', exact: true })
+  await threadFilter.click()
+  const formatting = (element: HTMLElement) => {
+    const css = getComputedStyle(element)
+    return Object.fromEntries(['height', 'fontSize', 'fontFamily', 'lineHeight', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderRadius', 'borderBottomWidth', 'backgroundColor'].map(key => [key, css[key as keyof CSSStyleDeclaration]]))
+  }
+  const threadFormat = await threadFilter.evaluate(formatting)
+  const threadSearch = await page.getByRole('searchbox', { name: 'Search projects or sessions' }).evaluate(formatting)
+  const threadKey = await page.locator('.search-shortcuts kbd').evaluate(formatting)
+  await page.getByRole('button', { name: 'Schedules', exact: true }).click()
+  const filters = page.getByRole('group', { name: 'Filter schedules' })
+  await expect(filters).toHaveClass(/session-filters/)
+  expect(await filters.getByRole('button', { name: 'All', exact: true }).evaluate(formatting)).toEqual(threadFormat)
+  const search = page.getByRole('searchbox', { name: 'Search projects or schedules' })
+  expect(await search.evaluate(formatting)).toEqual(threadSearch)
+  expect(await page.locator('.search-shortcuts kbd').evaluate(formatting)).toEqual(threadKey)
+  await expect(filters.locator('.filter-indicator')).toBeVisible()
+  await page.keyboard.press('/')
+  await expect(search).toBeFocused()
+  await search.fill('Weekly')
+  await search.press('/')
+  await expect(search).toHaveValue('Weekly/')
+  await search.press('Escape')
+  await expect(search).toHaveValue('')
+  await expect(search).not.toBeFocused()
+  await page.getByRole('button', { name: 'Search shortcuts' }).click()
+  await expect(search).toBeFocused()
+})
+test('only projects with matching routines appear, including after the last routine is deleted', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1050 })
+  await fixture(page)
+  await expect(page.getByRole('button', { name: 'Toggle schedules for NaturalGas' })).toBeVisible()
+  const emptyProject = page.getByRole('button', { name: 'Toggle schedules for Empty project' })
+  await expect(emptyProject).toHaveCount(0)
+  const search = page.getByRole('searchbox', { name: 'Search projects or schedules' })
+  await search.fill('Empty project')
+  await expect(page.locator('.chat-manager .project-panel')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Clear search' }).click()
+  await page.getByRole('button', { name: 'One-time', exact: true }).click()
+  await expect(page.locator('.chat-manager .project-panel')).toHaveCount(0)
+  await page.getByRole('button', { name: 'All', exact: true }).click()
+  await page.getByRole('button', { name: 'New schedule', exact: true }).click()
+  const editor = page.getByRole('dialog', { name: 'New project schedule' })
+  await editor.getByRole('combobox', { name: 'Project', exact: true }).selectOption('100000000000000009')
+  await editor.getByRole('textbox', { name: 'Instruction' }).fill('First routine for the empty project')
+  await editor.getByRole('button', { name: 'Create schedule', exact: true }).click()
+  await expect(editor).toHaveCount(0)
+  await expect(emptyProject).toBeVisible()
+  await page.getByRole('button', { name: 'Delete schedule…' }).click()
+  await page.getByRole('dialog', { name: 'Delete this schedule?' }).getByRole('button', { name: 'Delete schedule', exact: true }).click()
+  await expect(emptyProject).toHaveCount(0)
+})
+test('an empty schedules sidebar keeps creation available for all registered projects', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1050 })
+  await fixture(page, false, false, [])
+  await expect(page.getByText('No schedules yet. Use New schedule to add one.')).toBeVisible()
+  await expect(page.locator('.chat-manager .project-panel')).toHaveCount(0)
+  await page.getByRole('button', { name: 'New schedule', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'New project schedule' }).getByRole('combobox', { name: 'Project', exact: true }).locator('option')).toHaveCount(2)
 })
