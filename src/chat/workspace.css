@@ -42,7 +42,7 @@
 /* Quieter sidebar titles; retain the existing row height and badge hierarchy. */
 .chat-manager .session-row .session-title { font-size: 12px; color: color-mix(in srgb, var(--muted) 86%, var(--ground)); }
 .chat-manager .session-attention .session-title { color: color-mix(in srgb, var(--text) 82%, var(--ground)); }
-.chat-manager .session-row .session-title:hover, .chat-manager .session-row .session-title:focus-visible { color: var(--text); }
+.chat-manager .session-row:hover .session-title, .chat-manager .session-row .session-title:focus-visible { color: var(--text); }
 .chat-manager .appearance-controls[popover] { inset: 76px auto auto 16px; max-width: calc(100cqw - 32px); }
 .chat-manager .mobile-menu-toggle { width: 40px; height: 40px; }
 .chat-manager .thread-list-options[popover] { max-width: calc(100cqw - 32px); }

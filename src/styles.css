@@ -235,7 +235,7 @@ h1 { font-size: 29px; letter-spacing: -1.3px; line-height: 1.25; margin: 0; font
 .session-row::before { top: 0; height: 100%; }
 .session-row::after { top: 0; height: 50%; width: 10px; border-bottom: 1px solid var(--subtle); border-bottom-left-radius: 5px; }
 .session-row:last-child::before { height: 50%; }
-.session-row:hover, .session-row:focus-within { background: var(--row); }
+.session-row:hover .session-title, .session-title:focus-visible { color: var(--text); }
 .session-context-menu { position: fixed; z-index: 100; min-width: 170px; max-width: calc(100vw - 16px); padding: 5px; border: 1px solid var(--rule); border-radius: 9px; background: var(--surface); color: var(--text); box-shadow: 0 8px 28px #0003; }
 .session-context-menu button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border-radius: 5px; text-align: left; font-size: 13px; }
 .session-context-menu button:hover, .session-context-menu button:focus-visible { background: var(--row); }
@@ -320,7 +320,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-i
 .session-tile::before, .session-tile::after, .session-tile .session-attention-marker { display: none; }
 .session-tile .session-copy { grid-column: 2; grid-row: 1; }
 .session-tile .session-title { white-space: normal; overflow-wrap: anywhere; color: var(--text); font-size: 13px; line-height: 1.6; }
-.session-tile .session-title:hover { color: var(--accent); }
+.session-tile:hover .session-title, .session-tile .session-title:focus-visible { color: var(--accent); }
 .session-tile .session-flags { grid-column: 2 / -1; grid-row: 2; flex-wrap: wrap; }
 .session-tile .status { font-size: 12px; padding: 4px 9px; border-radius: var(--pill-radius); }
 .session-tile .session-actions { grid-column: 3; grid-row: 1; }.session-tile .browser-link { width: 26px; height: 26px; }
