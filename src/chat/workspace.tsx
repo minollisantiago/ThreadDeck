@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Layers2, Plus, Search, X } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
+import { BrandLogo } from '../components/brand-logo'
 import type { Project, Session, Snapshot } from '../../shared/model'
 import { fuzzyScore } from '../../shared/search'
 import { DesktopTitlebar } from '../components/desktop-titlebar'
@@ -9,7 +10,6 @@ import { SelectedSession, SessionNavigation, WorkspaceControls } from './navigat
 import type { ChatTarget } from './pane'
 import { mobileManagerStyle } from './mobile-style'
 import { ConversationSkeleton } from './conversation-skeleton'
-import { SidebarToggle } from './sidebar-toggle'
 import { ProjectBrowser } from './project-browser'
 import { Kbd, KbdGroup } from '../components/ui/kbd'
 import { SchedulesContext, useSchedules } from '../schedules/use-schedules'
@@ -187,15 +187,15 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const maxWidth = Math.floor(viewportWidth * sidebarMaxRatio), sidebarWidth = Math.max(sidebarMinWidth, Math.min(width, maxWidth))
   const hasPane = Boolean(target) || documentSection
   const sidebarOpen = !hasPane || (narrow ? drawer : sidebar)
+  const collapsedRail = hasPane && !narrow && !sidebar
   const toggleSidebar = () => { if (hasPane) { if (narrow) setDrawer(value => !value); else setSidebar(value => !value) } }
   const selectTask = useCallback((id: number) => { schedules.select(id); setDrawer(false) }, [schedules.select])
   const selectProposal = useCallback((id: string) => { proposals.select(id); setDrawer(false) }, [proposals.select])
-  return <WorkspaceSectionsContext.Provider value={{ section, setSection }}><ProposalsContext.Provider value={{ ...proposals, selectProposal }}><SchedulesContext.Provider value={{ ...schedules, selectTask }}><SelectedSession.Provider value={documentSection ? null : active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, discover, create: project => { if (project) start(project); else newSession() }, threadId: documentSection ? undefined : active?.threadId, ...(hasPane && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!hasPane ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+  return <WorkspaceSectionsContext.Provider value={{ section, setSection }}><ProposalsContext.Provider value={{ ...proposals, selectProposal }}><SchedulesContext.Provider value={{ ...schedules, selectTask }}><SelectedSession.Provider value={documentSection ? null : active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, collapsedRail, find, discover, create: project => { if (project) start(project); else newSession() }, threadId: documentSection ? undefined : active?.threadId, ...(hasPane && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!hasPane ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
     <style>{mobileManagerStyle}</style>
     {hasPane && narrow && <button className="chat-drawer-backdrop" data-open={drawer} aria-hidden={!drawer} tabIndex={drawer ? 0 : -1} aria-label="Close sidebar" onClick={() => setDrawer(false)} />}
     <div className={`chat-sidebar-slot ${hasPane && narrow ? 'mobile' : ''}`} data-open={sidebarOpen}>
-      <aside id="session-manager" ref={manager} inert={!sidebarOpen} aria-hidden={!sidebarOpen} data-open={sidebarOpen} className={`chat-manager ${hasPane && narrow ? 'drawer' : ''}`} aria-label="Session manager" {...(hasPane && narrow && drawer ? { role: 'dialog', 'aria-modal': true } : {})}>{children}</aside>
-      {hasPane && !narrow && !sidebar && <SidebarToggle open={false} toggle={toggleSidebar} className="chat-sidebar-reopen" />}
+      <aside id="session-manager" ref={manager} inert={!sidebarOpen && !collapsedRail} aria-hidden={!sidebarOpen && !collapsedRail} data-open={sidebarOpen} data-rail={collapsedRail} className={`chat-manager ${hasPane && narrow ? 'drawer' : ''}`} aria-label="Session manager" {...(hasPane && narrow && drawer ? { role: 'dialog', 'aria-modal': true } : {})}>{children}</aside>
     </div>
     {hasPane && !narrow && sidebar && <div className="chat-resizer" role="separator" tabIndex={0} aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin={sidebarMinWidth} aria-valuemax={maxWidth} aria-valuenow={sidebarWidth} onPointerDown={event => {
       const element = event.currentTarget; element.setPointerCapture(event.pointerId)
@@ -206,7 +206,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     {scheduleSection && <SchedulePane projects={projects} sidebar={toggleSidebar} sidebarOpen={sidebarOpen} />}
     {section === 'proposals' && <ProposalPane projects={projects} open={open} sidebar={toggleSidebar} sidebarOpen={sidebarOpen} narrow={narrow} />}
     {!documentSection && selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} mobileSidebar={narrow} sidebarOpen={sidebarOpen} sidebar={toggleSidebar} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
-    {!hasPane && <main className="chat-pane chat-empty-workspace"><div><Layers2 size={36} strokeWidth={1.2} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find a thread <kbd>Ctrl K</kbd></button></div></main>}
+    {!hasPane && <main className="chat-pane chat-empty-workspace"><div><BrandLogo size={36} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find a thread <kbd>Ctrl K</kbd></button></div></main>}
     {!hasPane && <button className="chat-manager-new" onClick={find}><Search size={15} />Find conversation <kbd>Ctrl K</kbd></button>}
     <ScheduleDialogs projects={projects} />
     {finder && <SessionFinder currentProject={target?.project} sessions={sessions} projects={projects} select={open} create={start} close={() => setFinder(false)} newSession={newSession} history={() => { setFinder(false); setHistoryOpen(true) }} />}

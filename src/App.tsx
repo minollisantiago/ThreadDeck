@@ -1,5 +1,6 @@
 import { useContext, useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, FolderPlus, Hash, Layers2, Plus, SearchCode } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, CircleAlert, ExternalLink, FolderPlus, Hash, Plus, SearchCode } from 'lucide-react'
+import { BrandLogo } from './components/brand-logo'
 import { TooltipHint } from './components/ui/tooltip'
 import { Kbd, KbdGroup } from './components/ui/kbd'
 import { Button } from './components/ui/button'
@@ -159,10 +160,18 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   useThreadListMotion(results, `${grouping}:${design}:${filter}:${query}:${listOrder.join(',')}`)
   const narrowed = query.trim().length > 0 || filter !== 'all' && filter !== 'active'
   const healthLabel = loading ? 'Connecting' : verified ? 'Connected' : snapshot?.lastSuccessAt ? 'Connection stale' : 'Disconnected'
+  if (workspace?.collapsedRail) return <div className="collapsed-sidebar" aria-label="Collapsed sidebar">
+    <TooltipHint label="ThreadDeck"><div className="collapsed-sidebar-brand"><BrandLogo size={25} aria-label="ThreadDeck" role="img" /></div></TooltipHint>
+    <SidebarToggle rail open={false} toggle={() => workspace.toggleSidebar?.()} />
+    <div className="collapsed-sidebar-utilities">
+      <HeaderControls compact rail appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} connection={null} />
+      <ProfileControls healthLabel={healthLabel} verified={verified} loading={loading} connectionDetails={transportError ? 'Cannot reach the dashboard server.' : snapshot?.message || 'Local workspace connection'} />
+    </div>
+  </div>
   const searchAction = <TooltipHint label={<>Advanced search — {workspace ? 'fuzzy session finder' : 'search chat logs'} {workspace && <><KbdGroup><Kbd>Ctrl</Kbd>+<Kbd>K</Kbd></KbdGroup> / </>}<Kbd>Double Space</Kbd></>}><Button variant="outline" size="icon" className="advanced-search" aria-label="Advanced search" aria-haspopup="dialog" onClick={openFinder}><SearchCode aria-hidden="true" /></Button></TooltipHint>
   return <PinnedSessions.Provider value={pins}>{!workspace && <DesktopTitlebar />}<div className="app-shell" data-design={design}>
     <header className="page-header">
-      <div className="identity"><div className="brand-icon"><Layers2 aria-hidden="true" /></div><h1>ThreadDeck</h1></div>
+      <div className="identity"><div className="brand-icon"><BrandLogo aria-hidden="true" /></div><h1>ThreadDeck</h1></div>
       <HeaderControls compact={workspace?.compact} appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} design={design} setDesign={setDesign} connection={<ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />} />
       {workspace?.toggleSidebar && <SidebarToggle open={Boolean(workspace.sidebarOpen)} toggle={workspace.toggleSidebar} />}
     </header>
@@ -200,7 +209,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
           const isCollapsed = collapsed[project.id] ?? (narrowed ? false : defaultCollapsed)
           return <ProjectPanel key={project.id} project={project} verified={verified} now={now} unread={unread} markRead={markRead} markUnread={markUnread} markProjectRead={markProjectRead} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />
         })}
-        {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button className="empty-state-action" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
+        {shown.length === 0 && <div className="empty-state"><BrandLogo /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button className="empty-state-action" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
       </div>
     </main></>}
     <footer>{!workspace && <span><span className="footer-dot" />LOCAL · READ ONLY</span>}<span>{workspace ? 'Titles open chat' : 'Titles open Discord app'} <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span><ProfileControls healthLabel={healthLabel} verified={verified} loading={loading} connectionDetails={transportError ? 'Cannot reach the dashboard server.' : snapshot?.message || (snapshot?.lastSuccessAt != null ? `Last updated ${new Date(snapshot.lastSuccessAt).toLocaleTimeString()}` : 'Waiting for the first successful update.')} /></footer>

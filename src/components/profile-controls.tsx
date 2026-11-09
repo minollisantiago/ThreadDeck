@@ -64,7 +64,8 @@ function ProfilePopup({ identity, healthLabel, verified, loading, connectionDeta
       const width = Math.min(preferences ? 360 : 300, window.innerWidth - 24)
       const above = rect.top - 22, below = window.innerHeight - rect.bottom - 22
       popup.style.width = `${width}px`
-      popup.style.left = `${Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12))}px`
+      const rail = trigger.current.closest('.collapsed-sidebar')
+      popup.style.left = `${Math.max(12, Math.min(rail ? rect.right + 14 : rect.right - width, window.innerWidth - width - 12))}px`
       popup.style.top = above >= below ? 'auto' : `${rect.bottom + 10}px`
       popup.style.bottom = above >= below ? `${window.innerHeight - rect.top + 10}px` : 'auto'
       popup.style.maxHeight = `${Math.max(120, Math.max(above, below))}px`
