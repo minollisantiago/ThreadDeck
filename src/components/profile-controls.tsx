@@ -46,9 +46,9 @@ function IdentitySettings({ identity }: { identity: ReturnType<typeof useProfile
       </section>
 }
 
-interface ProfileControlsProps { healthLabel: string; verified: boolean; loading: boolean; connectionDetails: string }
+interface ProfileControlsProps { healthLabel: string; verified: boolean; loading: boolean; connectionDetails: string; showIdentity?: boolean }
 
-function ProfilePopup({ identity, healthLabel, verified, loading, connectionDetails }: ProfileControlsProps & { identity: ReturnType<typeof useProfile> }) {
+function ProfilePopup({ identity, healthLabel, verified, loading, connectionDetails, showIdentity = false }: ProfileControlsProps & { identity: ReturnType<typeof useProfile> }) {
   const trigger = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   const back = useRef<HTMLButtonElement>(null)
@@ -88,7 +88,7 @@ function ProfilePopup({ identity, healthLabel, verified, loading, connectionDeta
     return () => { popup.removeEventListener('beforetoggle', beforeToggle); popup.removeEventListener('toggle', toggle); window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true) }
   }, [preferences])
   const close = () => { panel.current?.hidePopover(); trigger.current?.focus() }
-  return <><TooltipHint label="Profile and preferences"><button ref={trigger} className="profile-trigger" popoverTarget={id} aria-label="Profile and preferences" aria-haspopup="dialog" aria-controls={id} aria-expanded={open}><ProfileAvatar profile={identity.profile} /></button></TooltipHint>
+  return <><TooltipHint label="Profile and preferences"><button ref={trigger} className={`profile-trigger${showIdentity ? ' profile-trigger-identity' : ''}`} popoverTarget={id} aria-label="Profile and preferences" aria-haspopup="dialog" aria-controls={id} aria-expanded={open}><ProfileAvatar profile={identity.profile} />{showIdentity && <span className="profile-trigger-copy"><strong>{identity.profile?.displayName || 'Local operator'}</strong><small>{identity.profile ? `@${identity.profile.username}` : 'Local profile'}</small></span>}</button></TooltipHint>
     <div ref={panel} id={id} popover="auto" role="dialog" aria-label="Profile and preferences" className="profile-popup" data-preferences={preferences} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close() } }}>
       <div className="profile-popup-heading">{preferences ? <><button ref={back} className="profile-icon-button" aria-label="Back to profile" onClick={() => setPreferences(false)}><ArrowLeft /></button><h2>All preferences</h2></> : <Identity profile={identity.profile} />}<button className="profile-icon-button" aria-label="Close profile popup" onClick={close}><X /></button></div>
       <div className="profile-popup-body">{preferences ? <><Identity profile={identity.profile} /><section className="profile-section" aria-labelledby="profile-notifications-title"><h3 id="profile-notifications-title">Notifications</h3><NotificationSettings /></section><IdentitySettings identity={identity} /></> : <button ref={preferencesButton} className="profile-menu-item" onClick={() => setPreferences(true)}><Settings2 />All preferences<ChevronRight /></button>}

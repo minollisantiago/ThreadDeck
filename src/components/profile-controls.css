@@ -1,5 +1,26 @@
 .profile-trigger { display: grid; place-items: center; padding: 4px; border: 1px solid var(--rule); border-radius: 50%; background: var(--row); color: var(--text); cursor: pointer; flex-shrink: 0; }
 .profile-trigger:hover { border-color: var(--accent); background: var(--hover); }
+.user-panel { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--rule)); border-radius: 12px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); color: var(--text); }
+.user-panel > .connection { position: absolute; left: 32px; bottom: 10px; margin: 0; }
+.user-panel .connection-trigger { width: 14px; height: 14px; border: 2px solid var(--surface); border-radius: 50%; background: var(--surface); }
+.user-panel .connection .connection-dot { width: 8px; height: 8px; }
+.user-panel > .connection .connection-tooltip { top: auto; bottom: 24px; left: -24px; right: auto; max-width: min(340px, calc(100vw - 64px)); text-align: left; letter-spacing: normal; }
+.user-panel .profile-trigger { border: 0; background: transparent; }
+.user-panel .profile-trigger-identity { display: flex; flex: 1; min-width: 0; gap: 10px; padding: 4px; border-radius: 8px; text-align: left; }
+.user-panel .profile-trigger:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.profile-trigger-copy { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
+.profile-trigger-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 12px/1.3 var(--font); color: var(--text); }
+.profile-trigger-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 10px/1.3 var(--font); color: var(--muted); }
+.user-panel .header-controls { flex-shrink: 0; margin: 0 0 0 auto; }
+.user-panel .mobile-menu-toggle { display: inline-flex; width: 34px; height: 34px; color: var(--muted); }
+.user-panel .mobile-menu-toggle:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); }
+.user-panel .mobile-menu-toggle svg { width: 19px; height: 19px; }
+.user-panel .appearance-controls[popover] { position: fixed; inset: auto; margin: 0; width: 340px; max-width: calc(100vw - 32px); padding: 16px; border: 1px solid var(--rule); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 8px 28px #0003; flex-wrap: wrap; justify-content: flex-end; gap: 12px; overflow: auto; }
+.user-panel .appearance-controls[popover]:not(:popover-open) { display: none; }
+.user-panel .appearance-controls .palette-swatch { width: 28px; height: 36px; }
+.user-panel[data-collapsed=true] { flex-direction: column; gap: 8px; padding: 6px 2px; margin-top: auto; width: 46px; }
+.user-panel[data-collapsed=true] .header-controls { margin: 0; }
+.user-panel-footer { width: 100%; }
 .profile-popup { position: fixed; inset: auto; margin: 0; padding: 0; width: min(360px, calc(100vw - 24px)); border-radius: 15px; background: var(--surface); color: var(--text); border: 1px solid color-mix(in srgb, var(--muted) 25%, var(--surface)); box-shadow: 0 14px 45px #0005; font: 12px/1.5 var(--font); overflow: hidden; }
 .profile-popup:popover-open { display: flex; flex-direction: column; }
 .profile-popup::backdrop { background: transparent; }
