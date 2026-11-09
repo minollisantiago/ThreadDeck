@@ -35,7 +35,7 @@ public static class ThreadDeckTaskbar {
 }
 '@
 if (!$WindowHandle) {
-  $process = Get-Process electron -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'ThreadDeck' } | Select-Object -First 1
+  $process = Get-Process ThreadDeck,electron -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'ThreadDeck' } | Select-Object -First 1
   if (!$process) { throw 'No visible ThreadDeck window found' }
   $WindowHandle = $process.MainWindowHandle.ToInt64()
 }

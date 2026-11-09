@@ -12,7 +12,7 @@ async function main() {
   // Keep synthetic fixtures and cleared preferences out of the real app profile.
   const entry = path.join(directory, 'test-main.cjs')
   await fs.writeFile(entry, `require('electron').app.setPath('userData', ${JSON.stringify(path.join(directory, 'test-profile'))}); require('./main.cjs')`)
-  const app = await electron.launch({ executablePath: path.join(directory, 'electron.exe'), args: [entry, `--dashboard-port=${process.argv[3]}`, ...(process.argv[4] ? [`--launch-services=${process.argv[4]}`] : [])], env, timeout: 60_000 })
+  const app = await electron.launch({ executablePath: path.join(directory, 'ThreadDeck.exe'), args: [entry, `--dashboard-port=${process.argv[3]}`, ...(process.argv[4] ? [`--launch-services=${process.argv[4]}`] : [])], env, timeout: 60_000 })
   log('Electron launched')
   try {
     const page = await app.firstWindow({ timeout: 20_000 })
@@ -61,9 +61,12 @@ async function main() {
     log('Preferences set')
     await page.reload()
     log(`Page loaded: ${await page.title()}`)
-    await page.getByRole('link', { name: 'Native Windows desktop wrapper', exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Native Windows desktop wrapper', exact: true }).waitFor()
     assert.equal(await page.evaluate(() => typeof window.require), 'undefined')
     assert.equal(await app.evaluate(({ app, nativeImage }) => nativeImage.createFromPath(`${app.getAppPath()}\\ThreadDeck.ico`).isEmpty()), false)
+    const executable = await app.evaluate(({ app }) => app.getPath('exe'))
+    assert.equal(path.basename(executable), 'ThreadDeck.exe')
+    require('node:child_process').execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(directory, 'windows-executable-icon.ps1'), '-Executable', executable, '-Icon', path.join(directory, 'ThreadDeck.ico')], { encoding: 'utf8' })
     const handle = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getNativeWindowHandle().readBigUInt64LE().toString())
     const taskbar = JSON.parse(require('node:child_process').execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(directory, 'windows-taskbar-probe.ps1'), '-WindowHandle', handle, '-RequireThreadDeck'], { encoding: 'utf8' }))
     assert.equal(taskbar.appId, 'ThreadDeck')
@@ -101,12 +104,15 @@ async function main() {
     }
     assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMinimized()), true)
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].restore())
-    await app.evaluate(({ shell }) => {
+    await app.evaluate(({ app, shell }) => {
       globalThis.openedLinks = []
       shell.openExternal = async url => { globalThis.openedLinks.push(url) }
+      app.getApplicationNameForProtocol = () => 'Discord'
     })
-    await page.getByRole('link', { name: 'Native Windows desktop wrapper', exact: true }).click()
-    await page.getByRole('link', { name: 'Open Native Windows desktop wrapper in browser', exact: true }).click()
+    const discordLink = page.getByRole('link', { name: 'Open Native Windows desktop wrapper in Discord', exact: true })
+    await discordLink.click()
+    await app.evaluate(({ app }) => { app.getApplicationNameForProtocol = () => '' })
+    await discordLink.click()
     const links = await app.evaluate(() => globalThis.openedLinks)
     assert.equal(links.length, 2)
     assert.ok(links[0].startsWith('discord://-/channels/'))
@@ -119,7 +125,7 @@ async function main() {
   if (process.argv[4]) {
     // Reopen the same profile: the loader must read the actual dashboard's saved
     // light preference without a running backend, not rely on file localStorage.
-    const lightApp = await electron.launch({ executablePath: path.join(directory, 'electron.exe'), args: [entry, `--launch-services=${process.argv[4]}`], env, timeout: 60_000 })
+    const lightApp = await electron.launch({ executablePath: path.join(directory, 'ThreadDeck.exe'), args: [entry, `--launch-services=${process.argv[4]}`], env, timeout: 60_000 })
     try {
       const splash = await lightApp.firstWindow()
       await splash.waitForURL(url => url.protocol === 'file:' && url.pathname.endsWith('/startup.html'))
@@ -136,7 +142,7 @@ async function main() {
     } finally { await lightApp.close().catch(() => {}) }
     const cancelEntry = path.join(directory, 'test-startup-cancel.cjs')
     await fs.writeFile(cancelEntry, `require('electron').app.setPath('userData', ${JSON.stringify(path.join(directory, 'test-profile'))}); require('./main.cjs')`)
-    const cancelApp = await electron.launch({ executablePath: path.join(directory, 'electron.exe'), args: [cancelEntry, `--launch-services=${process.argv[4]}`], env, timeout: 60_000 })
+    const cancelApp = await electron.launch({ executablePath: path.join(directory, 'ThreadDeck.exe'), args: [cancelEntry, `--launch-services=${process.argv[4]}`], env, timeout: 60_000 })
     try {
       const splash = await cancelApp.firstWindow()
       await splash.waitForURL(url => url.protocol === 'file:' && url.pathname.endsWith('/startup.html'))
@@ -154,7 +160,7 @@ async function main() {
   await fs.writeFile(supervisedEntry, `require('electron').app.setPath('userData', ${JSON.stringify(path.join(directory, 'supervised-test-profile'))}); require('./main.cjs')`)
   const lease = path.join(directory, 'test-supervisor.lease')
   await fs.writeFile(lease, '')
-  const child = require('node:child_process').spawn(path.join(directory, 'electron.exe'), [supervisedEntry, `--dashboard-port=${process.argv[3]}`, `--supervisor-lease=${lease}`], { cwd: directory, env, stdio: ['ignore', 'pipe', 'pipe'] })
+  const child = require('node:child_process').spawn(path.join(directory, 'ThreadDeck.exe'), [supervisedEntry, `--dashboard-port=${process.argv[3]}`, `--supervisor-lease=${lease}`], { cwd: directory, env, stdio: ['ignore', 'pipe', 'pipe'] })
   child.stdout.pipe(process.stdout)
   child.stderr.pipe(process.stderr)
   const exited = new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', resolve) })

@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import vm from 'node:vm'
 import { EventEmitter } from 'node:events'
+import { NtExecutable, NtExecutableResource, Data, Resource } from 'resedit'
+import { brandExecutable, brandedWindowsExecutable } from './brand-windows-executable.mjs'
 import './discord.test.cjs'
 const require = createRequire(import.meta.url)
 const { externalLink, chatExternalLink, mobileBounds } = require('../electron/policy.cjs')
@@ -233,6 +235,48 @@ test('Windows app icon includes small and high-DPI versions of the favicon', () 
   assert.equal(icon.readUInt16LE(2), 1)
   assert.equal(icon.readUInt16LE(4), 7)
   assert.deepEqual(Array.from({ length: 7 }, (_, index) => icon[6 + index * 16] || 256), [16, 24, 32, 48, 64, 128, 256])
+})
+
+function executableWithPlaceholderIcon() {
+  const executable = NtExecutable.createEmpty(false, false)
+  const resources = NtExecutableResource.from(executable)
+  const icon = Data.IconFile.from(readFileSync(new URL('../electron/ThreadDeck.ico', import.meta.url)))
+  for (const [id, lang] of [[1, 1033], [2, 1046]]) Resource.IconGroupEntry.replaceIconsForResource(resources.entries, id, lang, [icon.icons[0].data])
+  resources.outputResource(executable)
+  return Buffer.from(executable.generate())
+}
+
+test('brands every executable shell icon group, not just the BrowserWindow icon', () => {
+  const source = executableWithPlaceholderIcon(), pristine = Buffer.from(source)
+  const icon = readFileSync(new URL('../electron/ThreadDeck.ico', import.meta.url))
+  const result = brandExecutable(source, icon)
+  assert.deepEqual(source, pristine, 'never alter the original Electron executable')
+  const resources = NtExecutableResource.from(NtExecutable.from(result))
+  const groups = Resource.IconGroupEntry.fromEntries(resources.entries)
+  assert.equal(groups.length, 2)
+  const bytes = item => Buffer.from(item.isRaw() ? item.bin : item.generate())
+  const expected = Data.IconFile.from(icon).icons.map(item => bytes(item.data))
+  for (const group of groups) {
+    assert.equal(group.icons.length, 7)
+    const actual = group.getIconItemsFromEntries(resources.entries).map(bytes)
+    assert.deepEqual(actual, expected)
+  }
+})
+
+test('prepares a separate branded executable and reuses it when unchanged', async () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'threaddeck-branding-'))
+  try {
+    const source = executableWithPlaceholderIcon()
+    writeFileSync(path.join(directory, 'electron.exe'), source)
+    writeFileSync(path.join(directory, 'ThreadDeck.ico'), readFileSync(new URL('../electron/ThreadDeck.ico', import.meta.url)))
+    const executable = await brandedWindowsExecutable(directory)
+    assert.equal(executable, path.join(directory, 'ThreadDeck.exe'))
+    const first = readFileSync(executable)
+    assert.notDeepEqual(first, source)
+    assert.equal(await brandedWindowsExecutable(directory), executable)
+    assert.deepEqual(readFileSync(executable), first)
+    assert.deepEqual(readFileSync(path.join(directory, 'electron.exe')), source)
+  } finally { rmSync(directory, { recursive: true, force: true }) }
 })
 
 test('narrow default fills available height without covering the taskbar', () => {

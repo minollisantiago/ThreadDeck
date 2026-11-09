@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { downloadArtifact } from '@electron/get'
+import { brandedWindowsExecutable } from './brand-windows-executable.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const powershell = '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
@@ -28,7 +29,7 @@ export async function windowsRuntime() {
   }
   for (const file of ['main.cjs', 'preload.cjs', 'policy.cjs', 'discord.cjs', 'audio-permissions.cjs', 'taskbar.cjs', 'notification-identity.cjs', 'tray.cjs', 'agent-status.cjs', 'install-shortcuts.cjs', 'appearance.cjs', 'window-state.cjs', 'startup-theme.js', 'startup.cjs', 'startup.html', 'startup.css', 'startup-ui.js', 'ThreadDeck.ico']) await copyFile(path.join(root, 'electron', file), path.join(directory, file))
   await copyFile(path.join(root, 'public/fonts/JetBrainsMono-Regular.woff2'), path.join(directory, 'JetBrainsMono-Regular.woff2'))
-  return { executable: path.join(directory, 'electron.exe'), args: [`${windowsDir}\\main.cjs`] }
+  return { executable: await brandedWindowsExecutable(directory), args: [`${windowsDir}\\main.cjs`] }
 }
 
 async function main() {
