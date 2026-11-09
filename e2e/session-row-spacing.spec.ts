@@ -26,6 +26,9 @@ for (const width of [320, 430, 1440]) for (const appearance of ['dark', 'light']
     await page.evaluate(() => document.fonts.ready)
     const rows = page.locator('.session-row')
     await expect(rows).toHaveCount(3)
+    for (const title of await rows.locator('.session-title').all()) {
+      await expect(title).toHaveCSS('font-size', '12px')
+    }
     const geometry = () => rows.evaluateAll(nodes => nodes.map(node => {
       const title = node.querySelector<HTMLElement>('.session-title')!, copy = node.querySelector('.session-copy')!.getBoundingClientRect()
       const flags = node.querySelector('.session-flags')!.getBoundingClientRect(), actions = node.querySelector('.session-actions')!.getBoundingClientRect()

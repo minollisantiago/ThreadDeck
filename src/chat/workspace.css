@@ -39,6 +39,10 @@
 /* Use the copy's pseudo-element: the row's own pseudo-elements draw tree connectors. */
 .chat-manager .session-row[data-selected=true] .session-copy::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; max-height: calc(100% - 16px); border-radius: 2px; background: var(--accent); pointer-events: none; }
 .chat-manager button.session-title { padding: 0; width: 100%; text-align: left; }
+/* Quieter sidebar titles; retain the existing row height and badge hierarchy. */
+.chat-manager .session-row .session-title { font-size: 12px; color: color-mix(in srgb, var(--muted) 86%, var(--ground)); }
+.chat-manager .session-attention .session-title { color: color-mix(in srgb, var(--text) 82%, var(--ground)); }
+.chat-manager .session-row .session-title:hover, .chat-manager .session-row .session-title:focus-visible { color: var(--text); }
 .chat-manager .appearance-controls[popover] { inset: 76px auto auto 16px; max-width: calc(100cqw - 32px); }
 .chat-manager .mobile-menu-toggle { width: 40px; height: 40px; }
 .chat-manager .thread-list-options[popover] { max-width: calc(100cqw - 32px); }
