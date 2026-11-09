@@ -10,9 +10,9 @@ import { ProjectCreateButton } from './project-create-button'
 import { PinnedSessions } from '../hooks/use-pinned'
 import { ProjectActivity } from './project-activity'
 
-export function ProjectIslands({ projects, verified, now, unread, markRead, markProjectRead, collapsed, toggle }: {
+export function ProjectIslands({ projects, verified, now, unread, markRead, markUnread, markProjectRead, collapsed, toggle }: {
   projects: Project[]; verified: boolean; now: number
-  unread: ReadonlySet<string>; markRead: (session: Session) => void
+  unread: ReadonlySet<string>; markRead: (session: Session) => void; markUnread?: (session: Session) => void
   markProjectRead: (projectId: string) => void
   collapsed: Record<string, boolean>; toggle: (key: string) => void
 }) {
@@ -40,7 +40,7 @@ export function ProjectIslands({ projects, verified, now, unread, markRead, mark
         </div>
         <ProjectCollapse id={`visual-sessions-${project.id}`} collapsed={closed}>
           <div className="visual-session-grid">
-            {sessionOrder(project.sessions, verified, unread, pins?.pinned).map(session => <SessionRow key={session.id} session={session} graphical verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)}
+            {sessionOrder(project.sessions, verified, unread, pins?.pinned).map(session => <SessionRow key={session.id} session={session} graphical verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} markUnread={markUnread} />)}
             {project.sessions.length === 0 && <p className="project-empty">No recent Discord sessions.</p>}
           </div>
         </ProjectCollapse>

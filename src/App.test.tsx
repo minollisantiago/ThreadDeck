@@ -311,6 +311,23 @@ it.each(['list', 'islands', 'state'] as const)('marks only the right-clicked thr
   render(<Dashboard snapshot={unread} now={now} />)
   expect(screen.queryByRole('button', { name: 'Mark Old conversation as read' })).toBeNull()
 })
+it.each(['list', 'islands', 'state'] as const)('marks a previously read thread unread again in the %s view', view => {
+  const data: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[1], sessions: [{ ...snapshot.projects[1].sessions[0], responseAt: now }] }] }
+  const { unmount } = render(<Dashboard snapshot={data} now={now} />)
+  fireEvent.click(screen.getByRole('button', { name: 'All sessions' }))
+  if (view === 'islands') fireEvent.click(screen.getByRole('button', { name: 'Switch to islands view' }))
+  if (view === 'state') groupThreads('state')
+  fireEvent.contextMenu(screen.getByText('Old conversation'))
+  expect(screen.getByRole('menuitem', { name: 'Mark as unread' }).getAttribute('aria-disabled')).toBe('true')
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Mark as read' }))
+  fireEvent.contextMenu(screen.getByText('Old conversation'))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Mark as unread' }))
+  expect(screen.queryByRole('menu')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Mark Old conversation as read' })).toBeTruthy()
+  unmount()
+  render(<Dashboard snapshot={data} now={now} />)
+  expect(screen.getByRole('button', { name: 'Mark Old conversation as read' })).toBeTruthy()
+})
 it('dismisses a thread menu without marking it read and supports keyboard invocation', () => {
   const unread: Snapshot = { ...snapshot, projects: [{ ...snapshot.projects[0], sessions: [{ ...snapshot.projects[0].sessions[0], status: 'idle', agentCount: 0, responseAt: now }] }] }
   render(<Dashboard snapshot={unread} now={now} />)

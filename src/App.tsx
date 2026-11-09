@@ -38,8 +38,8 @@ function saved<T>(key: string, fallback: T, validate: (value: unknown) => value 
 }
 function persist(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* preferences are optional */ } }
 
-function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markRead, markProjectRead }: {
-  project: Project; collapsed: boolean; toggle: () => void; verified: boolean; now: number; unread: ReadonlySet<string>; markRead: (session: Session) => void; markProjectRead: (projectId: string) => void
+function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markRead, markUnread, markProjectRead }: {
+  project: Project; collapsed: boolean; toggle: () => void; verified: boolean; now: number; unread: ReadonlySet<string>; markRead: (session: Session) => void; markUnread: (session: Session) => void; markProjectRead: (projectId: string) => void
 }) {
   const working = workingCount(project.sessions)
   const attention = project.sessions.filter(s => isAttention(s.status)).length
@@ -65,7 +65,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
     </div>
     <ProjectCollapse id={`sessions-${project.id}`} collapsed={collapsed}>
       <div className="project-sessions">
-        {project.sessions.length ? sessionOrder(project.sessions, verified, unread, pins?.pinned).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} />)
+        {project.sessions.length ? sessionOrder(project.sessions, verified, unread, pins?.pinned).map(session => <SessionRow key={session.id} session={session} verified={verified} now={now} unread={unread.has(session.id)} markRead={markRead} markUnread={markUnread} />)
           : <p className="project-empty">No recent Discord sessions.</p>}
       </div>
     </ProjectCollapse>
@@ -126,7 +126,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
   const verified = !transportError && snapshot?.health === 'connected' && !old
   const loading = !transportError && (!snapshot || snapshot.lastSuccessAt === null && snapshot.checkedAt === 0)
   const projects = snapshot?.projects ?? []
-  const { unread, markRead, markAllRead, markProjectRead } = useUnread(projects)
+  const { unread, markRead, markUnread, markAllRead, markProjectRead } = useUnread(projects)
   const pins = usePinned(projects)
   const selectedProject = projects.find(project => project.sessions.some(session => session.id === selectedSession))?.id
   useEffect(() => {
@@ -188,12 +188,12 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       <ConnectionNotice visible={!verified && !loading} hasSnapshot={Boolean(snapshot?.lastSuccessAt)} />
       <div className="section-caption"><span>{grouping === 'project' ? 'PROJECTS' : 'STATES'} <span className="caption-count">{(grouping === 'project' ? shown.length : groups.length).toString().padStart(2, '0')}</span></span><ThreadOptions grouping={grouping} setGrouping={setGrouping} unreadCount={unread.size} markAllRead={markAllRead} /></div>
       <div className="project-list" ref={results}>
-        {grouping === 'state' && <StatePanels groups={groups} verified={verified} now={now} unread={unread} markRead={markRead} graphical={design === 'islands'} />}
-        {grouping === 'project' && design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} markProjectRead={markProjectRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}
+        {grouping === 'state' && <StatePanels groups={groups} verified={verified} now={now} unread={unread} markRead={markRead} markUnread={markUnread} graphical={design === 'islands'} />}
+        {grouping === 'project' && design === 'islands' && shown.length > 0 && <ProjectIslands projects={shown} verified={verified} now={now} unread={unread} markRead={markRead} markUnread={markUnread} markProjectRead={markProjectRead} collapsed={visualCollapsed} toggle={key => setVisualCollapsed(previous => ({ ...previous, [key]: !previous[key] }))} />}
         {grouping === 'project' && design === 'classic' && shown.map(project => {
           const defaultCollapsed = !project.sessions.some(s => unread.has(s.id) || pins.pinned.has(s.id) || s.id === selectedSession || verified && isActive(s))
           const isCollapsed = collapsed[project.id] ?? (narrowed ? false : defaultCollapsed)
-          return <ProjectPanel key={project.id} project={project} verified={verified} now={now} unread={unread} markRead={markRead} markProjectRead={markProjectRead} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />
+          return <ProjectPanel key={project.id} project={project} verified={verified} now={now} unread={unread} markRead={markRead} markUnread={markUnread} markProjectRead={markProjectRead} collapsed={isCollapsed} toggle={() => setCollapsed(previous => ({ ...previous, [project.id]: !isCollapsed }))} />
         })}
         {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button className="empty-state-action" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
       </div>

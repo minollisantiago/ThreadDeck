@@ -6,7 +6,7 @@ import { ConversationPane } from './pane'
 import type { PublishedMessage } from '../../shared/chat'
 import type { Project, Session } from '../../shared/model'
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals() })
+afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 const session: Session = { id: 'ses_test', projectId: '100000000000000010', threadId: '100000000000000001', guildId: null, title: 'Test', status: 'idle', agentCount: 0, updatedAt: 1 }
 const project: Project = { id: session.projectId, name: 'Test', directory: '/test', sessions: [session] }
@@ -31,15 +31,39 @@ async function setup(history: PublishedMessage[] = [], recovered?: { id: string;
   }))
   const targetSession = { ...session, id: webcrypto.randomUUID() }
   if (recovered) localStorage.setItem(`threaddeck:chat-operation:${targetSession.id}`, JSON.stringify({ ...recovered, text: 'Same prompt', files: [], optimistic: true, delivery: 'send' }))
-  const rendered = render(<ConversationPane target={{ session: targetSession, project }} focusRequest={0} mobileSidebar={false} sidebarOpen={false} sidebar={vi.fn()} created={vi.fn()} markRead={vi.fn()} />)
+  const markRead = vi.fn()
+  const pane = (focusRequest: number) => <ConversationPane target={{ session: targetSession, project }} focusRequest={focusRequest} mobileSidebar={false} sidebarOpen={false} sidebar={vi.fn()} created={vi.fn()} markRead={markRead} />
+  const rendered = render(pane(0))
   await waitFor(() => expect(screen.getByLabelText('Conversation messages').getAttribute('aria-busy')).toBe('false'))
-  return { ...rendered, send: async () => {
+  return { ...rendered, markRead, session: targetSession, reopen: () => rendered.rerender(pane(1)), send: async () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Write a prompt' }), { target: { value: 'Same prompt' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
     await waitFor(() => expect(operation).not.toBe(''))
     return operation
   }, publish: async (message: PublishedMessage) => { await act(async () => { publish!(message) }) } }
 }
+
+it('preserves a manual unread marker in the visible thread until explicitly reopened', async () => {
+  vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+  const frames = new Map<number, FrameRequestCallback>()
+  let frame = 0
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++frame, callback); return frame })
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id))
+  const flush = () => act(() => { const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback(0)) })
+  const app = await setup([{ ...published('100000000000000007', 'reply'), content: 'Agent reply' }])
+  flush()
+  expect(app.markRead).toHaveBeenCalled()
+  app.markRead.mockClear()
+  act(() => {
+    window.dispatchEvent(new CustomEvent('threaddeck:mark-unread', { detail: app.session.id }))
+    window.dispatchEvent(new Event('focus'))
+  })
+  flush()
+  expect(app.markRead).not.toHaveBeenCalled()
+  app.reopen()
+  flush()
+  expect(app.markRead).toHaveBeenCalled()
+})
 
 it('replaces the optimistic prompt when Discord publishes before its receipt arrives', async () => {
   const app = await setup()

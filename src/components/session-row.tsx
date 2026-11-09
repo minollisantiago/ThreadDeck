@@ -14,8 +14,8 @@ import { SessionUnreadPill } from './session-unread-pill'
 
 const labels = { working: 'Working', idle: 'Idle', error: 'Error', input: 'Input requested', permission: 'Permission needed' }
 
-export function SessionRow({ session, verified, now, unread, markRead, graphical = false, projectName }: {
-  session: Session; verified: boolean; now: number; unread: boolean; markRead: (session: Session) => void; graphical?: boolean; projectName?: string
+export function SessionRow({ session, verified, now, unread, markRead, markUnread, graphical = false, projectName }: {
+  session: Session; verified: boolean; now: number; unread: boolean; markRead: (session: Session) => void; markUnread?: (session: Session) => void; graphical?: boolean; projectName?: string
 }) {
   const openSession = useSessionNavigation()
   const selected = useSelectedSession() === session.id
@@ -59,7 +59,7 @@ export function SessionRow({ session, verified, now, unread, markRead, graphical
       {pins && <TooltipHint label={pinned ? 'Unpin from Active' : 'Keep this thread in Active'}><button className="session-pin" data-pinned={pinned} aria-label={`${pinned ? 'Unpin' : 'Pin'} ${session.title}`} aria-pressed={pinned} onClick={() => pins.togglePin(session)}><Pin size={13} fill={pinned ? 'currentColor' : 'none'} aria-hidden="true" /></button></TooltipHint>}
       {links && <TooltipHint label="Open in Discord"><Button asChild variant="ghost" size="icon" className="browser-link"><a href={links.browser} target="_blank" rel="noreferrer" aria-label={`Open ${session.title} in Discord`} onClick={() => markRead(session)} onAuxClick={event => { if (event.button === 1) markRead(session) }}><ExternalLink /></a></Button></TooltipHint>}
     </div>
-    {menu && <SessionContextMenu {...menu} unread={unread} markRead={() => markRead(session)} close={closeMenu} pinned={pinned} togglePin={pins ? () => pins.togglePin(session) : undefined} rename={session.threadId ? () => setRenaming(true) : undefined} />}
+    {menu && <SessionContextMenu {...menu} unread={unread} markRead={() => markRead(session)} markUnread={markUnread ? () => markUnread(session) : undefined} close={closeMenu} pinned={pinned} togglePin={pins ? () => pins.togglePin(session) : undefined} rename={session.threadId ? () => setRenaming(true) : undefined} />}
     {renaming && <RenameSessionDialog session={session} close={() => { setRenaming(false); row.current?.focus() }} />}
   </div></TooltipHint>
 }

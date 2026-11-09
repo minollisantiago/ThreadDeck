@@ -56,10 +56,19 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
   const links = session ? discordLinks(session) : null
   const busy = session?.status === 'working' || Boolean(session?.agentCount)
   const publishedReply = conversation.messages.some(message => message.author.bot && !localOperatorPrompt(message))
+  const deferredRead = useRef<string | null>(null)
+  useEffect(() => { deferredRead.current = null }, [session?.id, focusRequest])
+  useEffect(() => {
+    // Keep a deliberate unread marker even while this transcript stays visible.
+    // Explicitly reopening the thread (focusRequest) resumes automatic reading.
+    const defer = (event: Event) => { deferredRead.current = (event as CustomEvent<string>).detail }
+    window.addEventListener('threaddeck:mark-unread', defer)
+    return () => window.removeEventListener('threaddeck:mark-unread', defer)
+  }, [])
   function markVisibleRead() {
     // Harness response timestamps and Discord publication timestamps are not a
     // shared clock. A loaded, visible transcript is the evidence of reading.
-    if (!session || !publishedReply || !following.current) return
+    if (!session || deferredRead.current === session.id || !publishedReply || !following.current) return
     if (!info || bridgeError || conversation.loading || conversation.error || conversation.stale) return
     if (preview || expanded || mobileSidebar && sidebarOpen || document.querySelector('dialog[open], .profile-popup:popover-open')) return
     if (document.visibilityState !== 'visible' || !document.hasFocus()) return
@@ -71,7 +80,7 @@ export function ConversationPane({ target, focusRequest, mobileSidebar, sidebarO
     window.addEventListener('focus', inspect); document.addEventListener('visibilitychange', inspect); document.addEventListener('focusin', inspect)
     inspect()
     return () => { cancelAnimationFrame(frame); window.removeEventListener('focus', inspect); document.removeEventListener('visibilitychange', inspect); document.removeEventListener('focusin', inspect) }
-  }, [session, publishedReply, info, bridgeError, conversation.loading, conversation.error, conversation.stale, preview, expanded, mobileSidebar, sidebarOpen])
+  }, [session, focusRequest, publishedReply, info, bridgeError, conversation.loading, conversation.error, conversation.stale, preview, expanded, mobileSidebar, sidebarOpen])
   useEffect(() => {
     const request = (event: Event) => {
       if (transcript.current && initialized.current) scrolls.set(key, transcript.current.scrollTop)
