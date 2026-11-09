@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { scheduleMutationSchema, scheduleOperationSchema, schedulesResponseSchema, type Schedule, type ScheduleMutation, type ScheduleOperation } from '../../shared/schedules'
+import type { WorkspaceSections } from '../chat/sections'
 
 const pendingKey = 'threaddeck:schedule-operation:v1'
 function savedOperation(): string | null { try { const id = localStorage.getItem(pendingKey); return id && /^[a-f0-9-]{36}$/.test(id) ? id : null } catch { return null } }
@@ -15,8 +16,9 @@ async function request(url: string, options?: RequestInit) {
   return value
 }
 export type ScheduleEditorTarget = { projectId: string; schedule?: Schedule }
-export function useSchedules() {
-  const [section, setSection] = useState<'threads' | 'schedules'>('threads')
+export function useSchedules(navigation?: WorkspaceSections) {
+  const [standaloneSection, setStandaloneSection] = useState<WorkspaceSections['section']>('threads')
+  const { section, setSection } = navigation || { section: standaloneSection, setSection: setStandaloneSection }
   const [tasks, setTasks] = useState<Schedule[]>([]), [selectedId, setSelectedId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false), [available, setAvailable] = useState(false), [error, setError] = useState('')
   const [checkedAt, setCheckedAt] = useState<number | null>(null)

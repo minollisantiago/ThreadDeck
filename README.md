@@ -43,7 +43,11 @@ with a lightweight Node.js backend. Node 24+ is required.
 
 ## Interface
 
-- **Threads / Schedules** switches the existing project sidebar. Schedules appear
+- **Threads / Schedules / Proposals** switches the existing project sidebar. Proposals
+  group actionable ideas by project, remember decisions, and create linked sessions
+  from editable starting prompts. Discovery uses the existing agent routines and
+  a shared persistent CLI/app inbox. See [proposal inbox and routine setup](docs/proposals.md).
+  Schedules appear
   as project-associated tree rows; selecting one shows its full instruction,
   next planned dispatch and configuration in the main pane. Create/edit uses a
   dialog; Run now and Delete require confirmation. The updated local Kimaki

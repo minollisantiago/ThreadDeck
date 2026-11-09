@@ -14,6 +14,9 @@ import { ProjectBrowser } from './project-browser'
 import { Kbd, KbdGroup } from '../components/ui/kbd'
 import { SchedulesContext, useSchedules } from '../schedules/use-schedules'
 import { ScheduleDialogs, SchedulePane } from '../schedules/pane'
+import { WorkspaceSectionsContext, type WorkspaceSection } from './sections'
+import { ProposalsContext, useProposals } from '../proposals/use-proposals'
+import { ProposalPane } from '../proposals/pane'
 import './workspace.css'
 const ConversationPane = lazy(async () => ({ default: (await import('./pane')).ConversationPane }))
 const sidebarMinWidth = 430, sidebarMaxRatio = .3
@@ -53,8 +56,11 @@ function ProjectDiscovery({ close, create }: { close: () => void; create: (proje
   return <dialog ref={dialog} className="chat-session-finder conversation-finder-frame" aria-label="Discover / add project" onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === dialog.current) close() }}><ProjectBrowser close={close} create={create} /></dialog>
 }
 export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | null; children: ReactNode }) {
-  const schedules = useSchedules()
-  const scheduleSection = schedules.section === 'schedules'
+  const [section, setSection] = useState<WorkspaceSection>('threads')
+  const schedules = useSchedules({ section, setSection })
+  const proposals = useProposals(section === 'proposals')
+  const scheduleSection = section === 'schedules'
+  const documentSection = section !== 'threads'
   const [target, setTarget] = useState<ChatTarget | null>(null), [finder, setFinder] = useState(false), [drawer, setDrawer] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [newThread, setNewThread] = useState(false)
@@ -67,12 +73,12 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const [width, setWidth] = useState(() => Number(localStorage.getItem('threaddeck:chat-sidebar-width')) || 430)
   const projects = snapshot?.projects || [], sessions = projects.flatMap(project => project.sessions), manager = useRef<HTMLElement>(null)
   const { markRead } = useUnread(projects)
-  const current = useRef({ target, sessions, projects, scheduleSection }); current.current = { target, sessions, projects, scheduleSection }
+  const current = useRef({ target, sessions, projects, documentSection }); current.current = { target, sessions, projects, documentSection }
   const chord = useRef(0), spaces = useRef(0)
   const pendingFocus = useRef<'focus' | 'toggle' | null>(null)
   const open = useCallback((session: Session) => {
     const project = current.current.projects.find(p => p.id === session.projectId)
-    if (project) { schedules.setSection('threads'); rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(false); setDrawer(false) }
+    if (project) { setSection('threads'); rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(false); setDrawer(false) }
   }, [])
   const find = useCallback(() => { setNewThread(false); setDiscovering(false); setHistoryOpen(false); setFinder(true) }, [])
   const newSession = useCallback(() => { setFinder(false); setHistoryOpen(false); setDiscovering(false); setNewThread(true) }, [])
@@ -84,16 +90,16 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     if (session) { restored.current = true; open(session); setDesktopSession(null) }
   }, [desktopSession, sessions, open])
   useEffect(() => {
-    window.threaddeckDesktop?.viewing?.(scheduleSection ? null : target?.session?.id ?? null)
+    window.threaddeckDesktop?.viewing?.(documentSection ? null : target?.session?.id ?? null)
     return () => window.threaddeckDesktop?.viewing?.(null)
-  }, [target?.session?.id, scheduleSection])
+  }, [target?.session?.id, documentSection])
   const start = useCallback((project: Project) => {
     const original = current.current.projects.find(item => item.id === project.id) || project
-    schedules.setSection('threads')
+    setSection('threads')
     setTarget({ project: original }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setDiscovering(false); setHistoryOpen(false); setDrawer(false)
   }, [])
   useEffect(() => {
-    if (scheduleSection) { restored.current = true; return }
+    if (documentSection) { restored.current = true; return }
     if (restored.current || desktopSession || !snapshot || snapshot.health !== 'connected' || finder || historyOpen || newThread || discovering) return
     if (target) { restored.current = true; return } // Never replace explicit navigation.
     let saved: string | null = null
@@ -104,8 +110,8 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     // A connected backend can still have an incomplete startup inventory. Keep
     // watching subsequent snapshots rather than consuming the restore attempt.
     else setMissingSession(true)
-  }, [snapshot, open, target, finder, historyOpen, newThread, discovering, desktopSession, scheduleSection])
-  useEffect(() => { pendingFocus.current = null; chord.current = 0; spaces.current = 0; if (scheduleSection && narrow) setDrawer(true) }, [scheduleSection])
+  }, [snapshot, open, target, finder, historyOpen, newThread, discovering, desktopSession, documentSection])
+  useEffect(() => { pendingFocus.current = null; chord.current = 0; spaces.current = 0; if (section !== 'threads' && narrow) setDrawer(true) }, [section])
   useEffect(() => {
     if (!target) return
     restored.current = true; setMissingSession(false)
@@ -123,7 +129,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
       window.dispatchEvent(new CustomEvent('threaddeck:composer-request', { detail }))
     }
     const focus = (toggle = false) => {
-      if (current.current.scheduleSection) return
+      if (current.current.documentSection) return
       for (const panel of document.querySelectorAll<HTMLElement>('[popover]:popover-open')) panel.hidePopover()
       if (!current.current.target && current.current.sessions[0]) open(current.current.sessions[0])
       else if (!current.current.target) { setFinder(true); return }
@@ -146,7 +152,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
         return
       }
       if (ctrl && (event.key.toLowerCase() === 'k' || event.key === 'Tab' && Boolean(window.threaddeckDesktop))) { event.preventDefault(); event.stopPropagation(); setNewThread(false); setFinder(true); return }
-      if (ctrl && event.key === 'Enter' && !current.current.scheduleSection && current.current.target && (event.target as HTMLElement).closest('.chat-composer')) { event.preventDefault(); event.stopPropagation(); window.dispatchEvent(new CustomEvent('threaddeck:composer-submit', { detail: event.shiftKey ? 'queue' : 'send' })); return }
+      if (ctrl && event.key === 'Enter' && !current.current.documentSection && current.current.target && (event.target as HTMLElement).closest('.chat-composer')) { event.preventDefault(); event.stopPropagation(); window.dispatchEvent(new CustomEvent('threaddeck:composer-submit', { detail: event.shiftKey ? 'queue' : 'send' })); return }
       const el = event.target as HTMLElement
       if (event.code === 'Space' && !ctrl && !event.altKey && !el.closest('input,textarea,select,[contenteditable],button,a,[role="button"],dialog')) {
         event.preventDefault(); event.stopPropagation(); const now = performance.now()
@@ -179,11 +185,12 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const active = target?.session ? sessions.find(s => s.id === target.session!.id) || target.session : undefined
   const selected = target ? { ...target, ...(active && { session: active }) } : null
   const maxWidth = Math.floor(viewportWidth * sidebarMaxRatio), sidebarWidth = Math.max(sidebarMinWidth, Math.min(width, maxWidth))
-  const hasPane = Boolean(target) || scheduleSection
+  const hasPane = Boolean(target) || documentSection
   const sidebarOpen = !hasPane || (narrow ? drawer : sidebar)
   const toggleSidebar = () => { if (hasPane) { if (narrow) setDrawer(value => !value); else setSidebar(value => !value) } }
   const selectTask = useCallback((id: number) => { schedules.select(id); setDrawer(false) }, [schedules.select])
-  return <SchedulesContext.Provider value={{ ...schedules, selectTask }}><SelectedSession.Provider value={scheduleSection ? null : active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, discover, create: project => { if (project) start(project); else newSession() }, threadId: scheduleSection ? undefined : active?.threadId, ...(hasPane && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!hasPane ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+  const selectProposal = useCallback((id: string) => { proposals.select(id); setDrawer(false) }, [proposals.select])
+  return <WorkspaceSectionsContext.Provider value={{ section, setSection }}><ProposalsContext.Provider value={{ ...proposals, selectProposal }}><SchedulesContext.Provider value={{ ...schedules, selectTask }}><SelectedSession.Provider value={documentSection ? null : active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, find, discover, create: project => { if (project) start(project); else newSession() }, threadId: documentSection ? undefined : active?.threadId, ...(hasPane && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!hasPane ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
     <style>{mobileManagerStyle}</style>
     {hasPane && narrow && <button className="chat-drawer-backdrop" data-open={drawer} aria-hidden={!drawer} tabIndex={drawer ? 0 : -1} aria-label="Close sidebar" onClick={() => setDrawer(false)} />}
     <div className={`chat-sidebar-slot ${hasPane && narrow ? 'mobile' : ''}`} data-open={sidebarOpen}>
@@ -197,7 +204,8 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
       element.addEventListener('pointermove', move); element.addEventListener('pointerup', stop); element.addEventListener('pointercancel', stop)
     }} onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(Math.max(sidebarMinWidth, Math.min(maxWidth, sidebarWidth + (e.key === 'ArrowRight' ? 20 : -20)))) } }} />}
     {scheduleSection && <SchedulePane projects={projects} sidebar={toggleSidebar} sidebarOpen={sidebarOpen} />}
-    {!scheduleSection && selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} mobileSidebar={narrow} sidebarOpen={sidebarOpen} sidebar={toggleSidebar} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
+    {section === 'proposals' && <ProposalPane projects={projects} open={open} sidebar={toggleSidebar} sidebarOpen={sidebarOpen} narrow={narrow} />}
+    {!documentSection && selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} mobileSidebar={narrow} sidebarOpen={sidebarOpen} sidebar={toggleSidebar} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
     {!hasPane && <main className="chat-pane chat-empty-workspace"><div><Layers2 size={36} strokeWidth={1.2} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find a thread <kbd>Ctrl K</kbd></button></div></main>}
     {!hasPane && <button className="chat-manager-new" onClick={find}><Search size={15} />Find conversation <kbd>Ctrl K</kbd></button>}
     <ScheduleDialogs projects={projects} />
@@ -211,5 +219,5 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
       if (candidates.length !== 1) return false // Preserve the existing Discord fallback when project names are ambiguous.
       open({ id: hit.id, threadId: hit.threadId, guildId: hit.guildId, title: hit.title, projectId: candidates[0].id, updatedAt: hit.updatedAt, status: 'idle', agentCount: 0 }); return true
     }} />}
-  </div></WorkspaceControls.Provider></SessionNavigation.Provider></SelectedSession.Provider></SchedulesContext.Provider>
+  </div></WorkspaceControls.Provider></SessionNavigation.Provider></SelectedSession.Provider></SchedulesContext.Provider></ProposalsContext.Provider></WorkspaceSectionsContext.Provider>
 }

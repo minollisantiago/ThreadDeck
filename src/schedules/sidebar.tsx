@@ -8,12 +8,12 @@ import { FilterTabGroup } from '../components/filter-tabs'
 import { ProjectCollapse } from '../components/project-collapse'
 import { useSchedulesContext } from './use-schedules'
 import './schedules.css'
+import { WorkspaceTabs } from '../chat/sections'
 
 const filters = [{ value: 'all', label: 'All' }, { value: 'cron', label: 'Recurring' }, { value: 'at', label: 'One-time' }] as const
 
 export function ScheduleTabs() {
-  const workspace = useSchedulesContext()
-  return <div className="schedules-tabs" aria-label="Workspace section"><button type="button" aria-pressed={workspace.section === 'threads'} onClick={() => workspace.setSection('threads')}>Threads</button><button type="button" aria-pressed={workspace.section === 'schedules'} onClick={() => workspace.setSection('schedules')}>Schedules</button></div>
+  return <WorkspaceTabs />
 }
 export function ScheduleSidebar({ projects }: { projects: Project[] }) {
   const workspace = useSchedulesContext()

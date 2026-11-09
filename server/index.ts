@@ -10,6 +10,8 @@ import { chatHandler } from './chat.ts'
 import { projectHandler } from './projects.ts'
 import { sessionHandler } from './sessions.ts'
 import { scheduleHandler } from './schedules.ts'
+import { ProposalStore } from './proposal-store.ts'
+import { proposalHandler } from './proposals.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const port = Number(process.env.PORT ?? 43127)
@@ -22,6 +24,8 @@ const chat = chatHandler(port)
 const projects = projectHandler(port)
 const sessions = sessionHandler(port, monitor)
 const schedules = scheduleHandler(port)
+const proposalStore = new ProposalStore()
+const proposals = proposalHandler(port, proposalStore, monitor)
 const vite = production ? null : await (await import('vite')).createServer({
   root, server: { middlewareMode: true, hmr: { port: port + 1, host: '127.0.0.1' } }, appType: 'spa',
 })
@@ -30,6 +34,7 @@ const server = createServer((request, response) => {
   if (projects(request, response)) return
   if (sessions(request, response)) return
   if (schedules(request, response)) return
+  if (proposals(request, response)) return
   if (api(request, response)) return
   if (vite) { vite.middlewares(request, response); return }
   void (async () => {

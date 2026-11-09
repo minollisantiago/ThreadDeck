@@ -31,8 +31,9 @@ import { snapshotStaleAfterMs } from '../shared/update-timing'
 import { SelectedSession, WorkspaceControls } from './chat/navigation'
 import { ChatWorkspace } from './chat/workspace'
 import { SidebarToggle } from './chat/sidebar-toggle'
-import { SchedulesContext } from './schedules/use-schedules'
-import { ScheduleSidebar, ScheduleTabs } from './schedules/sidebar'
+import { ScheduleSidebar } from './schedules/sidebar'
+import { WorkspaceSectionsContext, WorkspaceTabs } from './chat/sections'
+import { ProposalSidebar } from './proposals/sidebar'
 import { isGrouping, projectOrder, sessionOrder, stateGroups, visibleProjects, workingCount, type Filter, type Grouping } from './lib/view'
 
 function saved<T>(key: string, fallback: T, validate: (value: unknown) => value is T): T {
@@ -76,7 +77,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
 
 export function Dashboard({ snapshot, transportError = false, now = Date.now() }: { snapshot: Snapshot | null; transportError?: boolean; now?: number }) {
   const workspace = useContext(WorkspaceControls)
-  const schedules = useContext(SchedulesContext)
+  const sections = useContext(WorkspaceSectionsContext)
   const selectedSession = useContext(SelectedSession)
   const openFinder = () => workspace ? workspace.find() : setHistoryOpen(true)
   const [query, setQuery] = useState('')
@@ -166,8 +167,8 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       {workspace?.toggleSidebar && <SidebarToggle open={Boolean(workspace.sidebarOpen)} toggle={workspace.toggleSidebar} />}
     </header>
 
-    {schedules && <ScheduleTabs />}
-    {schedules?.section === 'schedules' ? <ScheduleSidebar projects={projects} /> : <><div className="overview">
+    {sections && <WorkspaceTabs />}
+    {sections?.section === 'proposals' ? <ProposalSidebar projects={projects} /> : sections?.section === 'schedules' ? <ScheduleSidebar projects={projects} /> : <><div className="overview">
       <div className="overview-counts">{[
         { kind: 'working', count: working, label: 'working', shortLabel: 'working' },
         { kind: 'attention', count: attention, label: 'need attention', shortLabel: 'attention' },

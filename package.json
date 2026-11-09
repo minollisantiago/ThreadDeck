@@ -17,6 +17,7 @@
     "prototype:dashboard": "node scripts/render-dashboard-prototype.mjs",
     "prototype:chat": "node scripts/chat-workspace-prototype.mjs",
     "prototype:onboarding": "node scripts/onboarding-prototype.mjs",
+    "proposals": "tsx scripts/proposals.ts",
     "test:desktop": "node --test scripts/desktop.test.mjs",
     "dev": "tsx watch server/index.ts",
     "build": "tsc --noEmit && vite build",
