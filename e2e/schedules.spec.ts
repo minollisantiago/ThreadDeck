@@ -4,6 +4,23 @@ import type { Snapshot } from '../shared/model'
 
 const projectId = '100000000000000010'
 const fixtureTask: Schedule = { id: 3, projectId, status: 'planned', kind: 'cron', expression: '0 12 * * 1', timezone: 'UTC', nextRunAt: '2027-01-04T12:00:00Z', prompt: 'Weekly backtests\n\nRead routines/daily-ng-backtests.md and follow all instructions. Summarize material changes and attach the report.', preview: 'Weekly backtests...', threadId: null, notifyOnly: false, agent: 'build', model: null, preRun: null, allowConcurrency: false, lastError: null, revision: 'a'.repeat(64), editable: true }
+test('schedule icon actions expose thread-style tooltips on hover and keyboard focus', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1050 })
+  await fixture(page)
+  const manager = page.locator('.chat-manager')
+  for (const name of ['Refresh schedules', 'New schedule', 'Add schedule in NaturalGas']) {
+    await manager.getByRole('button', { name, exact: true }).hover()
+    await expect(page.getByRole('tooltip')).toHaveText(name)
+    await page.keyboard.press('Escape')
+    await page.mouse.move(0, 0)
+    await expect(page.getByRole('tooltip')).toHaveCount(0)
+  }
+  const refresh = page.locator('.schedule-pane').getByRole('button', { name: 'Refresh schedules', exact: true })
+  await refresh.focus()
+  await expect(page.getByRole('tooltip')).toHaveText('Refresh schedules')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
+})
 async function fixture(page: Page, unavailable = false, losePostResponse = false, initialTasks = [fixtureTask]) {
   const mutations: Record<string, unknown>[] = []
   let tasks = structuredClone(initialTasks), state = 'succeeded'

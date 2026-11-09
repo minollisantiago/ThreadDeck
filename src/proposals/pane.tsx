@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowUpRight, Check, Clock3, FileCode2, Lightbulb, MessageSq
 import type { Project, Session } from '../../shared/model'
 import { pendingLaunch, proposalApproaches, proposalStatuses, type ProposalApproach, type ProposalStatus } from '../../shared/proposals'
 import { Button } from '../components/ui/button'
+import { TooltipHint } from '../components/ui/tooltip'
 import { SidebarToggle } from '../chat/sidebar-toggle'
 import { useProposalsContext } from './use-proposals'
 import { ProposalBadge } from './sidebar'
@@ -55,7 +56,7 @@ export function ProposalPane({ projects, open, sidebar, sidebarOpen, narrow }: {
     try { await workspace.mutate({ action: 'reconcile', id: p.id, requestId: p.launch.id }); setActionError('') }
     catch (error) { setActionError(error instanceof Error ? error.message : 'Cannot check delivery.') }
   }
-  return <main className="chat-pane proposal-pane"><header className="chat-pane-header">{narrow && !sidebarOpen && <SidebarToggle open={sidebarOpen} toggle={sidebar} />}<div><span className="chat-channel-name"><span className="channel-hash">#</span>{project?.name || 'Proposals'}</span><strong className="chat-thread-title">{p?.title || 'Choose a proposal'}</strong></div><Button variant="ghost" size="icon" aria-label="Refresh proposals" disabled={workspace.busy || workspace.loading} onClick={() => void workspace.refresh()}><RefreshCw size={15} /></Button></header>
+  return <main className="chat-pane proposal-pane"><header className="chat-pane-header">{narrow && !sidebarOpen && <SidebarToggle open={sidebarOpen} toggle={sidebar} />}<div><span className="chat-channel-name"><span className="channel-hash">#</span>{project?.name || 'Proposals'}</span><strong className="chat-thread-title">{p?.title || 'Choose a proposal'}</strong></div><TooltipHint label="Refresh proposals"><Button variant="ghost" size="icon" aria-label="Refresh proposals" disabled={workspace.busy || workspace.loading} onClick={() => void workspace.refresh()}><RefreshCw size={15} /></Button></TooltipHint></header>
     <div className="chat-transcript proposal-document">{p ? <article className="proposal-page" key={p.id}><div className="proposal-kicker"><Lightbulb size={14} />PROPOSAL <span>Reviewed {new Date(p.reviewedAt).toLocaleDateString()}</span><ProposalBadge proposal={p} /></div><h2>{p.title}</h2><p className="proposal-lede">{p.summary}</p>
       {!project && <div className="proposals-error" role="alert">This project is not in the connected inventory. Session launch is disabled.</div>}
       <div className="proposal-facts"><div><span>KIND</span><strong>{p.kind === 'observed' ? 'Observed opportunity' : 'New idea'}</strong></div><div><span>EFFORT</span><strong>{p.effort === 'explore' ? 'Explore first' : p.effort[0].toUpperCase() + p.effort.slice(1)}</strong></div><div><span>PROJECT / CHANNEL</span><strong># {project?.name || p.projectId}</strong></div></div>

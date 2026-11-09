@@ -5,6 +5,19 @@ import type { Snapshot } from '../shared/model'
 
 const projectId = '100000000000000010', secondProject = '100000000000000020', threadId = '100000000000000001'
 const existingDraftKey = `threaddeck:chat-draft:v1:new:${projectId}`
+test('proposal refresh actions expose thread-style tooltips on hover and keyboard focus', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1100 })
+  await fixture(page)
+  await page.locator('.chat-manager').getByRole('button', { name: 'Refresh proposals', exact: true }).hover()
+  await expect(page.getByRole('tooltip')).toHaveText('Refresh proposals')
+  await page.keyboard.press('Escape')
+  await page.mouse.move(0, 0)
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
+  await page.locator('.proposal-pane').getByRole('button', { name: 'Refresh proposals', exact: true }).focus()
+  await expect(page.getByRole('tooltip')).toHaveText('Refresh proposals')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
+})
 function proposal(key: string, project = projectId): Proposal {
   return { id: randomUUID(), revision: randomUUID(), projectId: project, key, title: key === 'drafts' ? 'Keep drafts through reconnects' : 'Explain empty charts', summary: 'Make everyday work more reliable.', rationale: 'Inspect the current behavior before proposing a small improvement.', prompt: 'Investigate this opportunity and verify the evidence first.', kind: 'observed', effort: 'small', evidence: [{ label: 'Starting point', reference: 'src/chat/drafts.ts' }], status: 'inbox', createdAt: Date.now(), updatedAt: Date.now(), reviewedAt: Date.now(), snoozedUntil: null, decisionReason: '', session: null, launch: null }
 }

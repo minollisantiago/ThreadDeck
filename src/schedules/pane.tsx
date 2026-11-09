@@ -4,6 +4,7 @@ import type { Project } from '../../shared/model'
 import { scheduleTitle, type Schedule } from '../../shared/schedules'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { TooltipHint } from '../components/ui/tooltip'
 import { SidebarToggle } from '../chat/sidebar-toggle'
 import { useSchedulesContext, type ScheduleEditorTarget } from './use-schedules'
 import './schedules.css'
@@ -54,7 +55,7 @@ export function SchedulePane({ projects, sidebar, sidebarOpen }: { projects: Pro
     catch (error) { setError(error instanceof Error ? error.message : 'Operation could not be confirmed') }
     finally { setSubmitting(false) }
   }
-  return <main className="chat-pane schedule-pane"><header className="chat-pane-header">{!sidebarOpen && <SidebarToggle open={false} toggle={sidebar} className="schedule-mobile-navigation" />}<div><span className="chat-channel-name"><span className="channel-hash">#</span>{project?.name || 'Schedules'}</span><strong>{task ? scheduleTitle(task) : 'Project schedules'}</strong></div><Button variant="ghost" size="icon" aria-label="Refresh schedules" disabled={workspace.loading} onClick={() => void workspace.refresh()}><RefreshCw size={15} /></Button></header>
+  return <main className="chat-pane schedule-pane"><header className="chat-pane-header">{!sidebarOpen && <SidebarToggle open={false} toggle={sidebar} className="schedule-mobile-navigation" />}<div><span className="chat-channel-name"><span className="channel-hash">#</span>{project?.name || 'Schedules'}</span><strong>{task ? scheduleTitle(task) : 'Project schedules'}</strong></div><TooltipHint label="Refresh schedules"><Button variant="ghost" size="icon" aria-label="Refresh schedules" disabled={workspace.loading} onClick={() => void workspace.refresh()}><RefreshCw size={15} /></Button></TooltipHint></header>
   <div ref={transcript} className="chat-transcript schedule-document"><div className="schedule-page"><ScheduleOperationNotice />{workspace.error && <div className="schedule-alert" role="alert"><AlertCircle size={17} /><div><strong>Schedules unavailable</strong><p>{workspace.error}</p>{workspace.checkedAt !== null && <p>Last successful refresh: {new Date(workspace.checkedAt).toLocaleTimeString()}. Displayed data may be stale; changes are disabled.</p>}</div></div>}
   {task ? <><div className="schedule-kicker"><Clock3 size={14} />SCHEDULE <span>#{task.id}</span><span className={`schedule-status schedule-status-${task.status}`}>{task.status === 'running' ? 'Dispatching' : task.status === 'failed' ? 'Failed' : 'Planned'}</span></div><h2>{scheduleTitle(task)}</h2>
     <section className="schedule-next"><div><span className="schedule-label">{task.status === 'planned' ? 'NEXT PLANNED RUN' : task.status === 'running' ? 'OCCURRENCE BEING DISPATCHED' : 'NO FUTURE RUN PLANNED'}</span><strong>{task.status === 'failed' ? 'Failed one-time schedule' : date(task.nextRunAt, task.timezone)}</strong><small>{task.kind === 'at' ? 'One-time' : `Recurring · ${task.expression}`} · {task.timezone}</small>{task.timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone && task.status === 'planned' && <small>Your local time: {new Date(task.nextRunAt).toLocaleString()}</small>}</div><Clock3 size={30} strokeWidth={1} /></section>
