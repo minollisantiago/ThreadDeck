@@ -4,5 +4,6 @@
 .rename-session-dialog p { margin: 0 0 18px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .rename-session-dialog label { display: block; margin-bottom: 8px; font-size: 12px; }
 .rename-session-dialog input { width: 100%; }
+.rename-session-dialog input:focus-visible { outline: none; border-color: transparent; background: color-mix(in srgb, var(--surface) 94%, black); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 84%, var(--text)); }
 .rename-session-dialog [role=alert] { margin-top: 12px; color: var(--text); }
 .rename-session-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
