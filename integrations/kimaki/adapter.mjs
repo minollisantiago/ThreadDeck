@@ -16,6 +16,7 @@ import { SILENT_MESSAGE_FLAGS } from './format-parts.js'
 import { primaryAgents } from './sessions.js'
 import { transcribe, voiceMediaType } from './voice.js'
 import { preparePromptAudio, supportedAudioName } from './threaddeck-audio.js'
+import { scheduleAdapter } from './threaddeck-schedules.js'
 
 function result(value) { if (value instanceof Error) throw value; return value }
 export function attachThreadDeckBridge(bot) {
@@ -101,6 +102,7 @@ export function attachThreadDeckBridge(bot) {
   }
   const actor = () => ({ id: bot.discord.user.id, username: 'ThreadDeck local operator' })
   const bridge = createClientBridge({
+    schedules: scheduleAdapter(bot),
     async profile(userId = memberId) {
       if (!userId) return { profile: null }
       let user

@@ -24,13 +24,14 @@ if (JSON.parse(await readFile(path.join(original, 'package.json'), 'utf8')).vers
 const core = await build({ entryPoints: [path.join(root, 'integrations/kimaki/bridge-core.ts')], bundle: true, platform: 'node', format: 'esm', target: 'node24', packages: 'external', write: false })
 const adapter = await readFile(path.join(root, 'integrations/kimaki/adapter.mjs'), 'utf8')
 const audio = await readFile(path.join(root, 'integrations/kimaki/audio-prompt.mjs'), 'utf8')
+const schedules = await readFile(path.join(root, 'integrations/kimaki/schedules.mjs'), 'utf8')
 const require = createRequire(import.meta.url)
 const ffmpegPackage = path.dirname(require.resolve('ffmpeg-static/package.json'))
 const ffmpegVersion = JSON.parse(await readFile(path.join(ffmpegPackage, 'package.json'), 'utf8')).version
 if (!ffmpegPath) throw new Error('ffmpeg-static does not support this platform')
 try { await promisify(execFile)(ffmpegPath, ['-version'], { timeout: 10_000 }) }
 catch { throw new Error('Packaged FFmpeg is unavailable. Run npm install with the approved ffmpeg-static install script enabled, then prepare again.') }
-const hash = createHash('sha256').update(core.outputFiles[0].contents).update(adapter).update(audio).update(ffmpegVersion).update(ffmpegPath).update(await readFile(fileURLToPath(import.meta.url))).digest('hex').slice(0, 16)
+const hash = createHash('sha256').update(core.outputFiles[0].contents).update(adapter).update(audio).update(schedules).update(ffmpegVersion).update(ffmpegPath).update(await readFile(fileURLToPath(import.meta.url))).digest('hex').slice(0, 16)
 const fork = path.join(data, 'kimaki', `fork-${version}-${hash}`)
 let exists = false
 try { await access(path.join(fork, '.prepared')); exists = true } catch { /* new build */ }
@@ -78,6 +79,45 @@ if (!exists) {
     await writeFile(voice, voiceSource.replace(m4aOutput, "args: [...args, '-f', 's16le', '-acodec', 'pcm_s16le', '-ac', '1', '-ar', '48000']"))
     await writeFile(path.join(fork, directory, 'threaddeck-adapter.js'), adapter)
     await writeFile(path.join(fork, directory, 'threaddeck-audio.js'), audio)
+    // Extend the canonical writer with a revision guard, then use a compare-and-
+    // swap at its existing update. This also prevents native CLI lost updates.
+    const scheduler = path.join(fork, directory, `scheduler.${extension}`)
+    let scheduling = await readFile(scheduler, 'utf8')
+    const signature = extension === 'ts' ? 'export async function editTask(bot: Bot, edit: TaskEdit)' : 'export async function editTask(bot, edit)'
+    const guarded = extension === 'ts' ? 'export async function editTask(bot: Bot, edit: TaskEdit, guard: (row: TaskRow) => boolean = () => true)' : 'export async function editTask(bot, edit, guard = () => true)'
+    const editWhere = '.where(orm.and(orm.eq(schema.scheduled_tasks.id, edit.id), orm.eq(schema.scheduled_tasks.status, \'planned\')))'
+    if (scheduling.split(signature).length !== 2 || scheduling.split(editWhere).length !== 2) throw new Error('Kimaki schedule edit seam changed; manual review required')
+    scheduling = scheduling.replace(signature, guarded)
+      .replace('const job = decodeTaskPayload(row.payload_json)\n  if (job instanceof Error) return job\n  const user = edit.user', "if (!guard(row)) return new ConfigError({ reason: 'Schedule changed; refresh before editing again' })\n  const job = decodeTaskPayload(row.payload_json)\n  if (job instanceof Error) return job\n  const user = edit.user")
+      .replace(editWhere, `.where(orm.and(orm.eq(schema.scheduled_tasks.id, edit.id), orm.eq(schema.scheduled_tasks.status, 'planned'), orm.eq(schema.scheduled_tasks.payload_json, row.payload_json), orm.eq(schema.scheduled_tasks.next_run_at, row.next_run_at), orm.eq(schema.scheduled_tasks.schedule_kind, row.schedule_kind), row.cron_expr === null ? orm.isNull(schema.scheduled_tasks.cron_expr) : orm.eq(schema.scheduled_tasks.cron_expr, row.cron_expr), row.timezone === null ? orm.isNull(schema.scheduled_tasks.timezone) : orm.eq(schema.scheduled_tasks.timezone, row.timezone)))`)
+    // Built JavaScript has semicolons; inject the same guard at its own anchor.
+    if (extension === 'js') {
+      const anchor = 'const user = edit.user === undefined'
+      if (scheduling.split(anchor).length !== 2) throw new Error('Kimaki schedule revision seam changed')
+      scheduling = scheduling.replace(anchor, "if (!guard(row)) return new ConfigError({ reason: 'Schedule changed; refresh before editing again' });\n    const user = edit.user === undefined")
+    } else if (!scheduling.includes('if (!guard(row))')) throw new Error('Kimaki schedule revision seam changed')
+    // Guard confirmations too: do not dispatch/delete an intervening edit. The
+    // native cron loop keeps its due-time claim; only guarded desktop run-now
+    // calls supply an expected row to that same canonical atomic claim.
+    const fields = name => ['payload_json', 'next_run_at', 'schedule_kind', 'cron_expr', 'timezone', 'status'].map(field => `(${name}.${field} === null ? orm.isNull(schema.scheduled_tasks.${field}) : orm.eq(schema.scheduled_tasks.${field}, ${name}.${field}))`).join(', ')
+    const runSignature = extension === 'ts' ? 'async function runTask(bot: Bot, { id, dueAt }: { id: number; dueAt: Date | null })' : 'async function runTask(bot, { id, dueAt })'
+    const runGuarded = extension === 'ts' ? 'async function runTask(bot: Bot, { id, dueAt, expected }: { id: number; dueAt: Date | null; expected?: TaskRow })' : 'async function runTask(bot, { id, dueAt, expected })'
+    const nowSignature = extension === 'ts' ? 'export async function runTaskNow(bot: Bot, id: number)' : 'export async function runTaskNow(bot, id)'
+    const deleteSignature = extension === 'ts' ? 'export async function deleteTask(bot: Bot, id: number)' : 'export async function deleteTask(bot, id)'
+    const guardType = extension === 'ts' ? ', guard?: (row: TaskRow) => boolean)' : ', guard)'
+    const due = '...(dueAt ? [orm.eq(schema.scheduled_tasks.next_run_at, dueAt)'
+    const runCall = 'const outcome = await runTask(bot, { id, dueAt: null })'
+    for (const anchor of [runSignature, nowSignature, deleteSignature, due, runCall]) if (scheduling.split(anchor).length !== 2) throw new Error('Kimaki schedule confirmation seam changed')
+    scheduling = scheduling.replace(runSignature, runGuarded)
+      .replace(nowSignature, nowSignature.slice(0, -1) + guardType)
+      .replace(deleteSignature, deleteSignature.slice(0, -1) + guardType)
+      .replace(due, `...(expected ? [${fields('expected')}] : []),\n      ${due}`)
+      .replace(runCall, "if (guard && !guard(row)) return new ConfigError({ reason: 'Schedule changed; refresh before running again' });\n  const outcome = await runTask(bot, { id, dueAt: null, ...(guard && { expected: row }) })")
+    const deleteStart = 'const removed = await bot.db.delete(schema.scheduled_tasks).where(orm.eq(schema.scheduled_tasks.id, id))'
+    if (scheduling.split(deleteStart).length !== 2) throw new Error('Kimaki schedule delete seam changed')
+    scheduling = scheduling.replace(deleteStart, `const expected = guard ? await bot.db.query.scheduled_tasks.findFirst({ where: { id } }) : null;\n  if (guard && (!expected || !guard(expected))) return new ConfigError({ reason: 'Schedule changed; refresh before deleting again' });\n  const removed = await bot.db.delete(schema.scheduled_tasks).where(orm.and(orm.eq(schema.scheduled_tasks.id, id), ...(expected ? [${fields('expected')}] : [])))`)
+    await writeFile(scheduler, scheduling)
+    await writeFile(path.join(fork, directory, 'threaddeck-schedules.js'), schedules)
     await writeFile(path.join(fork, directory, 'threaddeck-core.js'), core.outputFiles[0].contents)
   }
   await writeFile(path.join(fork, '.prepared'), hash)

@@ -1,13 +1,16 @@
 // Durable submissions + Discord-message projection. No OpenCode messages enter this module.
 import { DatabaseSync } from 'node:sqlite'
 import { createHash, randomUUID } from 'node:crypto'
-import { ZodError } from 'zod'
+import { z, ZodError } from 'zod'
 import { ChatError, submitSchema, publishedMessageSchema, threadIdSchema, type ChatSubmission, type PublishedMessage, type MessageChange, type OperationReceipt } from '../../shared/chat.ts'
 import { discordUserIdSchema, profileResponseSchema } from '../../shared/profile.ts'
+import { createScheduleOperations, type ScheduleAdapter } from './schedules-core.ts'
+import { schedulesCapability } from '../../shared/schedules.ts'
 export { ChatError }
 export { invocation, modelControls, parseInvocation } from '../../shared/slash.ts'
 
 export interface BridgeAdapter {
+  schedules?: ScheduleAdapter
   profile?(userId?: string): Promise<unknown>
   ready?(): boolean
   linked(threadId: string): boolean
@@ -31,6 +34,7 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
   db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS operations (id TEXT PRIMARY KEY, hash TEXT NOT NULL, receipt TEXT NOT NULL)')
   const select = db.prepare('SELECT hash, receipt FROM operations WHERE id = ?')
   const save = db.prepare('UPDATE operations SET receipt = ? WHERE id = ?')
+  const schedules = adapter.schedules ? createScheduleOperations(adapter.schedules, db) : null
   for (const row of db.prepare('SELECT id, receipt FROM operations').all()) {
     const receipt = JSON.parse(String(row.receipt)) as OperationReceipt
     if (pendingStates.has(receipt.state)) save.run(JSON.stringify({ ...receipt, state: 'unknown', error: 'Kimaki restarted before delivery was confirmed. Do not automatically resend.', updatedAt: Date.now() }), String(row.id))
@@ -149,7 +153,14 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
           const userId = input.userId === undefined ? undefined : discordUserIdSchema.parse(input.userId)
           value = profileResponseSchema.parse(await adapter.profile(userId)); break
         }
-        case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', ready: adapter.ready?.() ?? false, capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort', ...(adapter.transcribe ? ['audio-prompt'] : []), ...(adapter.projectCatalog ? ['project-catalog', 'initial-invocation'] : []), ...(adapter.models ? ['model-controls'] : [])] }; break
+        case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', ready: adapter.ready?.() ?? false, capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort', ...(schedules ? [schedulesCapability] : []), ...(adapter.transcribe ? ['audio-prompt'] : []), ...(adapter.projectCatalog ? ['project-catalog', 'initial-invocation'] : []), ...(adapter.models ? ['model-controls'] : [])] }; break
+        case 'schedules':
+        case 'schedule-submit':
+        case 'schedule-operation': {
+          if (!schedules) throw new ChatError('unsupported', 'Schedules require an updated local Kimaki bridge. Prepare the fork and activate it when you choose to restart Kimaki.')
+          value = route === 'schedules' ? await schedules.list() : route === 'schedule-submit' ? schedules.submit(input) : schedules.operation(z.uuid().parse(input.id))
+          break
+        }
         case 'threads': value = await adapter.threads(); break
         case 'snapshot': {
           const id = target(input.threadId), p = projection(id)
@@ -212,5 +223,5 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
       return { data: { ok: false, error: { code: error instanceof ChatError ? error.code : error instanceof ZodError ? 'invalid' : 'unavailable', message: error instanceof ChatError ? error.message : error instanceof ZodError ? 'Invalid bridge request' : 'Kimaki bridge request failed' } } }
     }
   }
-  return { handle, ingest, connection, async stop() { stopped = true; connection(false); await Promise.allSettled(workers.values()); db.close() } }
+  return { handle, ingest, connection, async stop() { stopped = true; connection(false); await Promise.allSettled([schedules?.stop(), ...workers.values()]); db.close() } }
 }

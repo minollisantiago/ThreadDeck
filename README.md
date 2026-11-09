@@ -43,6 +43,12 @@ with a lightweight Node.js backend. Node 24+ is required.
 
 ## Interface
 
+- **Threads / Schedules** switches the existing project sidebar. Schedules appear
+  as project-associated tree rows; selecting one shows its full instruction,
+  next planned dispatch and configuration in the main pane. Create/edit uses a
+  dialog; Run now and Delete require confirmation. The updated local Kimaki
+  bridge is required and is never activated by restarting your bot automatically.
+  See [schedules, activation and operation safety](docs/schedules.md).
 - The bottom-right circular **profile button** opens a compact popup; **All preferences**
   expands notification and identity controls inside that same popup (no drawer).
   Appearance controls remain exclusively in the top menu. The selected profile photo

@@ -9,7 +9,7 @@
   "scripts": {
     "kimaki": "node scripts/kimaki.mjs",
     "kimaki:prepare": "node scripts/prepare-kimaki-fork.mjs",
-    "kimaki:test": "node scripts/smoke-kimaki-fork.mjs",
+    "kimaki:test": "node scripts/smoke-kimaki-fork.mjs && node scripts/smoke-kimaki-schedules.mjs",
     "kimaki:local": "node scripts/local-kimaki.mjs",
     "kimaki:desktop": "node scripts/kimaki.mjs --desktop",
     "desktop": "node scripts/desktop.mjs",

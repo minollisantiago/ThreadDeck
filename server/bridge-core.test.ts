@@ -46,6 +46,16 @@ it('gates model discovery on adapter support and linked threads', async () => {
   expect(await enabled.call('models', { threadId: '100000000000000099' })).toMatchObject({ data: { ok: false, error: { code: 'unlinked' } } })
   expect(models).toHaveBeenCalledTimes(1)
 })
+it('advertises schedules only for capable adapters and exposes typed scheduler routes', async () => {
+  const disabled = await setup()
+  expect(await disabled.call('schedules')).toMatchObject({ data: { ok: false, error: { code: 'unsupported' } } })
+  const schedules = { list: vi.fn(async () => ({ schedules: [], checkedAt: 123 })), mutate: vi.fn(async () => ({ routineId: 1 })) }
+  const enabled = await setup({ schedules })
+  expect(await enabled.call('info')).toMatchObject({ data: { ok: true, value: { capabilities: expect.arrayContaining(['schedules-v1']) } } })
+  expect(await enabled.call('schedules')).toMatchObject({ data: { ok: true, value: { schedules: [] } } })
+  expect(await enabled.call('schedule-submit', { action: 'shell', command: 'bad' })).toMatchObject({ data: { ok: false, error: { code: 'invalid' } } })
+  expect(schedules.mutate).not.toHaveBeenCalled()
+})
 it('creates the linked session before publishing and dispatching an initial skill', async () => {
   const order: string[] = []
   const { call, adapter } = await setup({ create: async () => { order.push('create'); return { threadId: id, sessionId: 'ses_new' } }, publish: async (_input, _thread, progress) => { order.push('publish'); progress(mid) }, dispatch: vi.fn(async () => { order.push('dispatch') }) })

@@ -31,6 +31,8 @@ import { snapshotStaleAfterMs } from '../shared/update-timing'
 import { SelectedSession, WorkspaceControls } from './chat/navigation'
 import { ChatWorkspace } from './chat/workspace'
 import { SidebarToggle } from './chat/sidebar-toggle'
+import { SchedulesContext } from './schedules/use-schedules'
+import { ScheduleSidebar, ScheduleTabs } from './schedules/sidebar'
 import { isGrouping, projectOrder, sessionOrder, stateGroups, visibleProjects, workingCount, type Filter, type Grouping } from './lib/view'
 
 function saved<T>(key: string, fallback: T, validate: (value: unknown) => value is T): T {
@@ -74,6 +76,7 @@ function ProjectPanel({ project, collapsed, toggle, verified, now, unread, markR
 
 export function Dashboard({ snapshot, transportError = false, now = Date.now() }: { snapshot: Snapshot | null; transportError?: boolean; now?: number }) {
   const workspace = useContext(WorkspaceControls)
+  const schedules = useContext(SchedulesContext)
   const selectedSession = useContext(SelectedSession)
   const openFinder = () => workspace ? workspace.find() : setHistoryOpen(true)
   const [query, setQuery] = useState('')
@@ -163,7 +166,8 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
       {workspace?.toggleSidebar && <SidebarToggle open={Boolean(workspace.sidebarOpen)} toggle={workspace.toggleSidebar} />}
     </header>
 
-    <div className="overview">
+    {schedules && <ScheduleTabs />}
+    {schedules?.section === 'schedules' ? <ScheduleSidebar projects={projects} /> : <><div className="overview">
       <div className="overview-counts">{[
         { kind: 'working', count: working, label: 'working', shortLabel: 'working' },
         { kind: 'attention', count: attention, label: 'need attention', shortLabel: 'attention' },
@@ -197,7 +201,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         })}
         {shown.length === 0 && <div className="empty-state"><Layers2 /><h2>{loading ? 'Finding your conversations…' : narrowed ? 'No matching sessions' : filter === 'active' && projects.length > 0 ? 'No active sessions' : 'No projects to show yet'}</h2><p>{loading ? 'Connecting to Kimaki and OpenCode on this machine.' : narrowed ? 'Try another search or switch back to all sessions.' : filter === 'active' && projects.length > 0 ? 'Idle sessions are hidden. Choose All sessions to see them.' : 'Your registered Kimaki projects will appear here.'}</p>{(narrowed || filter === 'active' && projects.length > 0) && <Button className="empty-state-action" onClick={() => { setQuery(''); setFilter('all') }}>{narrowed ? 'Clear filters' : 'Show all sessions'}</Button>}</div>}
       </div>
-    </main>
+    </main></>}
     <footer>{!workspace && <span><span className="footer-dot" />LOCAL · READ ONLY</span>}<span>{workspace ? 'Titles open chat' : 'Titles open Discord app'} <ArrowUpRight /> <span className="footer-separator">/</span> <ExternalLink /> opens browser</span><ProfileControls healthLabel={healthLabel} verified={verified} loading={loading} connectionDetails={transportError ? 'Cannot reach the dashboard server.' : snapshot?.message || (snapshot?.lastSuccessAt != null ? `Last updated ${new Date(snapshot.lastSuccessAt).toLocaleTimeString()}` : 'Waiting for the first successful update.')} /></footer>
   </div>{historyOpen && <ConversationSearch close={() => setHistoryOpen(false)} />}</PinnedSessions.Provider>
 }
