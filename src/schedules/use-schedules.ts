@@ -22,6 +22,7 @@ export function useSchedules(navigation?: WorkspaceSections) {
   const [tasks, setTasks] = useState<Schedule[]>([]), [selectedId, setSelectedId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false), [available, setAvailable] = useState(false), [error, setError] = useState('')
   const [checkedAt, setCheckedAt] = useState<number | null>(null)
+  const [namesSupported, setNamesSupported] = useState(false)
   const [editor, setEditor] = useState<ScheduleEditorTarget | null>(null)
   const [operationId, setOperationId] = useState(savedOperation)
   const activeOperationId = useRef(operationId)
@@ -36,6 +37,7 @@ export function useSchedules(navigation?: WorkspaceSections) {
       const value = schedulesResponseSchema.parse(await request('', { signal: AbortSignal.timeout(12_000) }))
       if (!mounted.current) return
       setTasks(value.schedules); setCheckedAt(Date.now()); setAvailable(true); setError('')
+      setNamesSupported(value.namesSupported)
       setSelectedId(previous => previous !== null && value.schedules.some(task => task.id === previous) ? previous : value.schedules[0]?.id ?? null)
     } catch (error) { if (mounted.current) { setError(error instanceof Error ? error.message : 'Schedules are unavailable'); setAvailable(false) } }
     finally {
@@ -97,7 +99,7 @@ export function useSchedules(navigation?: WorkspaceSections) {
     } finally { mutationLock.current = false }
   }
   function dismissOperation() { activeOperationId.current = null; remember(null); setOperationId(null); setOperation(null); setOperationError('') }
-  return { section, setSection, tasks, selectedId, select: setSelectedId, loading, available, error, checkedAt, refresh, editor, setEditor, operationId, operation, operationError: operation?.state === 'succeeded' || operation?.state === 'failed' ? '' : operationError, locked, submit, checkOperation, dismissOperation }
+  return { section, setSection, tasks, selectedId, select: setSelectedId, loading, available, error, checkedAt, namesSupported, refresh, editor, setEditor, operationId, operation, operationError: operation?.state === 'succeeded' || operation?.state === 'failed' ? '' : operationError, locked, submit, checkOperation, dismissOperation }
 }
 export type Schedules = ReturnType<typeof useSchedules>
 export const SchedulesContext = createContext<(Schedules & { selectTask: (id: number) => void }) | null>(null)

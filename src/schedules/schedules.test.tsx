@@ -13,9 +13,9 @@ vi.mock('../chat/pane', () => ({ ConversationPane: function FixturePane({ target
 const projectId = '100000000000000001'
 const task: Schedule = { id: 1, projectId, status: 'planned', kind: 'cron', expression: '0 12 * * 1', timezone: 'UTC', nextRunAt: '2027-01-04T12:00:00Z', prompt: 'Weekly backtest\n\n' + 'Full instruction '.repeat(30), preview: 'Weekly backtest...', threadId: null, notifyOnly: false, agent: 'build', model: null, preRun: null, allowConcurrency: false, lastError: null, revision: 'a'.repeat(64), editable: true }
 const snapshot: Snapshot = { projects: [{ id: projectId, name: 'NaturalGas', directory: '/project', sessions: [{ id: 'session', threadId: '100000000000000002', guildId: null, projectId, title: 'Conversation', status: 'idle', agentCount: 0, updatedAt: 1 }] }], health: 'connected', checkedAt: Date.now(), lastSuccessAt: Date.now(), attentionAvailable: true, inventoryLimited: false, message: null }
-let tasks: Schedule[], posted: Record<string, unknown>[], listError: string | null, receiptState: string
+let tasks: Schedule[], posted: Record<string, unknown>[], listError: string | null, receiptState: string, namesSupported: boolean
 beforeEach(() => {
-  tasks = [{ ...task }]; posted = []; listError = null; receiptState = 'succeeded'
+  tasks = [{ ...task }]; posted = []; listError = null; receiptState = 'succeeded'; namesSupported = true
   vi.stubGlobal('innerWidth', 1700)
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
   HTMLDialogElement.prototype.close = function () { this.removeAttribute('open') }
@@ -28,7 +28,7 @@ beforeEach(() => {
     }
     if (input.includes('/operations/')) return Response.json({ id: input.split('/').at(-1), action: posted.at(-1)?.action || 'edit', state: receiptState, updatedAt: 1, ...(receiptState === 'succeeded' ? { result: { routineId: posted.at(-1)?.action === 'create' ? 2 : 1 } } : {}) })
     if (listError) return Response.json({ error: listError }, { status: 503 })
-    return Response.json({ schedules: tasks, checkedAt: Date.now() })
+    return Response.json({ schedules: tasks, checkedAt: Date.now(), namesSupported })
   }))
 })
 afterEach(() => { cleanup(); localStorage.clear(); delete window.threaddeckDesktop; vi.unstubAllGlobals(); vi.restoreAllMocks() })
@@ -65,6 +65,35 @@ it('edits losslessly and only sends changed fields, preserving legacy scheduling
   expect(posted[0]).toMatchObject({ action: 'edit', id: 1, revision: task.revision, changes: { agent: '' } })
   expect(posted[0].changes).toEqual({ agent: '' })
   await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit schedule' })).toBeNull())
+})
+it('renames a schedule independently and retains that name when its instruction changes', async () => {
+  setup(); await schedules()
+  fireEvent.click(screen.getByRole('button', { name: 'Edit schedule' }))
+  let dialog = screen.getByRole('dialog', { name: 'Edit schedule' })
+  fireEvent.change(within(dialog).getByRole('textbox', { name: 'Schedule name' }), { target: { value: 'Weekly model checks' } })
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+  await waitFor(() => expect(posted).toHaveLength(1))
+  expect(posted[0].changes).toEqual({ name: 'Weekly model checks' })
+  await screen.findByRole('button', { name: 'Weekly model checks' })
+  expect(document.querySelector('.schedule-instruction')?.textContent).toBe(task.prompt)
+  fireEvent.click(screen.getByRole('button', { name: 'Edit schedule' }))
+  dialog = screen.getByRole('dialog', { name: 'Edit schedule' })
+  fireEvent.change(within(dialog).getByRole('textbox', { name: 'Instruction' }), { target: { value: 'Different instruction' } })
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+  await waitFor(() => expect(posted).toHaveLength(2))
+  expect(posted[1].changes).toEqual({ prompt: 'Different instruction' })
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(screen.getByRole('button', { name: 'Weekly model checks' })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: 'Weekly model checks' })).toBeTruthy()
+})
+it('disables only the name field on old bridges and explains how to enable naming', async () => {
+  namesSupported = false
+  setup(); await schedules()
+  fireEvent.click(screen.getByRole('button', { name: 'Edit schedule' }))
+  const dialog = screen.getByRole('dialog', { name: 'Edit schedule' })
+  expect((within(dialog).getByRole('textbox', { name: 'Schedule name' }) as HTMLInputElement).disabled).toBe(true)
+  expect((within(dialog).getByRole('textbox', { name: 'Instruction' }) as HTMLTextAreaElement).disabled).toBe(false)
+  expect(within(dialog).getByText(/Renaming requires the updated local Kimaki bridge/)).toBeTruthy()
 })
 it('hides empty projects and filtered-out groups while keeping all projects available for creation', async () => {
   const emptyProject = { id: '100000000000000009', name: 'Empty project', directory: '/empty', sessions: [] }

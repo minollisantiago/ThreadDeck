@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
 import { ChatError } from '../../shared/chat.ts'
-import { scheduleMutationSchema, scheduleOperationSchema, schedulesResponseSchema, type ScheduleMutation, type ScheduleOperation } from '../../shared/schedules.ts'
+import { scheduleMutationSchema, scheduleOperationSchema, schedulesResponseSchema, type Schedule, type ScheduleMutation, type ScheduleOperation } from '../../shared/schedules.ts'
 
 export interface ScheduleAdapter {
   list(): Promise<unknown>
@@ -12,6 +12,45 @@ export interface ScheduleAdapter {
 // never replays an unconfirmed dispatch. A duplicate ID only returns its receipt.
 export function createScheduleOperations(adapter: ScheduleAdapter, db: DatabaseSync) {
   db.exec('CREATE TABLE IF NOT EXISTS schedule_operations (id TEXT PRIMARY KEY, hash TEXT NOT NULL, receipt TEXT NOT NULL)')
+  // Display names are ThreadDeck metadata, never the agent prompt or a native
+  // send.name (which names the resulting conversation). IDs auto-increment in
+  // Kimaki; project scope prevents metadata crossing registration boundaries.
+  db.exec('CREATE TABLE IF NOT EXISTS schedule_names (routine_id INTEGER NOT NULL, project_id TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (routine_id, project_id))')
+  const readName = db.prepare('SELECT name FROM schedule_names WHERE routine_id = ? AND project_id = ?')
+  const writeName = db.prepare('INSERT INTO schedule_names VALUES (?, ?, ?) ON CONFLICT(routine_id, project_id) DO UPDATE SET name = excluded.name')
+  const removeName = db.prepare('DELETE FROM schedule_names WHERE routine_id = ? AND project_id = ?')
+  function named(schedule: Schedule): Schedule {
+    const name = readName.get(schedule.id, schedule.projectId)?.name
+    return { ...schedule, name: name ? String(name) : null, revision: name ? createHash('sha256').update(JSON.stringify([schedule.revision, name])).digest('hex') : schedule.revision }
+  }
+  function saveName(id: number, projectId: string, name: string) {
+    if (name) writeName.run(id, projectId, name)
+    else removeName.run(id, projectId)
+  }
+  async function mutate(input: ScheduleMutation) {
+    if (input.action === 'create') {
+      const { name, ...native } = input
+      const result = scheduleOperationSchema.shape.result.unwrap().parse(await adapter.mutate(native))
+      if (name !== undefined) saveName(result.routineId, input.projectId, name)
+      return result
+    }
+    const snapshot = schedulesResponseSchema.parse(await adapter.list())
+    const schedule = snapshot.schedules.find(schedule => schedule.id === input.id)
+    if (!schedule) throw new ChatError('not_found', 'Schedule is no longer available. Refresh before trying again.')
+    if (named(schedule).revision !== input.revision) throw new ChatError('conflict', 'This schedule or its name changed. Refresh before trying again.')
+    if (input.action === 'edit') {
+      if (!schedule.editable) throw new ChatError('invalid', 'Only planned, readable schedules can be edited')
+      const { name, ...changes } = input.changes
+      const result = Object.values(changes).some(value => value !== undefined)
+        ? scheduleOperationSchema.shape.result.unwrap().parse(await adapter.mutate({ ...input, revision: schedule.revision, changes }))
+        : { routineId: schedule.id }
+      if (name !== undefined) saveName(schedule.id, schedule.projectId, name)
+      return result
+    }
+    const result = scheduleOperationSchema.shape.result.unwrap().parse(await adapter.mutate({ ...input, revision: schedule.revision }))
+    if (input.action === 'delete') removeName.run(schedule.id, schedule.projectId)
+    return result
+  }
   const select = db.prepare('SELECT hash, receipt FROM schedule_operations WHERE id = ?')
   const save = db.prepare('UPDATE schedule_operations SET receipt = ? WHERE id = ?')
   for (const row of db.prepare('SELECT id, receipt FROM schedule_operations').all()) {
@@ -24,7 +63,7 @@ export function createScheduleOperations(adapter: ScheduleAdapter, db: DatabaseS
     Object.assign(receipt, patch, { updatedAt: Date.now() }); save.run(JSON.stringify(receipt), receipt.id)
   }
   return {
-    async list() { return schedulesResponseSchema.parse(await adapter.list()) },
+    async list() { const snapshot = schedulesResponseSchema.parse(await adapter.list()); return { ...snapshot, schedules: snapshot.schedules.map(named), namesSupported: true } },
     operation(id: string) {
       const row = select.get(id)
       if (!row) throw new ChatError('not_found', 'Unknown schedule operation. Its outcome is not confirmed; inspect schedules before trying again.')
@@ -47,7 +86,7 @@ export function createScheduleOperations(adapter: ScheduleAdapter, db: DatabaseS
         if (stopped) { update(receipt, { state: 'unknown', error: 'Bridge stopped before the operation was confirmed' }); return }
         update(receipt, { state: 'running' })
         try {
-          const result = scheduleOperationSchema.shape.result.unwrap().parse(await adapter.mutate(input))
+          const result = scheduleOperationSchema.shape.result.unwrap().parse(await mutate(input))
           update(receipt, { state: 'succeeded', result })
         } catch (error) {
           const safe = error instanceof ChatError && ['invalid', 'conflict', 'not_found', 'unsupported'].includes(error.code)

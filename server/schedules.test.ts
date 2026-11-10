@@ -45,7 +45,7 @@ it('returns uncached validated lists and operation receipts', async () => {
   const { call, url } = await setup()
   const response = await fetch(url)
   expect(response.headers.get('cache-control')).toBe('no-store')
-  expect(await response.json()).toEqual({ schedules: [], checkedAt: 123 })
+  expect(await response.json()).toEqual({ schedules: [], checkedAt: 123, namesSupported: false })
   expect((await fetch(`${url}/operations/${create.requestId}`)).status).toBe(200)
   expect(call).toHaveBeenLastCalledWith('schedule-operation', { id: create.requestId }, expect.any(AbortSignal))
   expect((await fetch(`${url}/arbitrary`)).status).toBe(404)

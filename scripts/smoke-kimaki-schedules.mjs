@@ -23,7 +23,7 @@ const discord = new EventEmitter()
 discord.user = { id: foreign }; discord.isReady = () => true
 const bot = { db: database.db, dataDir: scratch, discord, clock: { now: () => now }, store: { getState: () => ({ roots: {}, threads: {} }) }, opencode: { connected: true } }
 await database.db.insert(schema.channel_directories).values({ channel_id: id, directory: scratch, channel_type: 'text' })
-const bridge = attachThreadDeckBridge(bot)
+let bridge = attachThreadDeckBridge(bot)
 async function call(route, input = {}) {
   const envelope = (await bridge.handle(route, input, new AbortController().signal)).data
   assert.equal(envelope.ok, true, JSON.stringify(envelope))
@@ -42,17 +42,32 @@ async function submit(input) {
 }
 try {
   assert.ok((await call('info')).capabilities.includes('schedules-v1'))
-  const prompt = 'Full instruction\n\n' + 'not truncated '.repeat(50)
-  const created = await submit({ action: 'create', projectId: id, prompt, sendAt: '0 12 * * 1', agent: 'build', allowConcurrency: false })
+  assert.ok((await call('info')).capabilities.includes('schedule-names-v1'))
+  let prompt = 'Full instruction\n\n' + 'not truncated '.repeat(50)
+  const created = await submit({ action: 'create', projectId: id, name: 'Weekly checks', prompt, sendAt: '0 12 * * 1', agent: 'build', allowConcurrency: false })
   assert.equal(created.state, 'succeeded', JSON.stringify(created))
   let task = (await call('schedules')).schedules[0]
   assert.equal(task.prompt, prompt); assert.equal(task.expression, '0 12 * * 1'); assert.equal(task.timezone, 'UTC')
+  assert.equal(task.name, 'Weekly checks')
   const edited = await submit({ action: 'edit', id: task.id, revision: task.revision, changes: { agent: '' } })
   assert.equal(edited.state, 'succeeded', JSON.stringify(edited))
   const stale = await submit({ action: 'edit', id: task.id, revision: task.revision, changes: { prompt: 'stale overwrite' } })
   assert.equal(stale.state, 'failed'); assert.match(stale.error, /changed/)
   task = (await call('schedules')).schedules[0]
   assert.equal(task.prompt, prompt); assert.equal(task.agent, null)
+  const beforeRename = await database.db.query.scheduled_tasks.findFirst({ where: { id: task.id } })
+  assert.equal((await submit({ action: 'edit', id: task.id, revision: task.revision, changes: { name: 'Renamed weekly checks' } })).state, 'succeeded')
+  const afterRename = await database.db.query.scheduled_tasks.findFirst({ where: { id: task.id } })
+  assert.deepEqual(afterRename, beforeRename)
+  await bridge.stop(); bridge = attachThreadDeckBridge(bot)
+  task = (await call('schedules')).schedules[0]
+  assert.equal(task.name, 'Renamed weekly checks')
+  assert.equal(task.prompt, prompt)
+  prompt += '\nA revised instruction keeps its independent name.'
+  assert.equal((await submit({ action: 'edit', id: task.id, revision: task.revision, changes: { prompt } })).state, 'succeeded')
+  task = (await call('schedules')).schedules[0]
+  assert.equal(task.name, 'Renamed weekly checks')
+  assert.equal(task.prompt, prompt)
   const guarded = await editTask(bot, { id: task.id, prompt: 'wrong revision' }, () => false)
   assert.ok(guarded instanceof Error)
   assert.ok(await runTaskNow(bot, task.id, () => false) instanceof Error)
@@ -90,5 +105,5 @@ try {
   assert.equal(corrupt.prompt, null); assert.equal(corrupt.editable, false)
   assert.equal((await submit({ action: 'run', id: corrupt.id, revision: corrupt.revision })).state, 'failed')
   assert.equal((await submit({ action: 'delete', id: corrupt.id, revision: corrupt.revision })).state, 'succeeded')
-  console.log('Schedules adapter smoke passed: full prompts, creation, edit CAS, field preservation, UTC/legacy timezone, errors, one-shot skip, corruption and deletion. No live services used.')
+  console.log('Schedules adapter smoke passed: durable independent names across bridge restart, unchanged native rows on rename, full prompts, creation, edit CAS, field preservation, UTC/legacy timezone, errors, one-shot skip, corruption and deletion. No live services used.')
 } finally { await bridge.stop(); database.close(); await rm(scratch, { recursive: true, force: true }) }

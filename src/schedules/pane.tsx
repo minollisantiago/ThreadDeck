@@ -80,11 +80,12 @@ export function SchedulePane({ projects, sidebar, sidebarOpen }: { projects: Pro
 function ScheduleEditor({ target, projects }: { target: ScheduleEditorTarget; projects: Project[] }) {
   const workspace = useSchedulesContext(), original = target.schedule
   const [projectId, setProjectId] = useState(target.projectId)
+  const [name, setName] = useState(original?.name || '')
   const [prompt, setPrompt] = useState(original?.prompt || ''), [sendAt, setSendAt] = useState(original?.expression || '0 12 * * 1')
   const [agent, setAgent] = useState(original?.agent || ''), [model, setModel] = useState(original?.model || ''), [overlap, setOverlap] = useState(original?.allowConcurrency || false)
   const [error, setError] = useState(''), [submitting, setSubmitting] = useState(false), [submittedId, setSubmittedId] = useState<string | null>(null)
-  const initial = JSON.stringify([target.projectId, original?.prompt || '', original?.expression || '0 12 * * 1', original?.agent || '', original?.model || '', original?.allowConcurrency || false])
-  const dirty = JSON.stringify([projectId, prompt, sendAt, agent, model, overlap]) !== initial
+  const initial = JSON.stringify([target.projectId, original?.name || '', original?.prompt || '', original?.expression || '0 12 * * 1', original?.agent || '', original?.model || '', original?.allowConcurrency || false])
+  const dirty = JSON.stringify([projectId, name, prompt, sendAt, agent, model, overlap]) !== initial
   const busy = submitting || Boolean(submittedId && workspace.operation?.id === submittedId && ['accepted', 'running'].includes(workspace.operation.state))
   useEffect(() => {
     if (!submittedId || workspace.operation?.id !== submittedId) return
@@ -96,16 +97,18 @@ function ScheduleEditor({ target, projects }: { target: ScheduleEditorTarget; pr
     event.preventDefault(); if (busy) return
     setSubmitting(true); setError('')
     try {
-      const changes = { ...(prompt !== original?.prompt && { prompt }), ...(sendAt !== original?.expression && { sendAt }), ...(agent !== (original?.agent || '') && { agent }), ...(model !== (original?.model || '') && { model }), ...(overlap !== original?.allowConcurrency && { allowConcurrency: overlap }) }
+      const changes = { ...(workspace.namesSupported && name !== (original?.name || '') && { name }), ...(prompt !== original?.prompt && { prompt }), ...(sendAt !== original?.expression && { sendAt }), ...(agent !== (original?.agent || '') && { agent }), ...(model !== (original?.model || '') && { model }), ...(overlap !== original?.allowConcurrency && { allowConcurrency: overlap }) }
       if (original && !Object.keys(changes).length) { workspace.setEditor(null); return }
-      const receipt = await workspace.submit(original ? { action: 'edit', id: original.id, revision: original.revision, changes } : { action: 'create', projectId, prompt, sendAt, agent, model, allowConcurrency: overlap }, setSubmittedId)
+      const receipt = await workspace.submit(original ? { action: 'edit', id: original.id, revision: original.revision, changes } : { action: 'create', projectId, ...(workspace.namesSupported && name.trim() && { name }), prompt, sendAt, agent, model, allowConcurrency: overlap }, setSubmittedId)
       setSubmittedId(receipt.id)
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not save the schedule') }
     finally { setSubmitting(false) }
   }
   return <Dialog title={original ? 'Edit schedule' : 'New project schedule'} close={close} busy={submitting}><form onSubmit={save}><div className="schedule-dialog-body"><p className="schedule-editor-project"># {projects.find(p => p.id === projectId)?.name || projectId}{original && ` / routine ${original.id}`}</p>
     {!original && <label>Project<select value={projectId} onChange={event => setProjectId(event.target.value)} disabled={busy}>{projects.map(project => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label>}
-    <label>Instruction<textarea aria-label="Instruction" autoFocus required maxLength={128 * 1024} value={prompt} onChange={event => setPrompt(event.target.value)} disabled={busy} /></label>
+    <label>Name<Input aria-label="Schedule name" autoFocus={workspace.namesSupported} maxLength={100} value={name} onChange={event => setName(event.target.value)} disabled={busy || !workspace.namesSupported} placeholder="Optional display name" /><small>Names identify the schedule in ThreadDeck; they are not sent to the agent. Leave blank to use the instruction as its title.</small></label>
+    {!workspace.namesSupported && <p className="schedule-form-error">Renaming requires the updated local Kimaki bridge. Prepare the fork and activate it when you choose to restart Kimaki; instruction editing still works.</p>}
+    <label>Instruction<textarea aria-label="Instruction" autoFocus={!workspace.namesSupported} required maxLength={128 * 1024} value={prompt} onChange={event => setPrompt(event.target.value)} disabled={busy} /></label>
     {!original && <label>Schedule preset<select aria-label="Schedule preset" value={['0 12 * * 1', '0 12 * * *', '0 12 * * 1-5'].includes(sendAt) ? sendAt : 'custom'} onChange={event => setSendAt(event.target.value === 'custom' ? '' : event.target.value)} disabled={busy}><option value="0 12 * * 1">Mondays at 12:00 UTC</option><option value="0 12 * * *">Every day at 12:00 UTC</option><option value="0 12 * * 1-5">Weekdays at 12:00 UTC</option><option value="custom">Custom / one-time</option></select></label>}
     <label>Schedule · UTC<Input aria-label="Schedule" required value={sendAt} maxLength={200} onChange={event => setSendAt(event.target.value)} disabled={busy} /><small>Cron expression, or a future UTC ISO timestamp ending in Z (e.g. 2027-01-15T09:00:00Z). Validated by Kimaki.</small></label>
     {original?.timezone !== 'UTC' && original && <p className="schedule-form-error">Current timezone: {original.timezone}. Leaving the expression unchanged preserves it. Changing the schedule resets it to UTC.</p>}

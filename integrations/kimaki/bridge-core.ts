@@ -5,7 +5,7 @@ import { z, ZodError } from 'zod'
 import { ChatError, submitSchema, publishedMessageSchema, threadIdSchema, type ChatSubmission, type PublishedMessage, type MessageChange, type OperationReceipt } from '../../shared/chat.ts'
 import { discordUserIdSchema, profileResponseSchema } from '../../shared/profile.ts'
 import { createScheduleOperations, type ScheduleAdapter } from './schedules-core.ts'
-import { schedulesCapability } from '../../shared/schedules.ts'
+import { schedulesCapability, scheduleNamesCapability } from '../../shared/schedules.ts'
 export { ChatError }
 export { invocation, modelControls, parseInvocation } from '../../shared/slash.ts'
 
@@ -153,7 +153,7 @@ export function createClientBridge(adapter: BridgeAdapter, filename: string) {
           const userId = input.userId === undefined ? undefined : discordUserIdSchema.parse(input.userId)
           value = profileResponseSchema.parse(await adapter.profile(userId)); break
         }
-        case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', ready: adapter.ready?.() ?? false, capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort', ...(schedules ? [schedulesCapability] : []), ...(adapter.transcribe ? ['audio-prompt'] : []), ...(adapter.projectCatalog ? ['project-catalog', 'initial-invocation'] : []), ...(adapter.models ? ['model-controls'] : [])] }; break
+        case 'info': value = { protocol: 1, kimakiVersion: '1.4.0', actor: 'local-operator', ready: adapter.ready?.() ?? false, capabilities: ['history', 'changes', 'prompt', 'queue', 'create', 'files', 'catalog', 'abort', ...(schedules ? [schedulesCapability, scheduleNamesCapability] : []), ...(adapter.transcribe ? ['audio-prompt'] : []), ...(adapter.projectCatalog ? ['project-catalog', 'initial-invocation'] : []), ...(adapter.models ? ['model-controls'] : [])] }; break
         case 'schedules':
         case 'schedule-submit':
         case 'schedule-operation': {

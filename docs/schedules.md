@@ -3,8 +3,16 @@
 Use **Schedules** beside **Threads** in the existing project sidebar. Each project
 keeps its familiar collapsible heading and tree rows. Selecting a routine replaces
 the chat pane with its full instruction, schedule, destination, agent/model,
-overlap policy and last dispatch error. The displayed title comes from the saved
-instruction; Kimaki does not have a separate routine-name field.
+overlap policy and last dispatch error. Give it an optional **Name** in the create
+or edit dialog to use a readable title independently of its instruction. Changing
+the instruction does not change a custom name; clearing Name restores the
+instruction-derived title. Both the name and instruction are searchable.
+
+Names are persistent ThreadDeck metadata in the owning bot's local bridge
+database, shared by its clients and retained across restarts. They are not sent
+to the agent, do not rename resulting conversations, and do not modify Kimaki's
+scheduler payload or next run. Native Kimaki CLI listings still show prompt
+previews because upstream has no separate routine-name field.
 
 Projects without matching schedules are hidden, including when searching or
 filtering. **New schedule** still lets you choose any registered project, even
@@ -23,14 +31,19 @@ the running bot.** Deliberately stop/relaunch the owning Kimaki process when you
 are ready to activate it; launchers continue to reuse a healthy existing bot.
 The ThreadDeck backend must also be running the updated code. An older bridge
 shows an actionable unavailable state, not a misleading empty list.
+Naming additionally requires `schedule-names-v1` / `namesSupported: true` from
+the updated bridge. Older bridges leave Name disabled with activation guidance;
+editing the instruction and other existing settings remains available.
 
 ## Supported actions
 
-- **Create:** use a project's `+` or New schedule. New routines start a new
+- **Create:** use a project's `+` or New schedule, optionally giving it a Name.
+  New routines start a new
   conversation in that registered project. Choose a UTC cron expression (common
   presets are provided), or a future UTC ISO timestamp ending in `Z` for a
   one-time instruction. Kimaki validates the schedule using its own clock/parser.
-- **Edit:** full, lossless prompt, schedule, agent/model and overlap policy.
+- **Edit:** independent display name, full lossless prompt, schedule, agent/model
+  and overlap policy.
   Only changed fields are sent. Empty optional agent/model values clear them.
   Existing thread/notification destinations, user, pre-run, permissions and
   worktree settings are preserved; they cannot be created/changed here.

@@ -31,7 +31,7 @@ export function ScheduleSidebar({ projects }: { projects: Project[] }) {
   }, [])
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const tasks = workspace.tasks.filter(task => projects.some(project => project.id === task.projectId))
-  const shown = tasks.filter(task => `${task.prompt || task.preview} ${projects.find(p => p.id === task.projectId)?.name || ''}`.toLowerCase().includes(query.toLowerCase()) && (filter === 'all' || task.kind === filter))
+  const shown = tasks.filter(task => `${scheduleTitle(task)} ${task.prompt || task.preview} ${projects.find(p => p.id === task.projectId)?.name || ''}`.toLowerCase().includes(query.toLowerCase()) && (filter === 'all' || task.kind === filter))
   const groups = projects.filter(project => shown.some(task => task.projectId === project.id))
   const emptyMessage = !projects.length ? 'Register a project to manage its schedules.' : !workspace.available ? 'Schedules unavailable.' : query || filter !== 'all' ? 'No matching schedules.' : 'No schedules yet. Use New schedule to add one.'
   const disabled = !workspace.available || workspace.locked
