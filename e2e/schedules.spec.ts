@@ -4,6 +4,22 @@ import type { Snapshot } from '../shared/model'
 
 const projectId = '100000000000000010'
 const fixtureTask: Schedule = { id: 3, projectId, status: 'planned', kind: 'cron', expression: '0 12 * * 1', timezone: 'UTC', nextRunAt: '2027-01-04T12:00:00Z', prompt: 'Weekly backtests\n\nRead routines/daily-ng-backtests.md and follow all instructions. Summarize material changes and attach the report.', preview: 'Weekly backtests...', threadId: null, notifyOnly: false, agent: 'build', model: null, preRun: null, allowConcurrency: false, lastError: null, revision: 'a'.repeat(64), editable: true }
+for (const example of [
+  { name: 'Buenos Aires', timezoneId: 'America/Argentina/Buenos_Aires', next: '2027-01-04T12:00:00Z', expected: /Jan 4.*09:00.*AM.*GMT-3/ },
+  { name: 'New York winter with previous-day rollover', timezoneId: 'America/New_York', next: '2027-01-04T01:00:00Z', expected: /Jan 3.*08:00.*PM.*EST/ },
+  { name: 'New York daylight saving', timezoneId: 'America/New_York', next: '2027-07-05T12:00:00Z', expected: /Jul 5.*08:00.*AM.*EDT/ },
+]) test.describe(`local sidebar schedule time: ${example.name}`, () => {
+  test.use({ timezoneId: example.timezoneId, locale: 'en-US' })
+  test('converts the saved instant without changing the schedule', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1050 })
+    const { mutations } = await fixture(page, false, false, [{ ...fixtureTask, nextRunAt: example.next }])
+    const time = page.locator('.schedule-row-time time')
+    await expect(time).toHaveText(example.expected)
+    await expect(time).toHaveAttribute('datetime', example.next)
+    await expect(time).not.toContainText('UTC')
+    expect(mutations).toHaveLength(0)
+  })
+})
 test('schedule icon actions expose thread-style tooltips on hover and keyboard focus', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1050 })
   await fixture(page)

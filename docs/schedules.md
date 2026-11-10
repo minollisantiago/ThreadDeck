@@ -50,6 +50,8 @@ full prompt.
 New schedules and schedule changes use UTC. An instruction-only edit preserves a
 legacy timezone; changing its schedule resets it to UTC, with a warning in the
 editor. The pane explicitly labels stored timezone and local-time conversion.
+Sidebar next-run subtext uses the viewer's local timezone, including its timezone
+abbreviation/offset and any daylight-saving or date rollover. Scheduling stays UTC.
 
 ## Status and safety
 
