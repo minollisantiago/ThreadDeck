@@ -1,0 +1,70 @@
+.proposal-character { position: relative; width: min(360px, 100%); margin: 0 auto 16px; color: var(--accent-ink); }
+.proposal-character-art { width: 100%; aspect-ratio: 8 / 5; position: relative; isolation: isolate; animation: proposal-scene-enter 250ms ease-out; }
+.proposal-scene-back, .proposal-scene-front { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke: var(--subtle); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.proposal-scene-back { z-index: 0; }.proposal-scene-front { z-index: 2; pointer-events: none; }
+.proposal-scene-shadow { fill: var(--surface); stroke: none; opacity: .85; }.proposal-scene-ground { stroke: var(--rule); }
+.proposal-prop { fill: var(--surface); }.proposal-bug { stroke: var(--working); fill: var(--surface); }.proposal-bug > path:last-child { stroke-width: 1; }
+.proposal-scene-back text { font: 19px var(--font); fill: var(--subtle); stroke: none; }
+.proposal-owl { position: absolute; z-index: 1; width: 32.5%; height: 52%; transform-origin: 50% 92%; }
+.proposal-owl .chat-hush-avatar { display: block; width: 100%; height: 100%; overflow: visible; }
+.proposal-wing { stroke: var(--accent-ink); stroke-width: 9; fill: none; stroke-linecap: round; }
+.proposal-character-pause { position: absolute; right: 12px; bottom: 5px; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--rule); border-radius: 7px; color: var(--subtle) !important; background: var(--ground); }
+.proposal-character-pause:hover { color: var(--text) !important; background: var(--row); }
+.proposal-character[data-paused=true] * { animation-play-state: paused !important; }
+@keyframes proposal-scene-enter { from { opacity: 0; } to { opacity: 1; } }
+
+.proposal-character[data-scene=inspector] .proposal-owl { left: 21.67%; top: 30.67%; animation: proposal-detective-lean 5s ease-in-out infinite; }
+.proposal-character[data-scene=inspector] .chat-hush-pupils { animation: proposal-detective-eyes 5s ease-in-out infinite; }
+.proposal-magnifier { transform-origin: 165px 170px; animation: proposal-glass-search 5s ease-in-out infinite; }
+.proposal-lens { fill: color-mix(in srgb, var(--accent) 5%, var(--ground)); stroke: var(--accent-ink); stroke-width: 3; }
+.proposal-glass-handle { stroke: var(--accent-ink); stroke-width: 7; }
+.proposal-sneaking-bug { animation: proposal-bug-sneak 5s linear infinite; transform: translate(184px,205px); }
+.proposal-question { animation: proposal-question-pop 5s ease-in-out infinite; opacity: 0; }
+.proposal-folder { transform-origin: 270px 205px; animation: proposal-folder-rattle 5s ease-in-out infinite; }
+@keyframes proposal-detective-lean { 0%,12%,100% { transform: rotate(0); } 25%,55% { transform: rotate(10deg) translateX(8px); } 70%,83% { transform: rotate(-6deg); } }
+@keyframes proposal-detective-eyes { 0%,15%,100% { transform: translate(0,0); } 25%,55% { transform: translate(2px,1px); } 70%,85% { transform: translate(-2px,0); } }
+@keyframes proposal-glass-search { 0%,100% { transform: rotate(-9deg); } 30%,52% { transform: rotate(12deg) translate(14px,4px); } 72%,85% { transform: rotate(-14deg); } }
+@keyframes proposal-bug-sneak { 0%,12% { transform: translate(346px,206px); opacity: 0; } 15% { opacity: 1; } 40% { transform: translate(278px,207px); } 63% { transform: translate(202px,207px); } 82% { transform: translate(70px,206px); opacity: 1; } 87%,100% { transform: translate(51px,206px); opacity: 0; } }
+@keyframes proposal-question-pop { 0%,58%,91%,100% { opacity: 0; transform: translateY(4px); } 66%,82% { opacity: 1; transform: translateY(0); } }
+@keyframes proposal-folder-rattle { 0%,31%,50%,100% { transform: rotate(0); } 35%,43% { transform: rotate(-2deg); } 39%,47% { transform: rotate(2deg); } }
+
+.proposal-character[data-scene=fishing] .proposal-owl { left: 13.33%; top: 32.44%; animation: proposal-fish-tug 6s ease-in-out infinite; }
+.proposal-character[data-scene=fishing] .chat-hush-pupils { animation: proposal-fish-eyes 6s ease-in-out infinite; }
+.proposal-rod { transform-origin: 159px 160px; animation: proposal-rod-tug 6s ease-in-out infinite; }
+.proposal-rod-stick, .proposal-net-handle { stroke: var(--muted); stroke-width: 3; }
+.proposal-fishing-line { stroke-width: 1.2; stroke-dasharray: 3 3; }.proposal-bobber { fill: var(--accent-ink); stroke: var(--accent-ink); }
+.proposal-sock { fill: var(--row); stroke: var(--muted); transform-origin: 284px 147px; animation: proposal-sock-catch 6s ease-in-out infinite; }
+.proposal-ripples { stroke-width: 1; animation: proposal-ripple-bob 3s ease-in-out infinite; transform-origin: 283px 190px; }
+@keyframes proposal-fish-tug { 0%,35%,100% { transform: rotate(-3deg); } 45%,60% { transform: rotate(-12deg) translate(-6px,0); } 72%,90% { transform: rotate(4deg); } }
+@keyframes proposal-fish-eyes { 0%,35%,100% { transform: translate(1px,1px); } 45%,65% { transform: translate(2px,-2px); } 78%,90% { transform: translate(-1px,0); } }
+@keyframes proposal-rod-tug { 0%,30%,100% { transform: rotate(6deg); } 40%,60% { transform: rotate(-15deg); } 70%,85% { transform: rotate(-10deg); } }
+@keyframes proposal-sock-catch { 0%,28%,100% { transform: translate(0,45px); opacity: 0; } 36% { opacity: 1; } 45%,62% { transform: translate(-15px,-22px) rotate(-12deg); opacity: 1; } 74% { transform: translate(0,-12px) rotate(14deg); opacity: 1; } 90% { transform: translate(0,44px); opacity: 0; } }
+@keyframes proposal-ripple-bob { 0%,100% { transform: scaleX(.7); opacity: .25; } 50% { transform: scaleX(1.15); opacity: .8; } }
+
+.proposal-character[data-scene=coffee] .proposal-owl { left: 23.06%; top: 33.78%; animation: proposal-sleep-breathe 6s ease-in-out infinite; }
+.proposal-character[data-scene=coffee] .chat-hush-pupils { animation: proposal-sleep-pupils 6s ease-in-out infinite; transform-origin: 40px 33px; }
+.proposal-owl-lids { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; stroke: var(--ground); stroke-width: 1.4; fill: none; animation: proposal-sleep-eyelids 6s ease-in-out infinite; }
+.proposal-owl-lids circle { fill: currentColor; stroke: none; }
+.proposal-steam { stroke-width: 1.3; animation: proposal-steam-rise 3s ease-in-out infinite; }.proposal-steam-second { animation-delay: -1.5s; }
+.proposal-clock-hand { transform-origin: 292px 76px; animation: proposal-clock-tick 12s steps(12) infinite; stroke: var(--muted); }
+.proposal-sleep-z { fill: var(--muted) !important; font-size: 17px !important; animation: proposal-zzz 3s ease-out infinite; opacity: 0; }
+.proposal-sleep-z-second { animation-delay: -1s; font-size: 14px !important; }.proposal-sleep-z-third { animation-delay: -2s; font-size: 11px !important; }
+@keyframes proposal-sleep-breathe { 0%,50%,100% { transform: rotate(4deg) scaleY(.97); } 25% { transform: rotate(7deg) scaleY(1.02); } 64%,80% { transform: rotate(-6deg) translateY(-4px); } }
+@keyframes proposal-sleep-pupils { 0%,51%,88%,100% { transform: scaleY(0); } 58%,81% { transform: scaleY(1) translate(-1px,-1px); } }
+@keyframes proposal-sleep-eyelids { 0%,50%,88%,100% { opacity: 1; } 58%,81% { opacity: 0; } }
+@keyframes proposal-steam-rise { 0% { opacity: 0; transform: translateY(7px); } 40% { opacity: .6; } 100% { opacity: 0; transform: translateY(-12px); } }
+@keyframes proposal-clock-tick { to { transform: rotate(360deg); } }
+@keyframes proposal-zzz { 0% { opacity: 0; transform: translate(0,6px); } 25%,50% { opacity: .6; } 100% { opacity: 0; transform: translate(7px,-16px); } }
+
+.proposal-character[data-scene=bugs] .proposal-owl { left: 19.17%; top: 32.44%; animation: proposal-patrol-hop 5s ease-in-out infinite; }
+.proposal-character[data-scene=bugs] .chat-hush-pupils { animation: proposal-patrol-eyes 5s ease-in-out infinite; }
+.proposal-net { transform-origin: 182px 161px; animation: proposal-net-swish 5s ease-in-out infinite; }
+.proposal-net-rim { fill: color-mix(in srgb, var(--subtle) 5%, transparent); stroke: var(--muted); stroke-width: 2; }.proposal-net-mesh { stroke-width: 1; opacity: .5; }
+.proposal-dodging-bug { transform: translate(292px,62px); animation: proposal-bug-dodge 5s ease-in-out infinite; }
+.proposal-miss { stroke: var(--warning); stroke-width: 2; animation: proposal-miss-flash 5s ease-in-out infinite; opacity: 0; }
+@keyframes proposal-patrol-hop { 0%,15%,100% { transform: translateX(0) rotate(0); } 25%,40% { transform: translate(26px,-10px) rotate(10deg); } 53%,75% { transform: translate(10px,0) rotate(-8deg); } 86% { transform: translate(0,-4px); } }
+@keyframes proposal-patrol-eyes { 0%,18%,100% { transform: translate(2px,-2px); } 30%,42% { transform: translate(2px,0); } 57%,85% { transform: translate(0,-3px); } }
+@keyframes proposal-net-swish { 0%,12%,100% { transform: rotate(-12deg); } 27%,37% { transform: rotate(30deg) translate(12px,0); } 49%,82% { transform: rotate(-20deg); } }
+@keyframes proposal-bug-dodge { 0%,10%,100% { transform: translate(292px,73px) rotate(10deg); } 25% { transform: translate(319px,54px) rotate(-15deg); } 42% { transform: translate(246px,34px) rotate(-35deg); } 57%,76% { transform: translate(145px,91px) rotate(-10deg); } 86% { transform: translate(220px,44px) rotate(20deg); } }
+@keyframes proposal-miss-flash { 0%,25%,48%,100% { opacity: 0; } 30%,41% { opacity: .8; } }
+@media (prefers-reduced-motion: reduce) { .proposal-character * { animation: none !important; }.proposal-question { opacity: .7; } }

@@ -4,6 +4,8 @@
 
 ## Review and start work
 
+The empty inbox cycles through four chat-avatar scenes every 12 seconds: folder inspection, inbox fishing, a coffee break, and bug patrol. The copy stays centered. Animation can be paused, stops while the app is hidden, and respects reduced-motion preferences. **Scan projects** opens the configured discovery routine in Schedules; its existing **Run now** confirmation starts the scan. Merely opening the inbox or selecting this shortcut never dispatches an agent.
+
 Open a proposal to inspect its rationale, evidence and initial prompt. An optional decision note explains a dismissal or snooze. **Start session** opens an editable prompt and an approach selector. Confirmation creates a real session/thread in that proposal's project through the existing local chat bridge. It does not overwrite a conversation draft.
 
 Session creation is durably recorded before contacting Kimaki. Duplicate clicks/replayed requests do not resubmit. Proposals become In progress only after a receipt confirms both session and thread IDs. Open the linked session to continue the work. Completion is explicit **Mark done**, not an inference from an idle agent.
