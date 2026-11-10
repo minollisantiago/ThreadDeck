@@ -124,12 +124,14 @@ test('failed refresh retains the last snapshot but disables launches until a suc
   await expect(page.locator('.chat-manager .proposals-error[role=alert]')).toContainText('last successful snapshot')
   expect(mutations).toHaveLength(0)
 })
-test('empty inbox centers its copy and rotates only the four approved character activities', async ({ page }) => {
+test('empty inbox centers its copy and changes the approved character scene only on reopening', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1050 })
   await page.clock.install()
   await fixture(page, false, true)
   const character = page.locator('.proposal-character')
   await expect(page.getByRole('heading', { name: 'No proposals yet', exact: true })).toBeVisible()
+  await expect(character).toHaveAttribute('data-scene', 'inspector')
+  await page.clock.fastForward(24_000)
   await expect(character).toHaveAttribute('data-scene', 'inspector')
   for (const selector of ['.proposal-empty-state > h2', '.proposal-empty-state > p']) {
     await expect(page.locator(selector).first()).toHaveCSS('text-align', 'center')
@@ -142,6 +144,9 @@ test('empty inbox centers its copy and rotates only the four approved character 
   })
   await page.screenshot({ path: 'artifacts/proposal-empty-implemented.png' })
   for (const scene of ['fishing', 'coffee', 'bugs', 'inspector']) {
+    await page.getByRole('button', { name: 'Threads', exact: true }).click()
+    await page.getByRole('button', { name: 'Proposals', exact: true }).click()
+    await expect(character).toHaveAttribute('data-scene', scene)
     await page.clock.fastForward(12_000)
     await expect(character).toHaveAttribute('data-scene', scene)
   }

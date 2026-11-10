@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Pause, Play } from 'lucide-react'
 import { HushAvatar } from '../chat/hush-avatar'
 import { TooltipHint } from '../components/ui/tooltip'
 import './character.css'
 
 const scenes = ['inspector', 'fishing', 'coffee', 'bugs'] as const
-export const characterRotationMs = 12_000
+let nextScene = 0
 function Owl({ sleeping = false }: { sleeping?: boolean }) {
   return <div className="proposal-owl"><HushAvatar />{sleeping && <svg className="proposal-owl-lids" viewBox="0 0 80 80"><circle cx="30" cy="32" r="8" /><circle cx="50" cy="32" r="8" /><path d="M24 32Q30 36 36 32M44 32Q50 36 56 32" /></svg>}</div>
 }
@@ -15,7 +15,16 @@ function Bug() {
 
 /** Decorative only: no scan state or backend activity is implied by these loops. */
 export function ProposalCharacter() {
-  const [index, setIndex] = useState(0), [paused, setPaused] = useState(false)
+  const [scene, setScene] = useState<typeof scenes[number]>(scenes[0]), [paused, setPaused] = useState(false)
+  const assigned = useRef(false)
+  useLayoutEffect(() => {
+    // Pick once per opening, not per render or timer tick. The ref also keeps
+    // Strict Mode's effect replay from consuming another scene.
+    if (assigned.current) return
+    assigned.current = true
+    setScene(scenes[nextScene % scenes.length])
+    nextScene++
+  }, [])
   const [reduced, setReduced] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false)
   const [visible, setVisible] = useState(() => document.visibilityState !== 'hidden')
   useEffect(() => {
@@ -27,12 +36,6 @@ export function ProposalCharacter() {
     return () => { media?.removeEventListener('change', changeMotion); document.removeEventListener('visibilitychange', changeVisibility) }
   }, [])
   const stopped = paused || reduced || !visible
-  useEffect(() => {
-    if (stopped) return
-    const timer = setInterval(() => setIndex(value => (value + 1) % scenes.length), characterRotationMs)
-    return () => clearInterval(timer)
-  }, [stopped])
-  const scene = scenes[index]
   return <div className="proposal-character" data-scene={scene} data-paused={stopped}>
     <div className="proposal-character-art" key={scene} aria-hidden="true">
       <svg className="proposal-scene-back" viewBox="0 0 400 250" focusable="false">
