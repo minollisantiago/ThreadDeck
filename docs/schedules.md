@@ -7,6 +7,9 @@ overlap policy and last dispatch error. Give it an optional **Name** in the crea
 or edit dialog to use a readable title independently of its instruction. Changing
 the instruction does not change a custom name; clearing Name restores the
 instruction-derived title. Both the name and instruction are searchable.
+You can also right-click a schedule in the sidebar and choose **Rename…** for
+a focused name-only dialog, styled like conversation renaming. Keyboard users
+can open the same menu with Shift+F10 or the context-menu key.
 
 Names are persistent ThreadDeck metadata in the owning bot's local bridge
 database, shared by its clients and retained across restarts. They are not sent

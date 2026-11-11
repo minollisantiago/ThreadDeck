@@ -1,9 +1,20 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { CheckCheck, Mail, Pencil, Pin, PinOff } from 'lucide-react'
 
 export function SessionContextMenu({ x, y, unread, markRead, markUnread, close, pinned = false, togglePin, rename }: {
   x: number; y: number; unread: boolean; markRead: () => void; markUnread?: () => void; close: (restoreFocus?: boolean) => void; pinned?: boolean; togglePin?: () => void; rename?: () => void
+}) {
+  return <SidebarContextMenu x={x} y={y} close={close} label="Thread actions">
+    <button role="menuitem" aria-disabled={!unread} onClick={() => { close(true); if (unread) markRead() }}><CheckCheck aria-hidden="true" />Mark as read</button>
+    {markUnread && <button role="menuitem" aria-disabled={unread} onClick={() => { close(true); if (!unread) markUnread() }}><Mail aria-hidden="true" />Mark as unread</button>}
+    {togglePin && <button role="menuitem" onClick={() => { close(true); togglePin() }}>{pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}{pinned ? 'Unpin from Active' : 'Pin to Active'}</button>}
+    {rename && <button role="menuitem" onClick={() => { close(); rename() }}><Pencil aria-hidden="true" />Rename…</button>}
+  </SidebarContextMenu>
+}
+
+export function SidebarContextMenu({ x, y, close, label, children }: {
+  x: number; y: number; close: (restoreFocus?: boolean) => void; label: string; children: ReactNode
 }) {
   const menu = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -40,10 +51,5 @@ export function SessionContextMenu({ x, y, unread, markRead, markUnread, close, 
       window.removeEventListener('scroll', dismiss, true)
     }
   }, [x, y, close])
-  return createPortal(<div ref={menu} className="session-context-menu" role="menu" aria-label="Thread actions" style={{ left: x, top: y }} onContextMenu={event => { event.preventDefault(); event.stopPropagation() }}>
-    <button role="menuitem" aria-disabled={!unread} onClick={() => { close(true); if (unread) markRead() }}><CheckCheck aria-hidden="true" />Mark as read</button>
-    {markUnread && <button role="menuitem" aria-disabled={unread} onClick={() => { close(true); if (!unread) markUnread() }}><Mail aria-hidden="true" />Mark as unread</button>}
-    {togglePin && <button role="menuitem" onClick={() => { close(true); togglePin() }}>{pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}{pinned ? 'Unpin from Active' : 'Pin to Active'}</button>}
-    {rename && <button role="menuitem" onClick={() => { close(); rename() }}><Pencil aria-hidden="true" />Rename…</button>}
-  </div>, document.body)
+  return createPortal(<div ref={menu} className="session-context-menu" role="menu" aria-label={label} style={{ left: x, top: y }} onContextMenu={event => { event.preventDefault(); event.stopPropagation() }}>{children}</div>, document.body)
 }
