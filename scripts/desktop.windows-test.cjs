@@ -70,8 +70,13 @@ async function main() {
     const handle = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getNativeWindowHandle().readBigUInt64LE().toString())
     const taskbar = JSON.parse(require('node:child_process').execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(directory, 'windows-taskbar-probe.ps1'), '-WindowHandle', handle, '-RequireThreadDeck'], { encoding: 'utf8' }))
     assert.equal(taskbar.appId, 'ThreadDeck')
-    assert.ok(taskbar.relaunchIcon.includes('ThreadDeck.ico'))
+    assert.match(taskbar.relaunchIcon, /ThreadDeck-[a-f0-9]{16}\.ico,0$/)
     assert.equal(taskbar.relaunchName, 'ThreadDeck')
+    const shortcut = path.join(directory, `icon-probe-${require('node:crypto').randomUUID()}.lnk`)
+    try {
+      assert.equal(await app.evaluate(({ shell }, details) => shell.writeShortcutLink(details.shortcut, { target: details.executable, icon: details.icon, iconIndex: 0 }), { shortcut, executable, icon: taskbar.relaunchIcon.slice(0, -2) }), true)
+      require('node:child_process').execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(directory, 'windows-shortcut-icon.ps1'), '-Shortcut', shortcut, '-Icon', path.join(directory, 'ThreadDeck.ico')], { encoding: 'utf8' })
+    } finally { await fs.unlink(shortcut).catch(() => {}) }
     const bounds = await app.evaluate(({ BrowserWindow, screen }) => ({ bounds: BrowserWindow.getAllWindows()[0].getBounds(), area: screen.getPrimaryDisplay().workArea }))
     assert.equal(bounds.bounds.width, 430)
     assert.equal(bounds.bounds.height, bounds.area.height)

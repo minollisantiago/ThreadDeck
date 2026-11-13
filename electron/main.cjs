@@ -10,6 +10,7 @@ const { trayController } = require('./tray.cjs')
 const { installAudioPermissions } = require('./audio-permissions.cjs')
 const { openDiscordLink } = require('./discord.cjs')
 const { registerNotificationIdentity } = require('./notification-identity.cjs')
+const { appIcon } = require('./app-icon.cjs')
 
 const configFile = process.argv.find(arg => arg.startsWith('--launch-services='))?.slice('--launch-services='.length)
 let config
@@ -100,7 +101,7 @@ app.whenReady().then(async () => {
   window = new BrowserWindow({
     ...initialBounds, minWidth: Math.min(430, area.width), minHeight: Math.min(400, area.height),
     frame: false, show: false, backgroundColor: colors[appearance], title: 'ThreadDeck',
-    icon: path.join(__dirname, 'ThreadDeck.ico'),
+    icon: appIcon(__dirname),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },
   })
   appearance = await savedAppearance(window, origin, appearance, net)

@@ -5,12 +5,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { windowsRuntime } from './desktop.mjs'
 import { launcherScript, windowsQuote } from './windows-launcher.mjs'
+import { appIcon } from '../electron/app-icon.cjs'
 
 if (process.platform !== 'linux' || !process.env.WSL_DISTRO_NAME) throw new Error('Install the Windows launcher from WSL with Windows interop enabled.')
 const root = fileURLToPath(new URL('..', import.meta.url))
 const powershell = '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
 const win = value => execFileSync('wslpath', ['-w', value], { encoding: 'utf8' }).trim()
 const runtime = await windowsRuntime()
+const icon = win(appIcon(path.dirname(runtime.executable)))
 const directory = path.dirname(path.dirname(runtime.executable))
 const script = path.join(directory, 'launch.vbs')
 const log = path.join(directory, 'launcher.log')
@@ -33,7 +35,7 @@ await writeFile(config, JSON.stringify({
   details: {
     target: win(runtime.executable), args: [runtime.args[0], `--launch-services=${win(startup)}`].map(windowsQuote).join(' '),
     cwd: win(directory), description: 'Start Kimaki, the WSL dashboard and the Windows ThreadDeck app',
-    icon: win(path.join(path.dirname(runtime.executable), 'ThreadDeck.ico')), iconIndex: 0,
+    icon, iconIndex: 0,
   },
 }))
 // Native Electron writes the Windows AppUserModelID, which WScript.Shell cannot.
@@ -41,4 +43,6 @@ const { stdout } = await promisify(execFile)(runtime.executable,
   [win(path.join(path.dirname(runtime.executable), 'install-shortcuts.cjs')), win(config)],
   { cwd: path.dirname(runtime.executable), timeout: 30_000 })
 console.log(stdout.trim())
+const refreshed = await promisify(execFile)(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', win(path.join(root, 'scripts/refresh-windows-icons.ps1')), '-RuntimeDirectory', win(path.dirname(runtime.executable)), '-Icon', icon], { timeout: 30_000 })
+console.log(refreshed.stdout.trim())
 console.log('Installed. Setup did not start or restart Kimaki, OpenCode or ThreadDeck.')

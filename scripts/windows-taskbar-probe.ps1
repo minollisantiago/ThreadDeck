@@ -1,4 +1,4 @@
-param([long]$WindowHandle, [switch]$RequireThreadDeck)
+param([long]$WindowHandle, [switch]$RequireThreadDeck, [string]$IconPath)
 $ErrorActionPreference = 'Stop'
 Add-Type @'
 using System;
@@ -32,12 +32,27 @@ public static class ThreadDeckTaskbar {
       finally { PropVariantClear(ref value); }
     } finally { Marshal.ReleaseComObject(store); }
   }
+  public static void Write(long window, uint id, string text) {
+    Guid iid = typeof(Store).GUID; Store store;
+    SHGetPropertyStoreForWindow(new IntPtr(window), ref iid, out store);
+    try {
+      PropertyKey key = new PropertyKey(id); Value value = new Value();
+      value.type = 31; value.text = Marshal.StringToCoTaskMemUni(text);
+      try { store.SetValue(ref key, ref value); store.Commit(); }
+      finally { PropVariantClear(ref value); }
+    } finally { Marshal.ReleaseComObject(store); }
+  }
 }
 '@
 if (!$WindowHandle) {
   $process = Get-Process ThreadDeck,electron -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq 'ThreadDeck' } | Select-Object -First 1
   if (!$process) { throw 'No visible ThreadDeck window found' }
   $WindowHandle = $process.MainWindowHandle.ToInt64()
+}
+if ($IconPath) {
+  if (!(Test-Path -LiteralPath $IconPath)) { throw 'Taskbar icon file does not exist' }
+  if ([ThreadDeckTaskbar]::Read($WindowHandle, 5) -ne 'ThreadDeck') { throw 'Refusing to change an unrelated window' }
+  [ThreadDeckTaskbar]::Write($WindowHandle, 3, "$IconPath,0")
 }
 $result = [PSCustomObject]@{
   appId = [ThreadDeckTaskbar]::Read($WindowHandle, 5)

@@ -16,25 +16,27 @@ const { colors, parseAppearance } = require('../electron/appearance.cjs')
 const { readWindowState, fitWindowBounds, saveWindowState } = require('../electron/window-state.cjs')
 const { agentStatus } = require('../electron/agent-status.cjs')
 const { registerNotificationIdentity } = require('../electron/notification-identity.cjs')
+const { appIcon } = require('../electron/app-icon.cjs')
+const { ownedPinnedShortcut } = require('../electron/shortcut-ownership.cjs')
 
 test('Windows toast sender metadata uses the shared app ID and safely quoted icon path', async () => {
   const calls = []
   const run = async (...args) => { calls.push(args) }
-  await registerNotificationIdentity("C:\\Users\\O'Brien\\Thread Deck", { platform: 'win32', run })
+  await registerNotificationIdentity("C:\\Users\\O'Brien\\Thread Deck", { platform: 'win32', run, iconPath: "C:\\Users\\O'Brien\\Thread Deck\\ThreadDeck-revision.ico" })
   const [executable, args, options] = calls[0]
   assert.match(executable, /WindowsPowerShell\\v1\.0\\powershell\.exe$/)
   assert.deepEqual(args.slice(0, 3), ['-NoProfile', '-NonInteractive', '-EncodedCommand'])
   const script = Buffer.from(args[3], 'base64').toString('utf16le')
   assert.ok(script.includes(`HKCU:\\Software\\Classes\\AppUserModelId\\${appId}`))
   assert.ok(script.includes("-Name DisplayName -Value 'ThreadDeck'"))
-  assert.ok(script.includes("-Name IconUri -Value 'C:\\Users\\O''Brien\\Thread Deck\\ThreadDeck.ico'"))
+  assert.ok(script.includes("-Name IconUri -Value 'C:\\Users\\O''Brien\\Thread Deck\\ThreadDeck-revision.ico'"))
   assert.ok(script.includes("$ErrorActionPreference = 'Stop'"))
   assert.equal(options.windowsHide, true)
   assert.equal(options.timeout, 15_000)
   await registerNotificationIdentity('/desktop', { platform: 'linux', run })
   assert.equal(calls.length, 1)
   await assert.rejects(registerNotificationIdentity('C:\\ThreadDeck', {
-    platform: 'win32', run: async () => { throw new Error('Registry unavailable') },
+    platform: 'win32', iconPath: 'C:\\ThreadDeck\\ThreadDeck-revision.ico', run: async () => { throw new Error('Registry unavailable') },
   }), /Registry unavailable/)
 })
 
@@ -120,7 +122,7 @@ test('native tray groups notifications, navigates, persists settings, and stops 
     module, __dirname: '/desktop', Buffer, console, AbortController,
     require: name => name === 'electron' ? { Tray: FakeTray, Notification: FakeNotification, Menu: { buildFromTemplate: items => items }, nativeImage: { createFromPath: () => ({}), createFromBitmap: () => ({}) } }
       : name === 'node:fs' ? { readFileSync: () => '{}', writeFileSync: (_file, text) => saved.push(JSON.parse(text)) }
-        : name === './agent-status.cjs' ? { agentStatus } : require(name),
+        : name === './agent-status.cjs' ? { agentStatus } : name === './app-icon.cjs' ? { appIcon: directory => path.join(directory, 'ThreadDeck.ico') } : require(name),
     setTimeout: (fn, ms) => { const id = {}; timers.set(id, { fn, ms }); return id },
     clearTimeout: id => timers.delete(id),
     fetch: async () => ({ ok: true, json: async () => next }),
@@ -220,12 +222,12 @@ test('startup appearance follows saved dashboard mode and falls back safely', ()
 })
 
 test('taskbar icon and relaunch metadata share the shortcut app identity', () => {
-  const details = taskbarDetails('C:\\Apps\\Thread Deck\\runtime', 43127, { exists: () => true, windowsDirectory: 'C:\\Windows' })
+  const details = taskbarDetails('C:\\Apps\\Thread Deck\\runtime', 43127, { exists: () => true, windowsDirectory: 'C:\\Windows', iconPath: 'C:\\Apps\\Thread Deck\\runtime\\ThreadDeck-revision.ico' })
   assert.equal(details.appId, appId)
-  assert.equal(details.appIconPath, 'C:\\Apps\\Thread Deck\\runtime\\ThreadDeck.ico')
+  assert.equal(details.appIconPath, 'C:\\Apps\\Thread Deck\\runtime\\ThreadDeck-revision.ico')
   assert.equal(details.relaunchDisplayName, 'ThreadDeck')
   assert.equal(details.relaunchCommand, '"C:\\Windows\\System32\\wscript.exe" "C:\\Apps\\Thread Deck\\launch.vbs"')
-  const fallback = taskbarDetails('C:\\Apps\\runtime', 43127, { exists: () => false, executable: 'C:\\Apps\\runtime\\electron.exe' })
+  const fallback = taskbarDetails('C:\\Apps\\runtime', 43127, { exists: () => false, executable: 'C:\\Apps\\runtime\\electron.exe', iconPath: 'C:\\Apps\\runtime\\ThreadDeck-revision.ico' })
   assert.ok(fallback.relaunchCommand.includes('main.cjs'))
   assert.ok(!fallback.relaunchCommand.includes('supervisor-lease'))
 })
@@ -235,6 +237,33 @@ test('Windows app icon includes small and high-DPI versions of the favicon', () 
   assert.equal(icon.readUInt16LE(2), 1)
   assert.equal(icon.readUInt16LE(4), 7)
   assert.deepEqual(Array.from({ length: 7 }, (_, index) => icon[6 + index * 16] || 256), [16, 24, 32, 48, 64, 128, 256])
+})
+
+test('icon revisions use new shell-cache keys and preserve the exact ICO bytes', () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'threaddeck-icon-cache-'))
+  try {
+    const icon = readFileSync(new URL('../electron/ThreadDeck.ico', import.meta.url))
+    const source = path.join(directory, 'ThreadDeck.ico')
+    writeFileSync(source, icon)
+    const first = appIcon(directory)
+    assert.match(path.basename(first), /^ThreadDeck-[a-f0-9]{16}\.ico$/)
+    assert.deepEqual(readFileSync(first), icon)
+    assert.equal(appIcon(directory), first)
+    writeFileSync(source, Buffer.concat([icon, Buffer.from('new revision')]))
+    const next = appIcon(directory)
+    assert.notEqual(next, first, 'Explorer must see a different icon path when the logo changes')
+    assert.deepEqual(readFileSync(first), icon, 'never overwrite a cached icon path with different bytes')
+    assert.equal(taskbarDetails(directory, 43127, { exists: () => true }).appIconPath, next)
+  } finally { rmSync(directory, { recursive: true, force: true }) }
+})
+
+test('repairs old Electron pins only when they belong to this ThreadDeck runtime', () => {
+  const runtime = 'C:\\Users\\Operator\\AppData\\Local\\ThreadDeck\\electron-44.9.1-x64'
+  assert.equal(ownedPinnedShortcut({ target: `${runtime}\\electron.exe`, args: '', icon: '' }, runtime), true)
+  assert.equal(ownedPinnedShortcut({ target: `${runtime}\\ThreadDeck.exe` }, runtime), true)
+  assert.equal(ownedPinnedShortcut({ target: `${runtime.toLowerCase()}\\ELECTRON.EXE` }, runtime), true)
+  assert.equal(ownedPinnedShortcut({ target: 'C:\\Apps\\TsCanvas\\electron.exe' }, runtime), false)
+  assert.equal(ownedPinnedShortcut({ target: `${runtime}\\unrelated.exe` }, runtime), false)
 })
 
 function executableWithPlaceholderIcon() {

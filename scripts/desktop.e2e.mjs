@@ -37,6 +37,7 @@ try {
   await copyFile('scripts/desktop.windows-test.cjs', path.join(directory, 'desktop.windows-test.cjs'))
   await copyFile('scripts/windows-taskbar-probe.ps1', path.join(directory, 'windows-taskbar-probe.ps1'))
   await copyFile('scripts/windows-executable-icon.ps1', path.join(directory, 'windows-executable-icon.ps1'))
+  await copyFile('scripts/windows-shortcut-icon.ps1', path.join(directory, 'windows-shortcut-icon.ps1'))
   const windowsPath = value => execFileSync('wslpath', ['-w', path.resolve(value)], { encoding: 'utf8' }).trim()
   if (process.argv.includes('--startup')) {
     startupRoot = await mkdtemp("/tmp/opencode/ThreadDeck startup's test-")

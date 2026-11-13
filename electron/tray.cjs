@@ -2,6 +2,7 @@ const { Tray, Menu, Notification } = require('electron')
 const { readFileSync, writeFileSync } = require('node:fs')
 const path = require('node:path')
 const { agentStatus } = require('./agent-status.cjs')
+const { appIcon } = require('./app-icon.cjs')
 
 function trayController({ app, window, origin, openSession }) {
   const settingsFile = path.join(app.getPath('userData'), 'tray-settings.json')
@@ -10,7 +11,7 @@ function trayController({ app, window, origin, openSession }) {
     const saved = JSON.parse(readFileSync(settingsFile, 'utf8'))
     for (const key of Object.keys(settings)) if (typeof saved[key] === 'boolean') settings[key] = saved[key]
   } catch { /* First launch or unavailable preferences. */ }
-  const model = agentStatus(), icon = path.join(__dirname, 'ThreadDeck.ico')
+  const model = agentStatus(), icon = appIcon(__dirname)
   const tray = new Tray(icon)
   let stopped = false, timer, request, activeSession = null, disconnected = false
   const notifications = new Set()
