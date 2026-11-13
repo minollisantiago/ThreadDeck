@@ -24,6 +24,7 @@ export function useSchedules(navigation?: WorkspaceSections) {
   const [checkedAt, setCheckedAt] = useState<number | null>(null)
   const [namesSupported, setNamesSupported] = useState(false)
   const [editor, setEditor] = useState<ScheduleEditorTarget | null>(null)
+  const [confirmation, setConfirmation] = useState<{ action: 'run' | 'delete'; schedule: Schedule } | null>(null)
   const [operationId, setOperationId] = useState(savedOperation)
   const activeOperationId = useRef(operationId)
   const [operation, setOperation] = useState<ScheduleOperation | null>(null), [operationError, setOperationError] = useState('')
@@ -99,7 +100,7 @@ export function useSchedules(navigation?: WorkspaceSections) {
     } finally { mutationLock.current = false }
   }
   function dismissOperation() { activeOperationId.current = null; remember(null); setOperationId(null); setOperation(null); setOperationError('') }
-  return { section, setSection, tasks, selectedId, select: setSelectedId, loading, available, error, checkedAt, namesSupported, refresh, editor, setEditor, operationId, operation, operationError: operation?.state === 'succeeded' || operation?.state === 'failed' ? '' : operationError, locked, submit, checkOperation, dismissOperation }
+  return { section, setSection, tasks, selectedId, select: setSelectedId, loading, available, error, checkedAt, namesSupported, refresh, editor, setEditor, confirmation, setConfirmation, operationId, operation, operationError: operation?.state === 'succeeded' || operation?.state === 'failed' ? '' : operationError, locked, submit, checkOperation, dismissOperation }
 }
 export type Schedules = ReturnType<typeof useSchedules>
 export const SchedulesContext = createContext<(Schedules & { selectTask: (id: number) => void }) | null>(null)

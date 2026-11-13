@@ -10,6 +10,9 @@ instruction-derived title. Both the name and instruction are searchable.
 You can also right-click a schedule in the sidebar and choose **Rename…** for
 a focused name-only dialog, styled like conversation renaming. Keyboard users
 can open the same menu with Shift+F10 or the context-menu key.
+Each sidebar row also has a play button for **Run now**. It opens the same
+confirmation as the details pane, including one-time and pre-run warnings;
+unavailable, noneditable, or unresolved-operation states disable the shortcut.
 
 Names are persistent ThreadDeck metadata in the owning bot's local bridge
 database, shared by its clients and retained across restarts. They are not sent

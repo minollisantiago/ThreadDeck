@@ -128,6 +128,33 @@ it('supports keyboard context menus, Escape and cancelling a rename without savi
   expect(posted).toHaveLength(0)
   expect(document.activeElement).toBe(row)
 })
+it('quick-runs the targeted sidebar schedule only after confirmation', async () => {
+  tasks.push({ ...task, id: 2, name: 'Another task', kind: 'at', preRun: 'echo guarded' })
+  setup(); await schedules()
+  fireEvent.click(screen.getByRole('button', { name: 'Run Another task now' }))
+  let dialog = screen.getByRole('dialog', { name: 'Run this schedule now?' })
+  expect(within(dialog).getByText('Another task')).toBeTruthy()
+  expect(within(dialog).getByText(/consumes the one-time occurrence/).textContent).toMatch(/shell pre-run command/)
+  expect(posted).toHaveLength(0)
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+  expect(posted).toHaveLength(0)
+  fireEvent.click(screen.getByRole('button', { name: 'Run Another task now' }))
+  dialog = screen.getByRole('dialog', { name: 'Run this schedule now?' })
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Run now' }))
+  await waitFor(() => expect(posted).toHaveLength(1))
+  expect(posted[0]).toMatchObject({ action: 'run', id: 2, revision: task.revision })
+})
+it('disables quick run for noneditable tasks and during an unresolved dispatch', async () => {
+  receiptState = 'running'
+  tasks.push({ ...task, id: 2, name: 'Dispatching task', status: 'running', editable: false })
+  setup(); await schedules()
+  expect((screen.getByRole('button', { name: 'Run Dispatching task now' }) as HTMLButtonElement).disabled).toBe(true)
+  const quickRun = screen.getByRole('button', { name: /^Run Weekly backtest/ }) as HTMLButtonElement
+  fireEvent.click(quickRun)
+  fireEvent.click(within(screen.getByRole('dialog', { name: 'Run this schedule now?' })).getByRole('button', { name: 'Run now' }))
+  await waitFor(() => expect(quickRun.disabled).toBe(true))
+  expect(posted).toHaveLength(1)
+})
 it('disables sidebar renaming on older bridges', async () => {
   namesSupported = false
   setup(); await schedules()

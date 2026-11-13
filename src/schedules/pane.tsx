@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { AlertCircle, Clock3, Hash, MessageSquare, Play, RefreshCw, Trash2, X } from 'lucide-react'
 import type { Project } from '../../shared/model'
-import { scheduleTitle, type Schedule } from '../../shared/schedules'
+import { scheduleTitle } from '../../shared/schedules'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { TooltipHint } from '../components/ui/tooltip'
@@ -47,9 +47,10 @@ export function ScheduleOperationNotice({ projects }: { projects: Project[] }) {
 }
 export function SchedulePane({ projects, sidebar, sidebarOpen }: { projects: Project[]; sidebar: () => void; sidebarOpen: boolean }) {
   const workspace = useSchedulesContext()
-  const [confirmation, setConfirmation] = useState<{ action: 'run' | 'delete'; schedule: Schedule } | null>(null)
+  const { confirmation, setConfirmation } = workspace
   const [submitting, setSubmitting] = useState(false), [error, setError] = useState('')
   const [confirmationOperation, setConfirmationOperation] = useState<string | null>(null)
+  useEffect(() => { if (confirmation) { setError(''); setConfirmationOperation(null) } }, [confirmation])
   useEffect(() => { if (confirmationOperation && workspace.operation?.id === confirmationOperation && workspace.operation.state === 'succeeded') setConfirmation(null) }, [confirmationOperation, workspace.operation])
   const task = workspace.tasks.find(t => t.id === workspace.selectedId)
   const transcript = useRef<HTMLDivElement>(null)
@@ -74,7 +75,7 @@ export function SchedulePane({ projects, sidebar, sidebarOpen }: { projects: Pro
     <section className="schedule-actions-section" aria-labelledby="schedule-actions-heading"><h3 id="schedule-actions-heading">Actions</h3><div className="schedule-actions"><Button disabled={!writable || !task.editable} onClick={() => { setError(''); setConfirmation({ action: 'run', schedule: task }) }}><Play size={13} />Run now</Button><Button variant="outline" disabled={!writable || !task.editable} onClick={() => workspace.setEditor({ projectId: task.projectId, schedule: task })}>Edit schedule</Button><Button variant="outline" className="schedule-delete" disabled={!writable} onClick={() => { setError(''); setConfirmation({ action: 'delete', schedule: task }) }}><Trash2 size={13} />Delete schedule…</Button></div>
     <p className="schedule-note">{task.kind === 'at' ? 'Run now consumes this one-time occurrence. A pre-run skip can also remove it.' : 'Run now dispatches an occurrence and advances its next planned time.'} Dispatch is not AI completion. Deleting a routine does not stop an already dispatched session.</p></section>
   </> : <div className="schedule-empty"><Clock3 size={32} /><h2>{workspace.loading ? 'Loading schedules…' : workspace.available ? 'No schedules yet' : 'Project schedules'}</h2><p>{workspace.available ? 'Use New schedule in the sidebar to create a routine for any registered project.' : 'Connect the updated local Kimaki bridge to load and manage routines.'}</p><Button variant="outline" onClick={sidebar}>Open schedules sidebar</Button></div>}</div></div>
-  {confirmation && <Dialog title={confirmation.action === 'run' ? 'Run this schedule now?' : 'Delete this schedule?'} close={() => setConfirmation(null)} busy={submitting}><div className="schedule-dialog-body"><p><strong>{scheduleTitle(confirmation.schedule)}</strong></p><p>{confirmation.action === 'run' ? `${confirmation.schedule.kind === 'at' ? 'This consumes the one-time occurrence.' : 'This advances its next planned run.'} ${confirmation.schedule.preRun ? 'Its configured shell pre-run command will execute too. ' : ''}The operation does not wait for the AI turn to complete.` : 'This permanently removes the routine, but does not stop an AI session or shell command already underway.'}</p>{error && <p role="alert" className="schedule-form-error">{error}</p>}</div><footer><Button variant="outline" disabled={submitting} onClick={() => setConfirmation(null)}>Cancel</Button><Button className={confirmation.action === 'delete' ? 'schedule-delete' : undefined} disabled={submitting || workspace.locked} onClick={() => void perform()}>{submitting ? 'Submitting…' : confirmation.action === 'run' ? 'Run now' : 'Delete schedule'}</Button></footer></Dialog>}
+  {confirmation && <Dialog title={confirmation.action === 'run' ? 'Run this schedule now?' : 'Delete this schedule?'} close={() => setConfirmation(null)} busy={submitting}><div className="schedule-dialog-body"><p><strong>{scheduleTitle(confirmation.schedule)}</strong></p><p>{confirmation.action === 'run' ? `${confirmation.schedule.kind === 'at' ? 'This consumes the one-time occurrence.' : 'This advances its next planned run.'} ${confirmation.schedule.preRun ? 'Its configured shell pre-run command will execute too. ' : ''}The operation does not wait for the AI turn to complete.` : 'This permanently removes the routine, but does not stop an AI session or shell command already underway.'}</p>{error && <p role="alert" className="schedule-form-error">{error}</p>}</div><footer><Button variant="outline" disabled={submitting} onClick={() => setConfirmation(null)}>Cancel</Button><Button className={confirmation.action === 'delete' ? 'schedule-delete' : undefined} disabled={submitting || workspace.locked || !workspace.available} onClick={() => void perform()}>{submitting ? 'Submitting…' : confirmation.action === 'run' ? 'Run now' : 'Delete schedule'}</Button></footer></Dialog>}
   </main>
 }
 function ScheduleEditor({ target, projects }: { target: ScheduleEditorTarget; projects: Project[] }) {

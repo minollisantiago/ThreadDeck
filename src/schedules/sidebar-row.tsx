@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
-import { AlertCircle, Clock3, Pencil } from 'lucide-react'
+import { AlertCircle, Clock3, Pencil, Play } from 'lucide-react'
 import type { Project } from '../../shared/model'
 import { scheduleTitle, type Schedule } from '../../shared/schedules'
 import { SidebarContextMenu } from '../components/session-context-menu'
+import { TooltipHint } from '../components/ui/tooltip'
 import { RenameScheduleDialog } from './rename-dialog'
 import { useSchedulesContext } from './use-schedules'
 
@@ -28,6 +29,7 @@ export function ScheduleSidebarRow({ task, projects }: { task: Schedule; project
     }
   }}>
     <div className="session-copy"><button type="button" className="session-title" title={task.prompt || task.preview} onClick={() => workspace.selectTask(task.id)}>{scheduleTitle(task)}</button><span className="schedule-row-time"><Clock3 size={10} aria-hidden="true" />{task.status !== 'planned' ? task.status === 'running' ? 'Dispatching' : 'Failed · not scheduled' : <time dateTime={task.nextRunAt}>{new Date(task.nextRunAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</time>}</span></div><span className={task.lastError ? 'schedule-row-error' : 'schedule-row-kind'} title={task.lastError || (task.kind === 'cron' ? 'Recurring' : 'One-time')}>{task.lastError ? <AlertCircle size={13} aria-label="Dispatch error" /> : <Clock3 size={12} aria-label={task.kind === 'cron' ? 'Recurring' : 'One-time'} />}</span>
+    <TooltipHint label="Run schedule now"><button type="button" className="schedule-row-run" aria-label={`Run ${scheduleTitle(task)} now`} disabled={!workspace.available || workspace.locked || !task.editable} onClick={() => { workspace.selectTask(task.id); workspace.setConfirmation({ action: 'run', schedule: task }) }}><Play size={13} aria-hidden="true" /></button></TooltipHint>
     {menu && <SidebarContextMenu {...menu} close={closeMenu} label="Schedule actions"><button role="menuitem" aria-disabled={disabled} title={reason} onClick={() => { if (!disabled) { closeMenu(); setRenaming(task) } }}><Pencil aria-hidden="true" />Rename…</button></SidebarContextMenu>}
     {renaming && <RenameScheduleDialog schedule={renaming} projects={projects} close={closeRename} restoreFocus={restoreFocus} />}
   </div>
