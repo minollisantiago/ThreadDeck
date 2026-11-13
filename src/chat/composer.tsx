@@ -15,8 +15,10 @@ import { AudioRecorder } from './audio-recorder'
 import { AttachmentRow } from './attachment-row'
 import { invocation, parseInvocation } from '../../shared/slash'
 import { useSlashPicker } from './slash-picker'
+import { UploadStorage } from './upload-storage'
 
-export function PromptComposer({ draft, change, expanded, toggle, enabled, busy, pending, catalog, submit, stop, model, audioEnabled = false, onBusyChange, catalogLoading, catalogError, retryCatalog }: {
+export function PromptComposer({ draft, draftOwner, change, expanded, toggle, enabled, busy, pending, catalog, submit, stop, model, audioEnabled = false, onBusyChange, catalogLoading, catalogError, retryCatalog }: {
+  draftOwner?: string
   draft: Draft; change: (patch: Partial<Draft>) => void; expanded: boolean; toggle: () => void
   enabled: boolean; busy: boolean; pending: boolean; catalog: ChatCatalog; submit: (delivery: 'send' | 'queue') => void; stop: () => void
   model?: Session['model']
@@ -89,7 +91,7 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
       if (files.length + latest.current.draft.files.length > 10) throw new Error('Attach at most 10 files')
       if (files.some(file => file.size > 10 * 1024 * 1024)) throw new Error('Files must be at most 10 MiB')
       for (const file of files) {
-        const uploaded = await chatRequest(`files?name=${encodeURIComponent(file.name)}`, chatFileSchema, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file })
+        const uploaded = await chatRequest(`files?name=${encodeURIComponent(file.name)}${draftOwner ? `&owner=${encodeURIComponent(draftOwner)}` : ''}`, chatFileSchema, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file })
         const audioPrompt = audioEnabled && Boolean(inlineAudioType(file.name, file.type)) && !latest.current.draft.files.some(file => file.audioPrompt)
         latest.current.change({ files: [...latest.current.draft.files, { ...uploaded, size: file.size, ...(audioPrompt && { audioPrompt: true }), available: true }] })
       }
@@ -132,5 +134,6 @@ export function PromptComposer({ draft, change, expanded, toggle, enabled, busy,
     </div>
     {(!expanded || busy || draft.text.length > 50_000) && <div className="chat-composer-foot">{!expanded && <span><kbd>Ctrl P · P</kbd> expand editor</span>}{busy && <button disabled={!ready} onClick={() => submit('send')}>Send now / interrupt</button>}{draft.text.length > 50_000 && <span className="chat-composer-feedback" role="status">Over the 50,000 character prompt limit</span>}</div>}
     {uploadError && <p className="chat-error" role="alert">{uploadError}</p>}
+    <UploadStorage />
   </section>
 }

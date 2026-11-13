@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { readFile, mkdir, writeFile, stat, readdir } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { UploadStore } from './upload-store.ts'
 import { z } from 'zod'
 import { ChatError, submitSchema, threadIdSchema } from '../shared/chat.ts'
 import { trustedRequest } from './http.ts'
@@ -38,6 +38,7 @@ async function body(request: IncomingMessage, limit: number) {
   return Buffer.concat(chunks)
 }
 export function chatHandler(port: number, bridge = localChatBridge(), data = process.env.THREADDECK_DATA_DIR || path.join(homedir(), '.local/share/threaddeck'), download: typeof fetch = fetch) {
+  const uploads = new UploadStore(data)
   return (request: IncomingMessage, response: ServerResponse): boolean => {
     if (!request.url?.startsWith('/api/chat/')) return false
     response.setHeader('Cache-Control', 'no-store'); response.setHeader('X-Content-Type-Options', 'nosniff'); response.setHeader('Referrer-Policy', 'no-referrer')
@@ -52,6 +53,7 @@ export function chatHandler(port: number, bridge = localChatBridge(), data = pro
       const attachment = /^threads\/(\d{17,20})\/messages\/(\d{17,20})\/attachments\/(\d{17,20})$/.exec(route)
       const operation = /^operations\/([a-f0-9-]{36})$/.exec(route)
       if (request.method === 'GET') {
+        if (route === 'storage') return json(200, uploads.status())
         if (route === 'profile') {
           const userId = url.searchParams.get('userId') ?? process.env.THREADDECK_DISCORD_USER_ID
           const input = userId === undefined ? {} : { userId: discordUserIdSchema.parse(userId) }
@@ -95,20 +97,21 @@ export function chatHandler(port: number, bridge = localChatBridge(), data = pro
           if (/[\x00-\x1f/\\]/.test(name)) throw new ChatError('invalid', 'Invalid filename')
           // Require the bridge before creating disk state; uploads are never silently staged for an old bot.
           await bridge.call('info', {}, controller.signal)
-          const bytes = await body(request, 10 * 1024 * 1024), id = randomUUID(), directory = path.join(data, 'uploads')
-          await mkdir(directory, { recursive: true, mode: 0o700 })
-          const existing = (await readdir(directory)).filter(name => name.includes('.file.') || name.endsWith('.bin'))
-          const sizes = await Promise.all(existing.map(async name => (await stat(path.join(directory, name))).size))
-          if (existing.length >= 128 || sizes.reduce((sum, size) => sum + size, 0) + bytes.length > 256 * 1024 * 1024) throw new ChatError('too_large', 'Local upload storage is full; remove files no longer needed before attaching more')
-          const extension = /^\.[a-z0-9]{1,12}$/i.test(path.extname(name)) ? path.extname(name) : '.bin'
-          const filename = `${id}.file${extension}`
-          await writeFile(path.join(directory, filename), bytes, { mode: 0o600, flag: 'wx' })
-          await writeFile(path.join(directory, `${id}.json`), JSON.stringify({ name, path: filename, size: bytes.length, createdAt: Date.now() }), { mode: 0o600, flag: 'wx' })
-          return json(201, { id, name })
+          const owner = url.searchParams.has('owner') ? z.string().min(1).max(300).parse(url.searchParams.get('owner')) : undefined
+          return json(201, uploads.upload(name, await body(request, 10 * 1024 * 1024), owner))
         }
         if (request.headers['content-type']?.split(';')[0] !== 'application/json') throw new ChatError('invalid', 'JSON content type required')
         const input: unknown = JSON.parse((await body(request, 256 * 1024)).toString('utf8'))
-        if (route === 'submit') return json(202, await bridge.call('submit', submitSchema.parse(input), controller.signal))
+        if (route === 'storage/clean') return json(200, uploads.clean())
+        if (route === 'files/drafts') {
+          const draft = z.object({ owner: z.string().min(1).max(300), ids: z.array(z.uuid()).max(10) }).parse(input)
+          uploads.draft(draft.owner, draft.ids); return json(200, { ok: true })
+        }
+        if (route === 'submit') {
+          const submission = submitSchema.parse(input)
+          if (submission.files.length) uploads.protect(submission.files.map(file => file.id))
+          return json(202, await bridge.call('submit', submission, controller.signal))
+        }
         if (thread?.[2] === 'abort') return json(200, await bridge.call('abort', { threadId: thread[1] }, controller.signal))
       }
       json(404, { error: 'Unknown chat endpoint' })

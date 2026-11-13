@@ -2,9 +2,10 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { afterEach, expect, it, vi } from 'vitest'
 import { chatHandler } from './chat'
-import { mkdtemp, rm, readFile, stat } from 'node:fs/promises'
+import { mkdtemp, rm, readFile, stat, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { tmpdir } from 'node:os'
+import { UploadStore } from './upload-store'
 
 const servers: ReturnType<typeof createServer>[] = []
 const directories: string[] = []
@@ -74,6 +75,41 @@ it('stages private files with safe media extensions and rejects path names', asy
   expect(metadata.path).toBe(`${file.id}.file.png`)
   expect((await stat(path.join(directory, 'uploads', metadata.path))).mode & 0o777).toBe(0o600)
   expect((await fetch(`${url}/api/chat/files?name=${encodeURIComponent('../escape.png')}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: 'x' })).status).toBe(400)
+})
+it('exposes storage usage and cleanup only through trusted local requests', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'threaddeck-upload-')); directories.push(directory)
+  const { url, call } = await setup(directory)
+  const uploaded = await fetch(`${url}/api/chat/files?name=screen.png&owner=draft`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: 'x' })
+  expect(uploaded.status).toBe(201)
+  const { id } = await uploaded.json()
+  expect(await (await fetch(`${url}/api/chat/storage`)).json()).toMatchObject({ count: 1, used: 1, protected: 1, budget: 2 * 1024 ** 3 })
+  const sync = await fetch(`${url}/api/chat/files/drafts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ owner: 'draft', ids: [] }) })
+  expect(sync.status).toBe(200)
+  expect(new UploadStore(directory).status()).toMatchObject({ reclaimable: 1, protected: 0 })
+  call.mockClear()
+  expect((await fetch(`${url}/api/chat/storage/clean`, { method: 'POST', headers: { Origin: 'https://evil.example', 'Content-Type': 'application/json' }, body: '{}' })).status).toBe(403)
+  expect((await fetch(`${url}/api/chat/storage/clean`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status).toBe(200)
+  expect(call).not.toHaveBeenCalled()
+})
+it('accepts the 129th upload instead of returning the old storage-full error', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'threaddeck-upload-')); directories.push(directory)
+  const uploads = path.join(directory, 'uploads')
+  await mkdir(uploads)
+  await Promise.all(Array.from({ length: 128 }, () => writeFile(path.join(uploads, `${crypto.randomUUID()}.file.png`), 'x')))
+  const { url } = await setup(directory)
+  const response = await fetch(`${url}/api/chat/files?name=one-byte.png`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: 'x' })
+  expect(response.status).toBe(201)
+  expect(await response.json()).toMatchObject({ name: 'one-byte.png' })
+  expect(new UploadStore(directory).status().count).toBe(129)
+})
+it('pins submitted uploads even when the bridge cannot confirm delivery', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'threaddeck-upload-')); directories.push(directory)
+  const { url, call } = await setup(directory)
+  const file = new UploadStore(directory).upload('screen.png', Buffer.from('x'))
+  call.mockRejectedValueOnce(new Error('Uncertain delivery'))
+  const response = await fetch(`${url}/api/chat/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: crypto.randomUUID(), threadId: '100000000000000001', text: '', files: [file], delivery: 'queue' }) })
+  expect(response.ok).toBe(false)
+  expect(new UploadStore(directory).status()).toMatchObject({ protected: 1, reclaimable: 0 })
 })
 it('serves raster attachments inline without MIME metadata but keeps active content as downloads', async () => {
   const download = vi.fn<typeof fetch>(async () => new Response('synthetic bytes'))

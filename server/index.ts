@@ -12,6 +12,8 @@ import { sessionHandler } from './sessions.ts'
 import { scheduleHandler } from './schedules.ts'
 import { ProposalStore } from './proposal-store.ts'
 import { proposalHandler } from './proposals.ts'
+import { UploadStore } from './upload-store.ts'
+import { homedir } from 'node:os'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const port = Number(process.env.PORT ?? 43127)
@@ -21,6 +23,11 @@ const monitor = new Monitor(source)
 const search = createConversationSearch()
 const api = apiHandler(monitor, port, search)
 const chat = chatHandler(port)
+const uploadStore = new UploadStore(process.env.THREADDECK_DATA_DIR || path.join(homedir(), '.local/share/threaddeck'))
+const cleanUploads = () => { try { uploadStore.status(true) } catch (error) { console.error('Upload cleanup failed:', error instanceof Error ? error.message : 'Unknown error') } }
+cleanUploads()
+const uploadCleanup = setInterval(cleanUploads, 60 * 60 * 1000)
+uploadCleanup.unref()
 const projects = projectHandler(port)
 const sessions = sessionHandler(port, monitor)
 const schedules = scheduleHandler(port)
@@ -56,6 +63,7 @@ server.listen(port, '127.0.0.1', () => console.log(`ThreadDeck listening on http
 monitor.start()
 search.start()
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => {
+  clearInterval(uploadCleanup)
   monitor.stop()
   void search.stop()
   server.close(); server.closeAllConnections(); void vite?.close()
