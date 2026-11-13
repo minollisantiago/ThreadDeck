@@ -1,0 +1,26 @@
+// THROWAWAY: reuse the exact chat-bubble Hush avatar, not a replacement mascot.
+import { HushAvatar } from '../chat/hush-avatar'
+import './empty-character.prototype.css'
+
+export type CharacterVariant = 'A' | 'B' | 'C' | 'D' | 'E'
+function Owl({ className = '' }: { className?: string }) { return <div className={`study-hush ${className}`}><HushAvatar />{className === 'sleepy-owl' && <svg className="sleep-lids" viewBox="0 0 80 80" aria-hidden="true"><circle cx="30" cy="32" r="8" /><circle cx="50" cy="32" r="8" /><path d="M24 32Q30 36 36 32M44 32Q50 36 56 32" /></svg>}</div> }
+function Bug({ className = '' }: { className?: string }) { return <g className={`scene-bug ${className}`}><path d="M-5-3-5-7M5-3 5-7M-5 0-10-3M5 0 10-3M-5 5-10 8M5 5 10 8" /><ellipse rx="6" ry="8" /><path d="M0-6V6" /></g> }
+
+export function CharacterScene({ variant, paused = false }: { variant: CharacterVariant; paused?: boolean }) {
+  return <div className={`character-scene scene-${variant}`} data-paused={paused} role="img" aria-label={{ A: 'Kimaki inspects an empty folder while a bug sneaks past.', B: 'Kimaki fishes in an empty inbox and catches a sock.', C: 'Kimaki repeatedly stamps zero on an empty proposal form.', D: 'Kimaki naps beside a coffee while waiting for the scheduled scan.', E: 'Kimaki tries to catch a bug that lands on its head.' }[variant]}>
+    <svg className="scene-background" viewBox="0 0 400 250" aria-hidden="true"><ellipse className="scene-ground-shadow" cx="200" cy="216" rx="140" ry="10" /><path className="scene-ground" d="M34 216H366" />
+      {variant === 'A' && <><g className="detective-folder"><path className="prop-fill" d="M224 155V135H250L261 144H314V205H224Z" /><path className="prop-fill" d="M214 156H323L313 205H224Z" /><path className="prop-line" d="M244 180H291" /></g><g className="detective-bug"><Bug /></g><g className="detective-question"><text x="287" y="106">?</text></g></>}
+      {variant === 'B' && <><path className="prop-fill" d="M240 181H328L344 205V218H224V205Z" /><path className="prop-line" d="M224 205H257L264 211H303L310 205H344" /><g className="fishing-sock"><path d="M277 142H296V161Q313 163 309 174Q306 181 292 174L279 168Z" /><path d="M278 149H295" /></g><g className="fishing-ripples"><ellipse cx="283" cy="190" rx="20" ry="4" /><ellipse cx="283" cy="190" rx="30" ry="7" /></g></>}
+      {variant === 'C' && <><g className="stamp-paper"><path className="prop-fill" d="M83 166H196L214 208H98Z" /><path className="prop-line" d="M105 178H173M109 187H152" /><g className="zero-print"><ellipse cx="169" cy="194" rx="16" ry="9" /><text x="165" y="198">0</text></g></g><g className="paper-reject"><path className="prop-fill" d="M94 176H124L131 199H99Z" /><path className="prop-line" d="M101 183H118M103 189H120" /></g><path className="prop-line" d="M268 188H306M265 195H310M263 202H313" /></>}
+      {variant === 'D' && <><path className="prop-fill" d="M222 166H251V193Q237 201 222 193Z" /><path className="prop-line" d="M251 170H259Q268 183 251 184" /><path className="coffee-steam steam-one" d="M229 154Q220 146 230 136Q240 126 230 120" /><path className="coffee-steam steam-two" d="M242 154Q233 146 243 136Q253 126 243 120" /><g className="wall-clock"><circle className="prop-fill" cx="292" cy="76" r="24" /><path className="clock-hand" d="M292 76V59" /><path className="prop-line" d="M292 76 303 82" /><circle cx="292" cy="76" r="2" /></g><text className="sleep-z z-one" x="186" y="109">z</text><text className="sleep-z z-two" x="207" y="87">z</text><text className="sleep-z z-three" x="228" y="64">z</text></>}
+      {variant === 'E' && <><path className="prop-line" d="M238 205H316M247 199H306" /><g className="patrol-bug"><Bug /></g><g className="miss-mark"><path d="M297 103 308 95M300 114H314M293 92 296 80" /></g></>}
+    </svg>
+    <Owl className={variant === 'A' ? 'detective-owl' : variant === 'B' ? 'fishing-owl' : variant === 'C' ? 'stamp-owl' : variant === 'D' ? 'sleepy-owl' : 'patrol-owl'} />
+    <svg className="scene-foreground" viewBox="0 0 400 250" aria-hidden="true">
+      {variant === 'A' && <g className="detective-glass"><path className="owl-wing" d="M173 162Q191 172 200 151" /><circle className="glass-lens" cx="218" cy="133" r="24" /><path className="glass-handle" d="M202 151 183 174" /><path className="lens-glint" d="M206 125Q212 115 222 120" /></g>}
+      {variant === 'B' && <g className="fishing-rod"><path className="owl-wing" d="M148 160 174 141" /><path className="rod-stick" d="M164 158 239 62" /><path className="rod-line" d="M239 62Q277 85 284 139" /><circle className="bobber" cx="284" cy="144" r="5" /></g>}
+      {variant === 'C' && <g className="rubber-stamp"><path className="owl-wing" d="M222 159 183 151" /><path className="prop-fill" d="M170 143V130Q170 121 179 121Q188 121 188 130V143Z" /><path className="stamp-base" d="M162 144H196V155H162Z" /></g>}
+      {variant === 'E' && <g className="bug-net"><path className="owl-wing" d="M167 162 194 151" /><path className="net-handle" d="M188 168 235 116" /><ellipse className="net-rim" cx="253" cy="97" rx="29" ry="22" transform="rotate(-24 253 97)" /><path className="net-mesh" d="M230 99 266 109M234 87 278 100M244 78 276 90M240 80 248 114M252 77 262 111M265 78 274 103" /></g>}
+    </svg>
+  </div>
+}
