@@ -45,11 +45,13 @@ The JSON file is an array, at most 100 entries per ingestion:
 
 `[]` records that a discovery review completed without adding proposals. A failed/incomplete inventory lookup should not mark a review as complete. The CLI deliberately does not depend on a running dashboard or bot. Verify project IDs against `kimaki project list --json` before ingestion; the app HTTP ingestion endpoint additionally checks connected inventory. No sample proposal is seeded into your real inbox.
 
-## Daily discovery activation
+## Discovery schedules
 
-Kimaki routine **6** reads `routines/daily-proposal-discovery.md` every day at **09:00 America/Argentina/Buenos_Aires** (**12:00 UTC**, cron `0 12 * * *`). It runs in the ThreadDeck project using the `build` agent, without overlapping executions. Its first scheduled run is November 10, 2026 at 09:00 Buenos Aires time. No new scheduler is introduced.
+Kimaki routine **6** reads `routines/daily-proposal-discovery.md` **Tuesday–Sunday at 09:00 America/Argentina/Buenos_Aires** (**12:00 UTC**, cron `0 12 * * 0,2-6`). It discovers up to **three new proposals** and follows up every proposal in the latest weekly set against live decisions, related sessions and implementation evidence.
 
-The discovery routine reviews projects, updates evidence, respects decisions and proposes worthwhile work. It never starts implementation automatically. Proposal generation uses the routine's existing agent/model; the app itself does not need model credentials.
+Kimaki routine **7** reads `routines/weekly-proposal-discovery.md` **Monday at 09:00 Buenos Aires time** (**12:00 UTC**, cron `0 12 * * 1`). It systematically scans project architecture/workflows and historical session discussions, verifies whether deferred or requested features remain unimplemented, and discovers up to **ten new proposals**. Neither limit restricts meaningful evidence updates to existing proposals.
+
+Both use the `build` agent in ThreadDeck with overlapping executions disabled per routine. Shared safeguards live in `routines/proposal-discovery-contract.md`. Successful reviews save local coverage/selection reports under Git-ignored `artifacts/proposal-discovery/`; `latest-weekly.json` hands the weekly project/key set to daily runs. Coverage gaps and rejected/deferred candidates are recorded, not hidden behind a proposal count. Decisions and session linkage remain user-owned; implementation findings never automatically mark work done or start sessions. The app itself does not need model credentials.
 
 ## HTTP interface
 
