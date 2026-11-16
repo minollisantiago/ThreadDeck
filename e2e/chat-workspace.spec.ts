@@ -1608,6 +1608,23 @@ test('component-only HTML files expose the same safe preview as ordinary attachm
   await expect(page.frameLocator('iframe').locator('body')).toHaveCSS('padding-top', '48px')
   await expect(page.locator('iframe')).toHaveAttribute('sandbox', '')
 })
+test('interactive HTML hash tabs stay inside the attachment instead of loading the host app', async ({ page }) => {
+  await fixture(page)
+  await page.route('**/attachments/*', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html><html><body>
+    <nav><a href="#overview">Overview</a><a href="#details">Details</a></nav>
+    <h1 id="page">Overview page</h1>
+    <script>function render() { document.getElementById('page').textContent = location.hash === '#details' ? 'Details page' : 'Overview page' } addEventListener('hashchange', render); render()</script>
+  </body></html>` }))
+  await page.getByRole('button', { name: 'Preview HTML', exact: true }).click()
+  await page.getByRole('button', { name: 'Unsafe preview', exact: true }).click()
+  const preview = page.frameLocator('.chat-html-preview iframe')
+  await expect(preview.getByRole('heading', { name: 'Overview page' })).toBeVisible()
+  await preview.getByRole('link', { name: 'Details', exact: true }).click()
+  await expect(preview.getByRole('heading', { name: 'Details page' })).toBeVisible()
+  await preview.getByRole('link', { name: 'Overview', exact: true }).click()
+  await expect(preview.getByRole('heading', { name: 'Overview page' })).toBeVisible()
+  await expect(page.locator('.chat-html-preview iframe')).toHaveAttribute('sandbox', 'allow-scripts')
+})
 test('HTML occupies the chat pane without executing or navigating, then restores the draft', async ({ page }) => {
   let unsafeRequests = 0
   await page.route('https://example.invalid/**', route => { unsafeRequests++; return route.abort() })

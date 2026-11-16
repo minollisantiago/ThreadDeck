@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { safePreview } from './html-preview'
+import { interactivePreview, safePreview } from './html-preview'
 import { PublishedMessages } from './messages'
 import { publishedMessageSchema } from '../../shared/chat'
 import { useDraft } from './drafts'
@@ -164,6 +164,17 @@ it('hides copy for an in-progress answer while keeping completed earlier answers
   rerender(<PublishedMessages {...props} messages={[message, prompt, complete]} />)
   expect(screen.getAllByRole('button', { name: 'Copy Markdown' })).toHaveLength(2)
   expect(screen.getByText('Complete answer')).toBeTruthy()
+})
+it('gives interactive previews a local fragment base without modifying scripts or explicit asset bases', () => {
+  const script = 'onhashchange = () => { document.body.dataset.page = location.hash }'
+  const html = interactivePreview(`<html><head><script>${script}</script></head><body><a href="#details">Details</a></body></html>`)
+  const document = new DOMParser().parseFromString(html, 'text/html')
+  expect(document.head.firstElementChild?.outerHTML).toBe('<base href="about:srcdoc">')
+  expect(document.querySelector('script')?.textContent).toBe(script)
+  expect(document.querySelector('a')?.getAttribute('href')).toBe('#details')
+  const explicit = interactivePreview('<base href="https://example.com/assets/"><script src="app.js"></script>')
+  expect(explicit).not.toContain('about:srcdoc')
+  expect(explicit).toContain('<base href="https://example.com/assets/">')
 })
 it('keeps previews inert, removes active navigation and places restrictive CSP first', () => {
   const html = safePreview('<html><head><meta http-equiv="refresh" content="0;url=https://evil.example"><script>fetch("https://evil.example")</script><base href="https://evil.example"></head><body onload="alert(1)"><iframe src="https://evil.example"></iframe><h1>Safe heading</h1></body></html>')

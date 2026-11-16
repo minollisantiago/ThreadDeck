@@ -30,6 +30,18 @@ export function HtmlPreview({ name, url, close }: { name: string; url: string; c
   return <AttachmentPreview key={url} name={name} url={url} close={close} />
 }
 
+export function interactivePreview(html: string) {
+  const document = new DOMParser().parseFromString(html, 'text/html')
+  // srcdoc inherits the host app's base URL. Keep fragment links (#tab) in
+  // this document instead of navigating the iframe to the host app.
+  if (!document.querySelector('base[href]')) {
+    const base = document.createElement('base')
+    base.href = 'about:srcdoc'
+    document.head.prepend(base)
+  }
+  return '<!doctype html>' + document.documentElement.outerHTML
+}
+
 function PreviewPermission({ choose }: { choose: (trusted: boolean) => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   useLayoutEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => dialog?.close() }, [])
@@ -69,7 +81,7 @@ function AttachmentPreview({ name, url, close }: { name: string; url: string; cl
     return () => controller.abort()
   }, [url])
   useEffect(() => { const key = (event: KeyboardEvent) => { if (event.key === 'Escape' && !document.querySelector('.chat-manager.drawer, [popover]:popover-open, dialog[open]')) { event.preventDefault(); close() } }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key) }, [close])
-  const previewDocument = useMemo(() => trusted === null ? '' : trusted ? html : safePreview(html), [html, trusted])
+  const previewDocument = useMemo(() => trusted === null ? '' : trusted ? interactivePreview(html) : safePreview(html), [html, trusted])
   return <section className="chat-html-preview"><div className="chat-preview-toolbar"><button onClick={close}><ArrowLeft size={14} />Back to chat <kbd>Esc</kbd></button><strong>{name}</strong><button onClick={() => setSource(s => !s)}><Code2 size={14} />{source ? 'Preview' : 'Source'}</button><a href={url} download={name}><Download size={14} />Download</a></div>
     {trusted === null && <PreviewPermission choose={setTrusted} />}
     {error ? <p role="alert">{error}</p> : source ? <pre className="chat-html-source">{html}</pre> : trusted === null ? <p role="status">Choose a preview mode to render this file.</p> : <div className="chat-preview-scroll" tabIndex={0} aria-label={trusted ? 'Interactive HTML preview' : 'Static HTML preview'}><iframe key={trusted ? 'interactive' : 'static'} title={name} inert={!trusted} tabIndex={trusted ? 0 : -1} sandbox={trusted ? 'allow-scripts' : ''} referrerPolicy="no-referrer" srcDoc={previewDocument} style={{ height }} /></div>}
