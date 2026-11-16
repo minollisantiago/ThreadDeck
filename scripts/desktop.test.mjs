@@ -18,6 +18,50 @@ const { agentStatus } = require('../electron/agent-status.cjs')
 const { registerNotificationIdentity } = require('../electron/notification-identity.cjs')
 const { appIcon } = require('../electron/app-icon.cjs')
 const { ownedPinnedShortcut } = require('../electron/shortcut-ownership.cjs')
+const { installDownloadNotifications } = require('../electron/downloads.cjs')
+
+test('download notifications wait for a successful disk save and reveal the saved file on click', () => {
+  assert.ok(readFileSync(new URL('./desktop.mjs', import.meta.url), 'utf8').includes("'downloads.cjs'"))
+  const session = new EventEmitter(), window = new EventEmitter(), notices = [], revealed = []
+  window.webContents = { session }
+  let settings = {}, supported = true
+  class FakeNotification extends EventEmitter {
+    static isSupported() { return supported }
+    constructor(options) { super(); this.options = options; notices.push(this) }
+    show() { this.shown = true }
+    close() { this.closed = true }
+  }
+  installDownloadNotifications({ window, origin: 'http://localhost:43127', Notification: FakeNotification,
+    shell: { showItemInFolder: file => revealed.push(file) }, icon: '/app/icon.ico', preferences: () => settings })
+  function start({ url = 'http://localhost:43127/api/chat/threads/1/messages/2/attachments/3', contents = window.webContents } = {}) {
+    const item = new EventEmitter()
+    Object.assign(item, { getURL: () => url, getFilename: () => 'report.html', getSavePath: () => '/Downloads/report (1).html' })
+    session.emit('will-download', {}, item, contents)
+    return item
+  }
+  const item = start()
+  assert.equal(notices.length, 0)
+  item.emit('done', {}, 'completed')
+  assert.equal(notices.length, 1)
+  assert.equal(notices[0].shown, true)
+  assert.equal(notices[0].options.title, 'Download complete')
+  assert.equal(notices[0].options.body, 'report.html')
+  notices[0].emit('click')
+  assert.deepEqual(revealed, ['/Downloads/report (1).html'])
+  for (const state of ['cancelled', 'interrupted']) start().emit('done', {}, state)
+  start({ contents: {} }).emit('done', {}, 'completed')
+  start({ url: 'https://external.example/file' }).emit('done', {}, 'completed')
+  settings = { paused: true }; start().emit('done', {}, 'completed')
+  settings = {}; supported = false; start().emit('done', {}, 'completed')
+  assert.equal(notices.length, 1)
+  supported = true; settings = { sounds: false }; start().emit('done', {}, 'completed')
+  assert.equal(notices.at(-1).options.silent, true)
+  const pending = start()
+  window.emit('closed')
+  assert.equal(session.listenerCount('will-download'), 0)
+  assert.equal(pending.listenerCount('done'), 0)
+  assert.ok(notices.every(notice => notice.closed))
+})
 
 test('Windows toast sender metadata uses the shared app ID and safely quoted icon path', async () => {
   const calls = []

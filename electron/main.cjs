@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, shell, dialog, nativeTheme, net } = require('electron')
+const { app, BrowserWindow, ipcMain, screen, shell, dialog, nativeTheme, net, Notification } = require('electron')
 const path = require('node:path')
 const { chatExternalLink, mobileBounds } = require('./policy.cjs')
 const { appId, taskbarDetails } = require('./taskbar.cjs')
@@ -11,6 +11,7 @@ const { installAudioPermissions } = require('./audio-permissions.cjs')
 const { openDiscordLink } = require('./discord.cjs')
 const { registerNotificationIdentity } = require('./notification-identity.cjs')
 const { appIcon } = require('./app-icon.cjs')
+const { installDownloadNotifications } = require('./downloads.cjs')
 
 const configFile = process.argv.find(arg => arg.startsWith('--launch-services='))?.slice('--launch-services='.length)
 let config
@@ -136,6 +137,7 @@ app.whenReady().then(async () => {
   })
   window.webContents.on('will-attach-webview', event => event.preventDefault())
   installAudioPermissions(window, origin)
+  installDownloadNotifications({ window, origin, Notification, shell, icon: appIcon(__dirname), preferences: () => tray?.preferences() })
   const isDashboard = event => event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame
     && event.senderFrame.url.startsWith(`${origin}/`)
   window.webContents.on('did-start-loading', () => { desktopReady = false; tray?.viewing(null) })
