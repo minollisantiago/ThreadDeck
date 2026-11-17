@@ -313,6 +313,25 @@ for (const width of [430, 1600]) test(`sidebar quick run confirms the exact targ
   await expect(dialog).toContainText('Quick run target')
   await expect(dialog).toContainText('consumes the one-time occurrence')
   await expect(dialog).toContainText('shell pre-run command')
+  await expect(dialog.locator('header')).toHaveCSS('border-bottom-width', '0px')
+  await expect(dialog.locator('footer')).toHaveCSS('border-top-width', '0px')
+  await expect(dialog.locator('.schedule-dialog-body > p').first()).toHaveCSS('font-size', '14px')
+  await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toHaveCSS('font-size', '14px')
+  const run = dialog.getByRole('button', { name: 'Run now', exact: true })
+  await expect(run).toHaveCSS('font-size', '14px')
+  const colors = await run.evaluate(button => {
+    const style = getComputedStyle(button)
+    const probe = document.createElement('span')
+    button.append(probe)
+    probe.style.color = 'var(--accent)'
+    const accent = getComputedStyle(probe).color
+    probe.style.color = 'var(--ground)'
+    const ground = getComputedStyle(probe).color
+    probe.remove()
+    return { background: style.backgroundColor, foreground: style.color, accent, ground }
+  })
+  expect(colors.background).toBe(colors.accent)
+  expect(colors.foreground).toBe(colors.ground)
   expect(mutations).toHaveLength(0)
   await dialog.getByRole('button', { name: 'Run now', exact: true }).click()
   await expect(dialog).toHaveCount(0)
