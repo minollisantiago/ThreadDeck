@@ -2,16 +2,17 @@ const desktop = window.threaddeckDesktop
 function render(state) {
   for (const [phase, value] of Object.entries(state.stages)) {
     const row = document.querySelector(`[data-phase="${phase}"]`)
+    if (!row) continue
     row.hidden = value.hidden === true
     row.dataset.state = value.state
     row.querySelector('p').textContent = value.detail
-    row.querySelector('.sr-only').textContent = { pending: 'Waiting', working: 'Starting', ready: 'Ready' }[value.state]
+    row.querySelector('.sr-only').textContent = { pending: 'Waiting', working: phase === 'summary' ? 'Preparing' : 'Starting', ready: 'Ready', skipped: 'Skipped', failed: 'Unavailable; continuing startup' }[value.state]
   }
   const visible = Object.values(state.stages).filter(stage => !stage.hidden)
-  const ready = visible.filter(stage => stage.state === 'ready').length
+  const ready = visible.filter(stage => ['ready', 'skipped', 'failed'].includes(stage.state)).length
   const count = document.getElementById('ready-count')
-  count.textContent = `${String(ready).padStart(2, '0')} / ${String(visible.length).padStart(2, '0')} READY`
-  count.setAttribute('aria-label', `${ready} of ${visible.length} services ready`)
+  count.textContent = `${String(ready).padStart(2, '0')} / ${String(visible.length).padStart(2, '0')} COMPLETE`
+  count.setAttribute('aria-label', `${ready} of ${visible.length} startup tasks complete`)
   document.getElementById('status').textContent = state.error ? 'Startup paused. Your existing services are safe.' : state.connecting ? 'Connecting your dashboard…' : 'Your workspace will open automatically.'
   document.getElementById('error').hidden = !state.error
   document.getElementById('error-message').textContent = state.error ?? ''

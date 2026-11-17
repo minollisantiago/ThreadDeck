@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('threaddeckDesktop', {
     return () => ipcRenderer.removeListener('bot-mode', listener)
   },
   startupState: () => ipcRenderer.invoke('startup-state'),
+  reviewSummary: () => ipcRenderer.invoke('review-summary'),
   startupAction: action => { if (['retry', 'logs'].includes(action)) ipcRenderer.send('startup-action', action) },
   onStartup: callback => {
     const listener = (_event, state) => callback(state)

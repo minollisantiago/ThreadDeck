@@ -43,7 +43,7 @@ async function main() {
       await page.getByRole('button', { name: 'Retry startup' }).click()
       await page.waitForFunction(() => document.getElementById('error').hidden)
       await page.waitForFunction(() => document.querySelector('[data-phase="backend"]').dataset.state === 'working')
-      assert.equal(await page.locator('#ready-count').textContent(), '01 / 03 READY')
+      assert.equal(await page.locator('#ready-count').textContent(), '01 / 04 COMPLETE')
       assert.equal(await page.locator('.registration-corners span').count(), 4)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       await page.screenshot({ path: path.join(directory, 'electron-windows-startup-wide.png') })

@@ -112,7 +112,7 @@ it.each(['unavailable', 'throws', 'compile', 'link', 'buffer'])('keeps startup u
   if (failure === 'buffer') gl.createBuffer.mockReturnValue(null)
   expect(run).not.toThrow()
   expect(document.getElementById('startup-loom')).toBeNull()
-  expect(document.querySelectorAll('#stages li')).toHaveLength(3)
+  expect(document.querySelectorAll('#stages li')).toHaveLength(4)
   expect(document.getElementById('retry')).not.toBeNull()
   expect(frames.size).toBe(0)
 })

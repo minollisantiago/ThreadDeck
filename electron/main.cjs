@@ -12,6 +12,7 @@ const { openDiscordLink } = require('./discord.cjs')
 const { registerNotificationIdentity } = require('./notification-identity.cjs')
 const { appIcon } = require('./app-icon.cjs')
 const { installDownloadNotifications } = require('./downloads.cjs')
+const { prepareReviewSummary } = require('./review-summary.cjs')
 
 const configFile = process.argv.find(arg => arg.startsWith('--launch-services='))?.slice('--launch-services='.length)
 let config
@@ -29,6 +30,7 @@ let appearance
 let tray
 let pendingSession = null
 let desktopReady = false
+let reviewPreferences = {}, reviewSummary = null, reviewAbort
 const sendSession = () => {
   if (desktopReady && pendingSession) { window.webContents.send('open-session', pendingSession); pendingSession = null }
 }
@@ -37,11 +39,12 @@ const initialState = () => ({ stages: {
   wsl: { state: 'working', detail: 'Starting Windows Subsystem for Linux', hidden: !configFile },
   backend: { state: configFile ? 'pending' : 'working', detail: configFile ? 'Waiting for Linux' : 'Connecting to your dashboard' },
   kimaki: { state: 'pending', detail: 'Waiting for Linux', hidden: !configFile },
+  summary: { state: 'pending', detail: 'Waiting for sessions' },
 }, error: null, connecting: false })
 const notifyStartup = () => { if (window && !window.isDestroyed()) window.webContents.send('startup-progress', startupState) }
 app.setName('ThreadDeck')
 app.setAppUserModelId(appId)
-app.on('before-quit', () => { quitting = true; attempt++; tray?.stop(); tray = null; void controller?.stop() })
+app.on('before-quit', () => { quitting = true; attempt++; reviewAbort?.abort(); tray?.stop(); tray = null; void controller?.stop() })
 const lease = process.argv.find(arg => arg.startsWith('--supervisor-lease='))?.slice('--supervisor-lease='.length)
 if (lease) {
   const checkLease = () => {
@@ -54,18 +57,24 @@ if (lease) {
 
 async function beginStartup() {
   const id = ++attempt
+  reviewAbort?.abort(); reviewAbort = new AbortController(); reviewSummary = null
+  let preparation
   startupState = initialState()
   notifyStartup()
   if (configError) { startupState.error = configError; notifyStartup(); return }
   if (controller) await controller.start()
   const deadline = Date.now() + (configFile ? 180_000 : 30_000)
   while (Date.now() < deadline && !quitting && id === attempt && !startupState.error) {
-    if (!configFile || Object.values(startupState.stages).every(stage => stage.state === 'ready')) {
+    if (!configFile || ['wsl', 'backend', 'kimaki'].every(phase => startupState.stages[phase].state === 'ready')) {
       if (!startupState.connecting) { startupState.connecting = true; notifyStartup() }
       try {
         const response = await fetch(`${origin}/api/snapshot`, { signal: AbortSignal.timeout(1500) })
         if (response.ok) {
           if (!configFile) { startupState.stages.backend = { state: 'ready', detail: 'Dashboard backend is ready' }; notifyStartup() }
+          preparation ??= prepareReviewSummary({ origin, snapshot: await response.json(), preferences: reviewPreferences, signal: reviewAbort.signal,
+            update: stage => { if (id === attempt && !quitting) { startupState.stages.summary = stage; notifyStartup() } } })
+          reviewSummary = await preparation
+          if (quitting || id !== attempt || window.isDestroyed()) return
           if (process.platform === 'win32' && !tray && !quitting) {
             try { tray = trayController({ app, window, origin, openSession: id => { pendingSession = id; sendSession() } }) }
             catch (error) { console.error('Could not initialize tray:', error.message) }
@@ -105,7 +114,7 @@ app.whenReady().then(async () => {
     icon: appIcon(__dirname),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },
   })
-  appearance = await savedAppearance(window, origin, appearance, net)
+  appearance = await savedAppearance(window, origin, appearance, net, preferences => { reviewPreferences = preferences })
   if (quitting || window.isDestroyed()) return
   window.setBackgroundColor(colors[appearance])
   if (process.platform === 'win32') window.setAppDetails(taskbarDetails(__dirname, port))
@@ -145,6 +154,7 @@ app.whenReady().then(async () => {
   ipcMain.on('desktop-viewing', (event, id) => { if (isDashboard(event)) tray?.viewing(id) })
   ipcMain.on('desktop-receipts', (event, receipts) => { if (isDashboard(event)) tray?.receipts(receipts) })
   ipcMain.handle('desktop-preferences', (event, patch) => isDashboard(event) ? tray?.preferences(patch) ?? null : null)
+  ipcMain.handle('review-summary', event => isDashboard(event) ? reviewSummary : null)
   ipcMain.on('window-control', (event, action) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) return
     if (action === 'minimize') window.minimize()
@@ -175,7 +185,7 @@ app.whenReady().then(async () => {
     catch (error) { console.error(`Could not save window size: ${error.message}`) }
     if (!quitting && tray?.closeToTray()) { event.preventDefault(); tray.hide() }
   })
-  window.on('closed', () => { quitting = true; attempt++; void controller?.stop() })
+  window.on('closed', () => { quitting = true; attempt++; reviewAbort?.abort(); void controller?.stop() })
   await loadSplash()
   if (quitting || window.isDestroyed()) return
   if (savedWindow?.maximized) window.maximize()

@@ -15,6 +15,7 @@ declare global {
       onPreferences?: (callback: (settings: DesktopPreferences) => void) => () => void
       onOpenSession?: (callback: (id: string) => void) => () => void
       botMode?: () => Promise<'fork' | 'regular' | null>
+      reviewSummary?: () => Promise<unknown>
       onBotMode?: (callback: (mode: 'fork' | 'regular' | null) => void) => () => void
     }
   }

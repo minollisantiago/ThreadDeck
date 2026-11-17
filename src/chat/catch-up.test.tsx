@@ -125,3 +125,35 @@ it('keeps mobile sidebar access in the tab strip without adding another summary 
   fireEvent.click(toggle)
   expect(screen.getByRole('dialog', { name: 'Session manager' })).toBeTruthy()
 })
+
+it('prepares once before opening the summary and reuses the result after dismissal and reopening', async () => {
+  let release: (response: Response) => void = () => {}
+  const fetch = vi.fn((url: string) => url.endsWith('/messages') ? new Promise<Response>(resolve => { release = resolve }) : Promise.resolve(new Response(JSON.stringify({ profile: null }), { status: 200 })))
+  const historyReads = () => fetch.mock.calls.filter(([url]) => url.endsWith('/messages')).length
+  vi.stubGlobal('fetch', fetch)
+  localStorage.setItem('threaddeck:chat-last-session', session.id)
+  render(<ChatWorkspace snapshot={snapshot}><Dashboard snapshot={snapshot} /></ChatWorkspace>)
+  await screen.findByText('Preparing review summary…')
+  await waitFor(() => expect(historyReads()).toBe(1))
+  expect(localStorage.getItem('threaddeck:catch-up-seen')).toBeNull()
+  await act(async () => release(new Response(JSON.stringify({ messages: [message('1', 'Prepared at startup', true)], cursor: '0', before: null, stale: false }), { status: 200 })))
+  await screen.findByText('Prepared at startup')
+  fireEvent.click(screen.getByRole('button', { name: 'Close review summary tab' }))
+  await screen.findByTestId('opened-session')
+  fireEvent.click(screen.getByLabelText('Review summary', { selector: 'button' }))
+  await screen.findByText('Prepared at startup')
+  expect(historyReads()).toBe(1)
+})
+
+it('does not replace explicit desktop navigation when startup preparation finishes later', async () => {
+  let navigate: (id: string) => void = () => {}, release: (response: Response) => void = () => {}
+  window.threaddeckDesktop = { control: vi.fn(), onMaximized: () => () => {}, onOpenSession: callback => { navigate = callback; return () => {} } }
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { release = resolve })))
+  render(<ChatWorkspace snapshot={snapshot}>Manager</ChatWorkspace>)
+  await screen.findByText('Preparing review summary…')
+  act(() => navigate(session.id))
+  await screen.findByTestId('opened-session')
+  await act(async () => release(new Response(JSON.stringify({ messages: [], cursor: '0', before: null, stale: false }), { status: 200 })))
+  expect(screen.queryByRole('heading', { name: 'Pending review' })).toBeNull()
+  expect(localStorage.getItem('threaddeck:catch-up-seen')).toBeNull()
+})

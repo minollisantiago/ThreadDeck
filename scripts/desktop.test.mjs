@@ -9,6 +9,7 @@ import { EventEmitter } from 'node:events'
 import { NtExecutable, NtExecutableResource, Data, Resource } from 'resedit'
 import { brandExecutable, brandedWindowsExecutable } from './brand-windows-executable.mjs'
 import './discord.test.cjs'
+import './review-summary.test.cjs'
 const require = createRequire(import.meta.url)
 const { externalLink, chatExternalLink, mobileBounds } = require('../electron/policy.cjs')
 const { appId, taskbarDetails } = require('../electron/taskbar.cjs')

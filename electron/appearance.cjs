@@ -7,7 +7,7 @@ function parseAppearance(value, fallback) {
 // Read the dashboard's existing localStorage without contacting its backend.
 // This private, locally-served document has the same origin as the dashboard.
 // The window stays hidden, and the temporary HTTP handler is removed afterwards.
-async function savedAppearance(window, origin, fallback, net) {
+async function savedAppearance(window, origin, fallback, net, preferences = () => {}) {
   const protocol = window.webContents.session.protocol
   const url = `${origin}/__threaddeck_appearance_${randomUUID()}`
   let registered = false
@@ -18,7 +18,9 @@ async function savedAppearance(window, origin, fallback, net) {
       : net.fetch(request, { bypassCustomProtocolHandlers: true }))
     registered = true
     await Promise.race([window.loadURL(url), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Preference read timed out')), 3000) })])
-    return parseAppearance(await window.webContents.executeJavaScript("localStorage.getItem('threaddeck:appearance')"), fallback)
+    const saved = await window.webContents.executeJavaScript("({ appearance: localStorage.getItem('threaddeck:appearance'), read: localStorage.getItem('threaddeck:read-responses'), manual: localStorage.getItem('threaddeck:manual-unread'), seen: localStorage.getItem('threaddeck:catch-up-seen') })")
+    preferences(saved)
+    return parseAppearance(saved.appearance, fallback)
   } catch { return fallback }
   finally {
     clearTimeout(timeout)

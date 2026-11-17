@@ -20,6 +20,7 @@ import { ProposalPane } from '../proposals/pane'
 import { useCatchUp } from './use-catch-up'
 import { CatchUpPane } from './catch-up'
 import { SidebarToggle } from './sidebar-toggle'
+import { ReviewSummaryCache } from './review-summary'
 import './workspace.css'
 const ConversationPane = lazy(async () => ({ default: (await import('./pane')).ConversationPane }))
 const sidebarMinWidth = 430, sidebarMaxRatio = .3
@@ -76,20 +77,25 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const projects = snapshot?.projects || [], sessions = projects.flatMap(project => project.sessions), manager = useRef<HTMLElement>(null)
   const { markRead, unread } = useUnread(projects)
   const catchUp = useCatchUp(projects, unread)
+  const [summaryCache] = useState(() => new ReviewSummaryCache())
+  const [summaryPreparing, setSummaryPreparing] = useState(false)
+  const navigationVersion = useRef(0), mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  const cancelSummaryPreparation = useCallback(() => { navigationVersion.current++; setSummaryPreparing(false) }, [])
   const summaryVisible = catchUp.visible && section === 'threads'
   const documentSection = section !== 'threads' || summaryVisible
   const leaveCatchUp = useRef(catchUp.leave); leaveCatchUp.current = catchUp.leave
-  const showCatchUp = () => { restored.current = true; setSection('threads'); catchUp.open(); setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(false); setDrawer(false) }
+  const showCatchUp = () => { cancelSummaryPreparation(); restored.current = true; setSection('threads'); catchUp.open(); setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(false); setDrawer(false) }
   const current = useRef({ target, sessions, projects, documentSection }); current.current = { target, sessions, projects, documentSection }
   const chord = useRef(0), spaces = useRef(0)
   const pendingFocus = useRef<'focus' | 'toggle' | null>(null)
   const open = useCallback((session: Session) => {
     const project = current.current.projects.find(p => p.id === session.projectId)
-    if (project) { restored.current = true; leaveCatchUp.current(); setSection('threads'); rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(false); setDrawer(false) }
-  }, [])
-  const find = useCallback(() => { setNewThread(false); setDiscovering(false); setHistoryOpen(false); setFinder(true) }, [])
-  const newSession = useCallback(() => { setFinder(false); setHistoryOpen(false); setDiscovering(false); setNewThread(true) }, [])
-  const discover = useCallback(() => { setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(true) }, [])
+    if (project) { cancelSummaryPreparation(); restored.current = true; leaveCatchUp.current(); setSection('threads'); rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(false); setDrawer(false) }
+  }, [cancelSummaryPreparation])
+  const find = useCallback(() => { cancelSummaryPreparation(); setNewThread(false); setDiscovering(false); setHistoryOpen(false); setFinder(true) }, [cancelSummaryPreparation])
+  const newSession = useCallback(() => { cancelSummaryPreparation(); setFinder(false); setHistoryOpen(false); setDiscovering(false); setNewThread(true) }, [cancelSummaryPreparation])
+  const discover = useCallback(() => { cancelSummaryPreparation(); setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(true) }, [cancelSummaryPreparation])
   useEffect(() => window.threaddeckDesktop?.onOpenSession?.(setDesktopSession), [])
   useEffect(() => {
     if (!desktopSession) return
@@ -102,15 +108,22 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   }, [target?.session?.id, documentSection])
   const start = useCallback((project: Project) => {
     const original = current.current.projects.find(item => item.id === project.id) || project
-    restored.current = true; leaveCatchUp.current(); setSection('threads')
+    cancelSummaryPreparation(); restored.current = true; leaveCatchUp.current(); setSection('threads')
     setTarget({ project: original }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setDiscovering(false); setHistoryOpen(false); setDrawer(false)
-  }, [])
+  }, [cancelSummaryPreparation])
   useEffect(() => {
     if (documentSection) { restored.current = true; return }
     if (restored.current || desktopSession || !snapshot || snapshot.health !== 'connected' || finder || historyOpen || newThread || discovering) return
     if (target) { restored.current = true; return } // Never replace explicit navigation.
     if (!sessions.length) return // A connected source can still be loading its startup inventory.
-    if (catchUp.unseenCount > 0) { restored.current = true; catchUp.open(); return }
+    if (catchUp.unseenCount > 0) {
+      restored.current = true; setSummaryPreparing(true)
+      const version = navigationVersion.current
+      void summaryCache.prepare(sessions.filter(session => unread.has(session.id))).finally(() => {
+        if (mounted.current && version === navigationVersion.current) { setSummaryPreparing(false); catchUp.open() }
+      })
+      return
+    }
     let saved: string | null = null
     try { saved = localStorage.getItem(lastSessionKey) } catch { /* optional navigation preference */ }
     if (!saved) { restored.current = true; return }
@@ -120,7 +133,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     // watching subsequent snapshots rather than consuming the restore attempt.
     else setMissingSession(true)
   }, [snapshot, open, target, finder, historyOpen, newThread, discovering, desktopSession, documentSection, catchUp.unseenCount])
-  useEffect(() => { if (section !== 'threads') leaveCatchUp.current() }, [section])
+  useEffect(() => { if (section !== 'threads') { cancelSummaryPreparation(); leaveCatchUp.current() } }, [section, cancelSummaryPreparation])
   useEffect(() => { pendingFocus.current = null; chord.current = 0; spaces.current = 0; if (section !== 'threads' && narrow) setDrawer(true) }, [section])
   useEffect(() => {
     if (!target) return
@@ -195,7 +208,7 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const active = target?.session ? sessions.find(s => s.id === target.session!.id) || target.session : undefined
   const selected = target ? { ...target, ...(active && { session: active }) } : null
   const maxWidth = Math.floor(viewportWidth * sidebarMaxRatio), sidebarWidth = Math.max(sidebarMinWidth, Math.min(width, maxWidth))
-  const hasPane = Boolean(target) || documentSection
+  const hasPane = Boolean(target) || documentSection || summaryPreparing
   const sidebarOpen = !hasPane || (narrow ? drawer : sidebar)
   const collapsedRail = hasPane && !narrow && !sidebar
   const toggleSidebar = () => { if (hasPane) { if (narrow) setDrawer(value => !value); else setSidebar(value => !value) } }
@@ -226,7 +239,8 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     {section === 'proposals' && <ProposalPane projects={projects} open={open} sidebar={toggleSidebar} sidebarOpen={sidebarOpen} narrow={narrow} />}
     {section === 'threads' && hasPane && <div className="catch-up-workspace">
     {catchUp.tabOpen && <nav className="catch-up-tabs" aria-label="Workspace tabs">{summaryVisible && !sidebarOpen && <SidebarToggle open={false} toggle={toggleSidebar} />}<div className="catch-up-tab" data-active={summaryVisible}><button onClick={showCatchUp} aria-pressed={summaryVisible}><Newspaper size={13} />Review summary</button><button onClick={closeCatchUp} aria-label="Close review summary tab"><X size={12} /></button></div>{target && <button className="catch-up-session-tab" onClick={() => catchUp.leave()} aria-pressed={!summaryVisible}>{target.session?.title || 'New thread'}</button>}</nav>}
-    {summaryVisible && <CatchUpPane entries={catchUp.entries} open={open} connected={snapshot?.health === 'connected'} />}
+    {summaryPreparing && <main className="chat-pane review-preparing"><SidebarToggle open={sidebarOpen} toggle={toggleSidebar} /><p role="status">Preparing review summary…</p></main>}
+    {summaryVisible && <CatchUpPane entries={catchUp.entries} open={open} connected={snapshot?.health === 'connected'} cache={summaryCache} />}
     {!documentSection && selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} mobileSidebar={narrow} sidebarOpen={sidebarOpen} sidebar={toggleSidebar} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
     </div>}
     {!hasPane && <main className="chat-pane chat-empty-workspace"><div><BrandLogo size={36} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find a thread <kbd>Ctrl K</kbd></button></div></main>}
