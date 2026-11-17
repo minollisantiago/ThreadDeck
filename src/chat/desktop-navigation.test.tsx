@@ -33,6 +33,7 @@ it('switches an already open workspace when the tray opens another thread', asyn
   let navigate: (id: string) => void = () => {}
   window.threaddeckDesktop = { control: vi.fn(), onMaximized: () => () => {}, onOpenSession: callback => { navigate = callback; return () => {} } }
   localStorage.setItem('threaddeck:chat-last-session', 'old')
+  localStorage.setItem('threaddeck:catch-up-seen', JSON.stringify({ 'project:old': 90, 'project:other': 90 }))
   render(<ChatWorkspace snapshot={snapshot([session('old'), session('other')])}>Manager</ChatWorkspace>)
   await waitFor(() => expect(screen.getByTestId('opened-session').textContent).toBe('old'))
   act(() => navigate('other'))

@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react'
-import { ChevronDown, CircleAlert, FolderPlus, Hash, Plus, SearchCode } from 'lucide-react'
+import { ChevronDown, CircleAlert, FolderPlus, Hash, Newspaper, Plus, SearchCode } from 'lucide-react'
 import { BrandLogo } from './components/brand-logo'
 import { TooltipHint } from './components/ui/tooltip'
 import { Kbd, KbdGroup } from './components/ui/kbd'
@@ -159,9 +159,12 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
     {!workspace?.collapsedRail && <ConnectionIndicator snapshot={snapshot} verified={verified} loading={loading} healthLabel={healthLabel} transportError={transportError} />}
     <HeaderControls appearance={appearance} palette={palette} setAppearance={setAppearance} setPalette={setPalette} lightTheme={lightTheme} setLightTheme={setLightTheme} darkTheme={darkTheme} setDarkTheme={setDarkTheme} />
   </div>
+  const reviewLabel = workspace?.catchUp?.unseenCount ? `Review summary (${workspace.catchUp.unseenCount} unseen ${workspace.catchUp.unseenCount === 1 ? 'thread' : 'threads'})` : 'Review summary'
+  const catchUpAction = workspace?.catchUp && <TooltipHint label={reviewLabel}><Button variant="outline" size="icon" className="catch-up-trigger" data-active={workspace.catchUp.active} aria-label={reviewLabel} aria-pressed={workspace.catchUp.active} onClick={workspace.catchUp.open}><Newspaper aria-hidden="true" />{workspace.catchUp.unseenCount > 0 && <span className="catch-up-badge" aria-hidden="true">{workspace.catchUp.unseenCount > 99 ? '99+' : workspace.catchUp.unseenCount}</span>}</Button></TooltipHint>
   if (workspace?.collapsedRail) return <div className="collapsed-sidebar" aria-label="Collapsed sidebar">
     <TooltipHint label="ThreadDeck"><div className="collapsed-sidebar-brand"><BrandLogo size={25} aria-label="ThreadDeck" role="img" /></div></TooltipHint>
     <SidebarToggle rail open={false} toggle={() => workspace.toggleSidebar?.()} />
+    {catchUpAction}
     {userPanel}
   </div>
   const searchAction = <TooltipHint label={<>Advanced search — {workspace ? 'fuzzy session finder' : 'search chat logs'} {workspace && <><KbdGroup><Kbd>Ctrl</Kbd>+<Kbd>K</Kbd></KbdGroup> / </>}<Kbd>Double Space</Kbd></>}><Button variant="outline" size="icon" className="advanced-search" aria-label="Advanced search" aria-haspopup="dialog" onClick={openFinder}><SearchCode aria-hidden="true" /></Button></TooltipHint>
@@ -179,6 +182,7 @@ export function Dashboard({ snapshot, transportError = false, now = Date.now() }
         { kind: 'projects', count: activeProjects, label: 'active projects', shortLabel: 'active' },
       ].map(({ kind, count, label, shortLabel }) => <span key={kind} className={`overview-pill overview-pill-${kind}`} data-count-state={!verified ? 'unknown' : count > 0 ? 'positive' : 'zero'}><strong>{verified ? count : '—'}</strong><span className="overview-label-full">{label}</span><span className="overview-label-short">{shortLabel}</span></span>)}</div>
       {workspace && <div className="sidebar-actions">
+        {catchUpAction}
         {searchAction}
         {workspace.create && <TooltipHint label={<>Start a new thread / OpenCode session <KbdGroup><Kbd>Ctrl</Kbd>+<Kbd>N</Kbd></KbdGroup> / <KbdGroup><Kbd>⌘</Kbd><Kbd>N</Kbd></KbdGroup></>}><Button variant="outline" size="icon" className="chat-create-thread" aria-label="New thread / OpenCode session" aria-keyshortcuts="Control+N Meta+N" onClick={() => workspace.create?.()}><Plus aria-hidden="true" /></Button></TooltipHint>}
         {workspace.discover && <TooltipHint label={<>New channel / discover projects <KbdGroup><Kbd>Ctrl / ⌘</Kbd>+<Kbd>J</Kbd></KbdGroup></>}><Button variant="outline" size="icon" className="chat-discover-project" aria-label="New channel / discover projects" aria-keyshortcuts="Control+J Meta+J" onClick={workspace.discover}><FolderPlus aria-hidden="true" /></Button></TooltipHint>}

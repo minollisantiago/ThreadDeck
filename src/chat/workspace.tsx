@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Plus, Search, X } from 'lucide-react'
+import { Newspaper, Plus, Search, X } from 'lucide-react'
 import { BrandLogo } from '../components/brand-logo'
 import type { Project, Session, Snapshot } from '../../shared/model'
 import { fuzzyScore } from '../../shared/search'
@@ -17,6 +17,9 @@ import { ScheduleDialogs, SchedulePane } from '../schedules/pane'
 import { WorkspaceSectionsContext, type WorkspaceSection } from './sections'
 import { ProposalsContext, useProposals } from '../proposals/use-proposals'
 import { ProposalPane } from '../proposals/pane'
+import { useCatchUp } from './use-catch-up'
+import { CatchUpPane } from './catch-up'
+import { SidebarToggle } from './sidebar-toggle'
 import './workspace.css'
 const ConversationPane = lazy(async () => ({ default: (await import('./pane')).ConversationPane }))
 const sidebarMinWidth = 430, sidebarMaxRatio = .3
@@ -60,7 +63,6 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const schedules = useSchedules({ section, setSection })
   const proposals = useProposals(section === 'proposals')
   const scheduleSection = section === 'schedules'
-  const documentSection = section !== 'threads'
   const [target, setTarget] = useState<ChatTarget | null>(null), [finder, setFinder] = useState(false), [drawer, setDrawer] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [newThread, setNewThread] = useState(false)
@@ -72,13 +74,18 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const narrow = viewportWidth < Math.ceil(sidebarMinWidth / sidebarMaxRatio)
   const [width, setWidth] = useState(() => Number(localStorage.getItem('threaddeck:chat-sidebar-width')) || 430)
   const projects = snapshot?.projects || [], sessions = projects.flatMap(project => project.sessions), manager = useRef<HTMLElement>(null)
-  const { markRead } = useUnread(projects)
+  const { markRead, unread } = useUnread(projects)
+  const catchUp = useCatchUp(projects, unread)
+  const summaryVisible = catchUp.visible && section === 'threads'
+  const documentSection = section !== 'threads' || summaryVisible
+  const leaveCatchUp = useRef(catchUp.leave); leaveCatchUp.current = catchUp.leave
+  const showCatchUp = () => { restored.current = true; setSection('threads'); catchUp.open(); setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(false); setDrawer(false) }
   const current = useRef({ target, sessions, projects, documentSection }); current.current = { target, sessions, projects, documentSection }
   const chord = useRef(0), spaces = useRef(0)
   const pendingFocus = useRef<'focus' | 'toggle' | null>(null)
   const open = useCallback((session: Session) => {
     const project = current.current.projects.find(p => p.id === session.projectId)
-    if (project) { setSection('threads'); rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(false); setDrawer(false) }
+    if (project) { restored.current = true; leaveCatchUp.current(); setSection('threads'); rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setHistoryOpen(false); setDiscovering(false); setDrawer(false) }
   }, [])
   const find = useCallback(() => { setNewThread(false); setDiscovering(false); setHistoryOpen(false); setFinder(true) }, [])
   const newSession = useCallback(() => { setFinder(false); setHistoryOpen(false); setDiscovering(false); setNewThread(true) }, [])
@@ -95,13 +102,15 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   }, [target?.session?.id, documentSection])
   const start = useCallback((project: Project) => {
     const original = current.current.projects.find(item => item.id === project.id) || project
-    setSection('threads')
+    restored.current = true; leaveCatchUp.current(); setSection('threads')
     setTarget({ project: original }); setFocusRequest(value => value + 1); setFinder(false); setNewThread(false); setDiscovering(false); setHistoryOpen(false); setDrawer(false)
   }, [])
   useEffect(() => {
     if (documentSection) { restored.current = true; return }
     if (restored.current || desktopSession || !snapshot || snapshot.health !== 'connected' || finder || historyOpen || newThread || discovering) return
     if (target) { restored.current = true; return } // Never replace explicit navigation.
+    if (!sessions.length) return // A connected source can still be loading its startup inventory.
+    if (catchUp.unseenCount > 0) { restored.current = true; catchUp.open(); return }
     let saved: string | null = null
     try { saved = localStorage.getItem(lastSessionKey) } catch { /* optional navigation preference */ }
     if (!saved) { restored.current = true; return }
@@ -110,7 +119,8 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     // A connected backend can still have an incomplete startup inventory. Keep
     // watching subsequent snapshots rather than consuming the restore attempt.
     else setMissingSession(true)
-  }, [snapshot, open, target, finder, historyOpen, newThread, discovering, desktopSession, documentSection])
+  }, [snapshot, open, target, finder, historyOpen, newThread, discovering, desktopSession, documentSection, catchUp.unseenCount])
+  useEffect(() => { if (section !== 'threads') leaveCatchUp.current() }, [section])
   useEffect(() => { pendingFocus.current = null; chord.current = 0; spaces.current = 0; if (section !== 'threads' && narrow) setDrawer(true) }, [section])
   useEffect(() => {
     if (!target) return
@@ -189,9 +199,18 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
   const sidebarOpen = !hasPane || (narrow ? drawer : sidebar)
   const collapsedRail = hasPane && !narrow && !sidebar
   const toggleSidebar = () => { if (hasPane) { if (narrow) setDrawer(value => !value); else setSidebar(value => !value) } }
+  const closeCatchUp = () => {
+    catchUp.close()
+    if (!target) {
+      let saved: string | null = null
+      try { saved = localStorage.getItem(lastSessionKey) } catch { /* optional navigation preference */ }
+      const previous = sessions.find(session => session.id === saved)
+      if (previous) open(previous)
+    }
+  }
   const selectTask = useCallback((id: number) => { schedules.select(id); setDrawer(false) }, [schedules.select])
   const selectProposal = useCallback((id: string) => { proposals.select(id); setDrawer(false) }, [proposals.select])
-  return <WorkspaceSectionsContext.Provider value={{ section, setSection }}><ProposalsContext.Provider value={{ ...proposals, selectProposal }}><SchedulesContext.Provider value={{ ...schedules, selectTask }}><SelectedSession.Provider value={documentSection ? null : active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, collapsedRail, find, discover, create: project => { if (project) start(project); else newSession() }, threadId: documentSection ? undefined : active?.threadId, ...(hasPane && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!hasPane ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+  return <WorkspaceSectionsContext.Provider value={{ section, setSection }}><ProposalsContext.Provider value={{ ...proposals, selectProposal }}><SchedulesContext.Provider value={{ ...schedules, selectTask }}><SelectedSession.Provider value={documentSection ? null : active?.id || null}><SessionNavigation.Provider value={open}><WorkspaceControls.Provider value={{ compact: true, collapsedRail, find, discover, catchUp: { open: showCatchUp, active: summaryVisible, unseenCount: catchUp.unseenCount }, create: project => { if (project) start(project); else newSession() }, threadId: documentSection ? undefined : active?.threadId, ...(hasPane && { toggleSidebar }), sidebarOpen }}><DesktopTitlebar /><div className={`chat-workspace ${!hasPane ? 'manager-only' : ''}`} style={{ height: window.threaddeckDesktop ? 'calc(100dvh - 38px)' : '100dvh', '--chat-sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
     <style>{mobileManagerStyle}</style>
     {hasPane && narrow && <button className="chat-drawer-backdrop" data-open={drawer} aria-hidden={!drawer} tabIndex={drawer ? 0 : -1} aria-label="Close sidebar" onClick={() => setDrawer(false)} />}
     <div className={`chat-sidebar-slot ${hasPane && narrow ? 'mobile' : ''}`} data-open={sidebarOpen}>
@@ -205,7 +224,11 @@ export function ChatWorkspace({ snapshot, children }: { snapshot: Snapshot | nul
     }} onKeyDown={e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setWidth(Math.max(sidebarMinWidth, Math.min(maxWidth, sidebarWidth + (e.key === 'ArrowRight' ? 20 : -20)))) } }} />}
     {scheduleSection && <SchedulePane projects={projects} sidebar={toggleSidebar} sidebarOpen={sidebarOpen} />}
     {section === 'proposals' && <ProposalPane projects={projects} open={open} sidebar={toggleSidebar} sidebarOpen={sidebarOpen} narrow={narrow} />}
+    {section === 'threads' && hasPane && <div className="catch-up-workspace">
+    {catchUp.tabOpen && <nav className="catch-up-tabs" aria-label="Workspace tabs">{summaryVisible && !sidebarOpen && <SidebarToggle open={false} toggle={toggleSidebar} />}<div className="catch-up-tab" data-active={summaryVisible}><button onClick={showCatchUp} aria-pressed={summaryVisible}><Newspaper size={13} />Review summary</button><button onClick={closeCatchUp} aria-label="Close review summary tab"><X size={12} /></button></div>{target && <button className="catch-up-session-tab" onClick={() => catchUp.leave()} aria-pressed={!summaryVisible}>{target.session?.title || 'New thread'}</button>}</nav>}
+    {summaryVisible && <CatchUpPane entries={catchUp.entries} open={open} connected={snapshot?.health === 'connected'} />}
     {!documentSection && selected && <Suspense fallback={<main className="chat-pane"><div className="chat-transcript"><ConversationSkeleton /></div></main>}><ConversationPane key={selected.session?.id || `new:${selected.project.id}`} target={selected} focusRequest={focusRequest} mobileSidebar={narrow} sidebarOpen={sidebarOpen} sidebar={toggleSidebar} created={(session, project) => { rememberSession(session); setTarget({ session, project }); setFocusRequest(value => value + 1) }} markRead={markRead} /></Suspense>}
+    </div>}
     {!hasPane && <main className="chat-pane chat-empty-workspace"><div><BrandLogo size={36} aria-hidden="true" /><h2>{missingSession ? 'Your last thread is unavailable' : 'Pick up a conversation'}</h2><p>{missingSession ? 'It isn’t in the available sessions. Choose another thread or start a new one.' : 'Choose a thread from the sidebar, or find somewhere new to start.'}</p><button onClick={find}>Find a thread <kbd>Ctrl K</kbd></button></div></main>}
     {!hasPane && <button className="chat-manager-new" onClick={find}><Search size={15} />Find conversation <kbd>Ctrl K</kbd></button>}
     <ScheduleDialogs projects={projects} />
